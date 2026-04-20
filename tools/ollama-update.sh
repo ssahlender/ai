@@ -1,0 +1,1 @@
+ollama-install.sh
