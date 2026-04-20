@@ -4,6 +4,7 @@ services:
     container_name: open-webui
     ports:
       - "3000:8080"
+    restart: always
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OFFLINE_MODE=True
