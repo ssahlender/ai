@@ -1,6 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-./ollama-update.sh
-./claude-update.sh
-./opencode-update.sh
-echo "run brewupd && brewupg"
+cd "$(dirname "$0")"
+
+run() {
+  echo "==> $*"
+  "$@"
+}
+
+run ./ollama-update.sh
+#run ./ollama-models-update.sh
+run ./claude-update.sh
+run ./opencode-update.sh
+run ./codex-update.sh
+run ./hf-update.sh
