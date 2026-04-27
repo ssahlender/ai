@@ -1,3 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-opencode upgrade
+opencode upgrade --method curl

@@ -1,2 +1,4 @@
-#!/bin/bash
-brew install codex
+#!/usr/bin/env bash
+set -euo pipefail
+
+brew install --cask codex
