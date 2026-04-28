@@ -5,7 +5,7 @@ set -euo pipefail
 
 DEST="${IK_LLAMA_DIR:-/mnt/c/data/llm/ik_llama}"
 REPO="Thireus/ik_llama.cpp"
-ASSET_SUFFIX="bin-win-cpu-znver5-avx512_vnni_vbmi_bf16"
+ASSET_SUFFIX="bin-win-cpu-x64-avx512_vnni_vbmi_bf16"
 
 latest_tag() {
   local json
