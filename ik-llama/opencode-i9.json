@@ -5,7 +5,8 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "Qwen3.6 35B-A3B Q4",
       "options": {
-        "baseURL": "http://localhost:9080/v1"
+        "baseURL": "http://localhost:9080/v1",
+        "apiKey": "dummy"
       },
       "models": {
         "qwen3.6": {
@@ -17,7 +18,8 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "Gemma4 26B-A4B Q5",
       "options": {
-        "baseURL": "http://localhost:9081/v1"
+        "baseURL": "http://localhost:9081/v1",
+        "apiKey": "dummy"
       },
       "models": {
         "gemma4": {
@@ -29,7 +31,8 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "Qwen3.5 27B Q4",
       "options": {
-        "baseURL": "http://localhost:9082/v1"
+        "baseURL": "http://localhost:9082/v1",
+        "apiKey": "dummy"
       },
       "models": {
         "qwen3.5": {
@@ -41,7 +44,8 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "Qwen3.6 27B Uncensored Q5",
       "options": {
-        "baseURL": "http://localhost:9083/v1"
+        "baseURL": "http://localhost:9083/v1",
+        "apiKey": "dummy"
       },
       "models": {
         "qwen3.6-uncensored": {
@@ -53,7 +57,8 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "SuperGemma4 26B Uncensored Q4",
       "options": {
-        "baseURL": "http://localhost:9084/v1"
+        "baseURL": "http://localhost:9084/v1",
+        "apiKey": "dummy"
       },
       "models": {
         "supergemma4": {
