@@ -5,13 +5,18 @@ set -euo pipefail
 
 DEST="${IK_LLAMA_DIR:-/mnt/c/data/llm/ik_llama}"
 REPO="Thireus/ik_llama.cpp"
-ASSET_SUFFIX="bin-win-cuda-13.1-x64-znver5-avx512_vnni_vbmi_bf16"
+ASSET_SUFFIX="bin-win-cpu-znver5-avx512_vnni_vbmi_bf16"
 
 latest_tag() {
-  curl -fsSL \
+  local json
+  json=$(curl -fsSL \
     -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/${REPO}/releases/latest" |
-    grep -o '"tag_name":"[^"]*"' | sed 's/"tag_name":"//;s/"//'
+    "https://api.github.com/repos/${REPO}/releases/latest")
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$json" | jq -r '.tag_name'
+  else
+    printf '%s' "$json" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])"
+  fi
 }
 
 TAG=$(latest_tag)
@@ -27,7 +32,7 @@ if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TAG" ]; then
   exit 0
 fi
 
-ASSET="ik_llama-cudart-${TAG}-${ASSET_SUFFIX}.zip"
+ASSET="ik_llama-${TAG}-${ASSET_SUFFIX}.zip"
 URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET}"
 
 echo "Downloading $ASSET..."
