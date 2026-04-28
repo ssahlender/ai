@@ -5,6 +5,7 @@ set -euo pipefail
 IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
 MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
 SERVER="$IK_LLAMA_DIR/build/bin/llama-server"
+PORT=9080
 MODE="${1:-}"
 
 if [ -z "$MODE" ]; then
@@ -17,10 +18,11 @@ if pgrep -x llama-server >/dev/null 2>&1; then
   exit 1
 fi
 
-start_qwen36() {
-  echo "Starting Qwen3.6 35B-A3B on port 9080..."
+start_model() {
+  local name="$1" model="$2"
+  echo "Starting $name on port $PORT..."
   "$SERVER" \
-    -m "$MODELS_DIR/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf" \
+    -m "$MODELS_DIR/$model" \
     -ngl 0 \
     --threads 8 \
     --threads-batch 16 \
@@ -28,61 +30,7 @@ start_qwen36() {
     -sps 0.5 \
     -cram 16384 \
     -crs 0.5 \
-    --port 9080 \
-    --host 0.0.0.0 \
-    --jinja \
-    -rea off \
-    -v
-}
-
-start_gemma4() {
-  echo "Starting Gemma4 26B-A4B on port 9081..."
-  "$SERVER" \
-    -m "$MODELS_DIR/gemma-4-26B-A4B-it-UD-Q5_K_M.gguf" \
-    -ngl 0 \
-    --threads 8 \
-    --threads-batch 16 \
-    --ctx-size 32768 \
-    -sps 0.5 \
-    -cram 16384 \
-    -crs 0.5 \
-    --port 9081 \
-    --host 0.0.0.0 \
-    --jinja \
-    -rea off \
-    -v
-}
-
-start_qwen36u() {
-  echo "Starting Qwen3.6 35B-A3B Uncensored on port 9082..."
-  "$SERVER" \
-    -m "$MODELS_DIR/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" \
-    -ngl 0 \
-    --threads 8 \
-    --threads-batch 16 \
-    --ctx-size 32768 \
-    -sps 0.5 \
-    -cram 16384 \
-    -crs 0.5 \
-    --port 9082 \
-    --host 0.0.0.0 \
-    --jinja \
-    -rea off \
-    -v
-}
-
-start_supergemma4() {
-  echo "Starting SuperGemma4 26B Uncensored on port 9083..."
-  "$SERVER" \
-    -m "$MODELS_DIR/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" \
-    -ngl 0 \
-    --threads 8 \
-    --threads-batch 16 \
-    --ctx-size 32768 \
-    -sps 0.5 \
-    -cram 16384 \
-    -crs 0.5 \
-    --port 9083 \
+    --port $PORT \
     --host 0.0.0.0 \
     --jinja \
     -rea off \
@@ -90,9 +38,9 @@ start_supergemma4() {
 }
 
 case "$MODE" in
-  qwen36)      start_qwen36 ;;
-  gemma4)      start_gemma4 ;;
-  qwen36u)     start_qwen36u ;;
-  supergemma4) start_supergemma4 ;;
+  qwen36)      start_model "Qwen3.6 35B-A3B"           "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf" ;;
+  gemma4)      start_model "Gemma4 26B-A4B"            "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf" ;;
+  qwen36u)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" ;;
+  supergemma4) start_model "SuperGemma4 26B Uncensored" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
   *) echo "Usage: $0 [qwen36|gemma4|qwen36u|supergemma4]" >&2; exit 1 ;;
 esac

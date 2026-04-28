@@ -1,56 +1,18 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {
-    "ik-llama-qwen36": {
+    "ik-llama": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Qwen3.6 35B-A3B Q4",
+      "name": "ik_llama",
       "options": {
         "baseURL": "http://localhost:9080/v1",
         "apiKey": "dummy"
       },
       "models": {
-        "qwen3.6": {
-          "name": "Qwen3.6-35B-A3B-UD-Q4_K_M"
-        }
-      }
-    },
-    "ik-llama-gemma4": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Gemma4 26B-A4B Q5",
-      "options": {
-        "baseURL": "http://localhost:9081/v1",
-        "apiKey": "dummy"
-      },
-      "models": {
-        "gemma4": {
-          "name": "gemma-4-26B-A4B-it-UD-Q5_K_M"
-        }
-      }
-    },
-    "ik-llama-qwen36-uncensored": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Qwen3.6 35B-A3B Uncensored Q4",
-      "options": {
-        "baseURL": "http://localhost:9082/v1",
-        "apiKey": "dummy"
-      },
-      "models": {
-        "qwen3.6-uncensored": {
-          "name": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P"
-        }
-      }
-    },
-    "ik-llama-supergemma4": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "SuperGemma4 26B Uncensored Q4",
-      "options": {
-        "baseURL": "http://localhost:9083/v1",
-        "apiKey": "dummy"
-      },
-      "models": {
-        "supergemma4": {
-          "name": "supergemma4-26b-uncensored-fast-v2-Q4_K_M"
-        }
+        "qwen3.6":           { "name": "Qwen3.6-35B-A3B-UD-Q4_K_M" },
+        "qwen3.6-uncensored":{ "name": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P" },
+        "gemma4":            { "name": "gemma-4-26B-A4B-it-UD-Q5_K_M" },
+        "supergemma4":       { "name": "supergemma4-26b-uncensored-fast-v2-Q4_K_M" }
       }
     }
   }

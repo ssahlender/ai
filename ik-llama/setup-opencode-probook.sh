@@ -37,7 +37,7 @@ fi
 # Merge provider keys into auth.json
 mkdir -p "$(dirname "$AUTH_FILE")"
 
-PROVIDERS='["ik-llama-qwen","ik-llama-qwen36-uncensored","ik-llama-gemma"]'
+PROVIDERS='["ik-llama"]'
 
 if [ -f "$AUTH_FILE" ]; then
   python3 -c "
