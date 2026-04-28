@@ -19,6 +19,7 @@ latest_version() {
 }
 
 install_hf() {
+  export UV_NATIVE_TLS=1
   curl -LsSf "$install_url" | bash
 }
 
