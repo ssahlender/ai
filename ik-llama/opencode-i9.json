@@ -1,9 +1,9 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {
-    "ik-llama-qwen": {
+    "ik-llama-qwen36": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "ik_llama Qwen3.6",
+      "name": "Qwen3.6 35B-A3B Q4",
       "options": {
         "baseURL": "http://localhost:9080/v1"
       },
@@ -13,15 +13,51 @@
         }
       }
     },
-    "ik-llama-gemma": {
+    "ik-llama-gemma4": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "ik_llama Gemma4",
+      "name": "Gemma4 26B-A4B Q5",
       "options": {
         "baseURL": "http://localhost:9081/v1"
       },
       "models": {
         "gemma4": {
           "name": "gemma-4-26B-A4B-it-UD-Q5_K_M"
+        }
+      }
+    },
+    "ik-llama-qwen35": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Qwen3.5 27B Q4",
+      "options": {
+        "baseURL": "http://localhost:9082/v1"
+      },
+      "models": {
+        "qwen3.5": {
+          "name": "Qwen3.5-27B-Q4_K_M"
+        }
+      }
+    },
+    "ik-llama-qwen36-uncensored": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Qwen3.6 27B Uncensored Q5",
+      "options": {
+        "baseURL": "http://localhost:9083/v1"
+      },
+      "models": {
+        "qwen3.6-uncensored": {
+          "name": "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P"
+        }
+      }
+    },
+    "ik-llama-supergemma4": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "SuperGemma4 26B Uncensored Q4",
+      "options": {
+        "baseURL": "http://localhost:9084/v1"
+      },
+      "models": {
+        "supergemma4": {
+          "name": "supergemma4-26b-uncensored-fast-v2-Q4_K_M"
         }
       }
     }
