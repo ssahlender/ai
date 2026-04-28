@@ -2,9 +2,13 @@
 # Downloads Qwen3.6 Q4 and Gemma4 Q5 models for i9-13900 (64 GB RAM)
 set -euo pipefail
 
+export UV_NATIVE_TLS=1
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
+
 MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
 
-if ! command -v huggingface-cli >/dev/null 2>&1; then
+if ! command -v hf >/dev/null 2>&1; then
   echo "huggingface-cli not found. Install with: curl -LsSf https://hf.co/cli/install.sh | bash" >&2
   exit 1
 fi
@@ -17,7 +21,7 @@ download_if_missing() {
     echo "Already present: $file"
   else
     echo "Downloading $file..."
-    huggingface-cli download "$repo" "$file" --local-dir "$MODELS_DIR"
+    hf download "$repo" "$file" --local-dir "$MODELS_DIR"
   fi
 }
 

@@ -5,7 +5,7 @@ set -euo pipefail
 
 MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}"
 
-if ! command -v huggingface-cli >/dev/null 2>&1; then
+if ! command -v hf >/dev/null 2>&1; then
   echo "huggingface-cli not found. Install with: curl -LsSf https://hf.co/cli/install.sh | bash" >&2
   exit 1
 fi
@@ -18,7 +18,7 @@ download_if_missing() {
     echo "Already present: $file"
   else
     echo "Downloading $file..."
-    huggingface-cli download "$repo" "$file" --local-dir "$MODELS_DIR"
+    hf download "$repo" "$file" --local-dir "$MODELS_DIR"
   fi
 }
 
