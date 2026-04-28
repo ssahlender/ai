@@ -25,7 +25,15 @@ download_if_missing() {
   fi
 }
 
-download_if_missing unsloth/Qwen3.6-35B-A3B-GGUF    Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
-download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF  gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
+# --- Qwen3.5 ---
+download_if_missing unsloth/Qwen3.5-27B-GGUF                          Qwen3.5-27B-Q4_K_M.gguf
+
+# --- Qwen3.6 ---
+download_if_missing unsloth/Qwen3.6-35B-A3B-GGUF                      Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf
+
+# --- Gemma 4 ---
+download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                   gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
+download_if_missing Jiunsong/supergemma4-26b-uncensored-gguf-v2        supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
 
 echo "All models ready in $MODELS_DIR"
