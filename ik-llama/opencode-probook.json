@@ -14,6 +14,19 @@
         }
       }
     },
+    "ik-llama-qwen36-uncensored": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Qwen3.6 35B-A3B Uncensored IQ4",
+      "options": {
+        "baseURL": "http://WSL_HOST_IP:8082/v1",
+        "apiKey": "dummy"
+      },
+      "models": {
+        "qwen3.6-uncensored": {
+          "name": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL"
+        }
+      }
+    },
     "ik-llama-gemma": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Gemma4 26B-A4B IQ4",

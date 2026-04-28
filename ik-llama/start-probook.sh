@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Starts llama-server (Windows exe) from WSL2 on HP ProBook.
-# Usage: ./start-probook.sh [qwen|gemma]
+# Usage: ./start-probook.sh [qwen|qwen36u|gemma]
 set -euo pipefail
 
 IK_LLAMA_DIR="${IK_LLAMA_DIR:-/mnt/c/data/llm/ik_llama}"
@@ -9,7 +9,7 @@ SERVER="$IK_LLAMA_DIR/llama-server.exe"
 MODE="${1:-}"
 
 if [ -z "$MODE" ]; then
-  echo "Usage: $0 [qwen|gemma]" >&2
+  echo "Usage: $0 [qwen|qwen36u|gemma]" >&2
   exit 1
 fi
 
@@ -57,8 +57,27 @@ start_gemma() {
     -v
 }
 
+start_qwen36u() {
+  echo "Starting Qwen3.6 35B-A3B Uncensored on port 8082..."
+  "$SERVER" \
+    -m "$(win_path "$MODELS_DIR/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf")" \
+    -ngl 0 \
+    --threads 12 \
+    --threads-batch 6 \
+    --ctx-size 32768 \
+    -sps 0.5 \
+    -cram 16384 \
+    -crs 0.5 \
+    --port 8082 \
+    --host 0.0.0.0 \
+    --jinja \
+    -rea off \
+    -v
+}
+
 case "$MODE" in
-  qwen)  start_qwen ;;
-  gemma) start_gemma ;;
-  *) echo "Usage: $0 [qwen|gemma]" >&2; exit 1 ;;
+  qwen)    start_qwen ;;
+  qwen36u) start_qwen36u ;;
+  gemma)   start_gemma ;;
+  *) echo "Usage: $0 [qwen|qwen36u|gemma]" >&2; exit 1 ;;
 esac
