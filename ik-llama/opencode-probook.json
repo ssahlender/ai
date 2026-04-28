@@ -1,0 +1,31 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "ik-llama-qwen": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Qwen3.6 35B-A3B Q3",
+      "options": {
+        "baseURL": "http://WSL_HOST_IP:8080/v1",
+        "apiKey": "dummy"
+      },
+      "models": {
+        "qwen3.6": {
+          "name": "Qwen3.6-35B-A3B-UD-Q3_K_M"
+        }
+      }
+    },
+    "ik-llama-gemma": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Gemma4 26B-A4B IQ4",
+      "options": {
+        "baseURL": "http://WSL_HOST_IP:8081/v1",
+        "apiKey": "dummy"
+      },
+      "models": {
+        "gemma4": {
+          "name": "gemma-4-26B-A4B-it-UD-IQ4_NL"
+        }
+      }
+    }
+  }
+}

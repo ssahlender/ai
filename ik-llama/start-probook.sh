@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
 # Starts llama-server (Windows exe) from WSL2 on HP ProBook.
-# Usage: ./start-probook.sh [qwen|gemma|both]
+# Usage: ./start-probook.sh [qwen|gemma]
 set -euo pipefail
 
 IK_LLAMA_DIR="${IK_LLAMA_DIR:-/mnt/c/data/llm/ik_llama}"
 MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}"
 SERVER="$IK_LLAMA_DIR/llama-server.exe"
-MODE="${1:-both}"
+MODE="${1:-}"
+
+if [ -z "$MODE" ]; then
+  echo "Usage: $0 [qwen|gemma]" >&2
+  exit 1
+fi
+
+if pgrep -x llama-server.exe >/dev/null 2>&1; then
+  echo "llama-server.exe is already running. Stop it first." >&2
+  exit 1
+fi
 
 # Windows exes need Windows-style paths for file arguments
 win_path() { wslpath -w "$1"; }
@@ -50,13 +60,5 @@ start_gemma() {
 case "$MODE" in
   qwen)  start_qwen ;;
   gemma) start_gemma ;;
-  both)
-    start_qwen &
-    QWEN_PID=$!
-    start_gemma &
-    GEMMA_PID=$!
-    trap "kill $QWEN_PID $GEMMA_PID 2>/dev/null" EXIT INT TERM
-    wait
-    ;;
-  *) echo "Usage: $0 [qwen|gemma|both]" >&2; exit 1 ;;
+  *) echo "Usage: $0 [qwen|gemma]" >&2; exit 1 ;;
 esac
