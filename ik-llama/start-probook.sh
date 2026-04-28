@@ -66,7 +66,7 @@ start_qwen36u() {
     --threads-batch 6 \
     --ctx-size 32768 \
     -sps 0.5 \
-    -cram 16384 \
+    -cram 8192 \
     -crs 0.5 \
     --port 8082 \
     --host 0.0.0.0 \
