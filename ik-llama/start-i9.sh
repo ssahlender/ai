@@ -4,7 +4,7 @@ set -euo pipefail
 
 IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
 MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
-SERVER="$IK_LLAMA_DIR/llama-server"
+SERVER="$IK_LLAMA_DIR/build/bin/llama-server"
 MODE="${1:-both}"
 
 start_qwen() {
@@ -18,7 +18,7 @@ start_qwen() {
     -sps 0.5 \
     -cram 16384 \
     -crs 0.5 \
-    --port 8080 \
+    --port 9080 \
     --host 0.0.0.0 \
     --jinja \
     -rea off \
@@ -36,7 +36,7 @@ start_gemma() {
     -sps 0.5 \
     -cram 16384 \
     -crs 0.5 \
-    --port 8081 \
+    --port 9081 \
     --host 0.0.0.0 \
     --jinja \
     -rea off \
