@@ -3,6 +3,10 @@
 # Skips releases that only have cudart DLL supplements — scans back until a full CPU binary is found.
 set -euo pipefail
 
+export UV_NATIVE_TLS=1
+export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
+export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
+
 DEST="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
 REPO="Thireus/ik_llama.cpp"
 
