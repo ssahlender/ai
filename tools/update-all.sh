@@ -8,7 +8,7 @@ run() {
   "$@"
 }
 
-run ./ollama-update.sh
+#run ./ollama-update.sh
 #run ./ollama-models-update.sh
 run ./claude-update.sh
 run ./opencode-update.sh
