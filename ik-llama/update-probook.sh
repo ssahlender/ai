@@ -1,30 +1,41 @@
 #!/usr/bin/env bash
 # Downloads the latest ik_llama.cpp Windows build for HP ProBook (Ryzen 7 Zen 5).
 # Run from WSL2 — files land on the Windows filesystem at /mnt/c/data/llm/ik_llama.
+# Skips releases that only have cudart DLL supplements — scans back until a full CPU binary is found.
+# Uses generic avx512_vnni_vbmi_bf16 build (not znver5 — znver5 crashes with qwen35moe).
 set -euo pipefail
 
 DEST="${IK_LLAMA_DIR:-/mnt/c/data/llm/ik_llama}"
 REPO="Thireus/ik_llama.cpp"
-ASSET_SUFFIX="bin-win-cpu-x64-avx512_vnni_vbmi_bf16"
 
-latest_tag() {
-  local json
-  json=$(curl -fsSL \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/${REPO}/releases/latest")
-  if command -v jq >/dev/null 2>&1; then
-    printf '%s' "$json" | jq -r '.tag_name'
-  else
-    printf '%s' "$json" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])"
-  fi
+find_asset() {
+  python3 - <<'PYEOF'
+import urllib.request, json, re, sys
+
+repo = "Thireus/ik_llama.cpp"
+pattern = re.compile(r"^ik_llama-(?!cudart).+-bin-win-cpu-x64-avx512_vnni_vbmi_bf16\.zip$")
+page = 1
+while True:
+    url = f"https://api.github.com/repos/{repo}/releases?per_page=10&page={page}"
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req) as resp:
+        releases = json.loads(resp.read())
+    if not releases:
+        break
+    for release in releases:
+        tag = release["tag_name"]
+        for asset in release["assets"]:
+            if pattern.match(asset["name"]):
+                print(tag, asset["name"])
+                sys.exit(0)
+    page += 1
+sys.exit(1)
+PYEOF
 }
 
-TAG=$(latest_tag)
-
-if [ -z "$TAG" ]; then
-  echo "Could not determine latest ik_llama.cpp release." >&2
-  exit 1
-fi
+result=$(find_asset) || { echo "No suitable release found (no CPU binary asset)." >&2; exit 1; }
+TAG=$(awk '{print $1}' <<< "$result")
+ASSET=$(awk '{print $2}' <<< "$result")
 
 MARKER="$DEST/.tag"
 if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TAG" ]; then
@@ -32,13 +43,13 @@ if [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TAG" ]; then
   exit 0
 fi
 
-ASSET="ik_llama-${TAG}-${ASSET_SUFFIX}.zip"
+echo "Found: $ASSET (release $TAG)"
 URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET}"
 
-echo "Downloading $ASSET..."
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
+echo "Downloading $ASSET..."
 curl -fSL --progress-bar -o "$TMP/$ASSET" "$URL"
 mkdir -p "$DEST"
 unzip -o "$TMP/$ASSET" -d "$DEST"
