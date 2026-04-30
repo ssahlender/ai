@@ -9,7 +9,8 @@ installed_version() {
     return 1
   fi
 
-  hf version | sed -nE 's/.*([0-9]+([.][0-9A-Za-z]+)+).*/\1/p' | head -n1
+  # Feed "n" so the built-in update prompt doesn't fire brew/pip when brew is present
+  echo n | hf version | sed -nE 's/.*([0-9]+([.][0-9A-Za-z]+)+).*/\1/p' | head -n1
 }
 
 latest_version() {
