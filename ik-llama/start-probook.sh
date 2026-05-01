@@ -23,14 +23,14 @@ fi
 win_path() { wslpath -w "$1"; }
 
 start_model() {
-  local name="$1" model="$2" cram="${3:-16384}"
-  echo "Starting $name on port $PORT..."
+  local name="$1" model="$2" ctx="${3:-32768}" cram="${4:-16384}"; shift 4
+  echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB)..."
   "$SERVER" \
     -m "$(win_path "$MODELS_DIR/$model")" \
     -ngl 0 \
     --threads 12 \
     --threads-batch 6 \
-    --ctx-size 32768 \
+    --ctx-size "$ctx" \
     -sps 0.5 \
     -cram "$cram" \
     -crs 0.5 \
@@ -38,12 +38,16 @@ start_model() {
     --host 0.0.0.0 \
     --jinja \
     -rea off \
-    -v
+    -v \
+    "$@"
 }
 
+YARN="--rope-scaling yarn --yarn-orig-ctx 32768"
+
+#                                                                                              ctx    cram  extra
 case "$MODE" in
-  qwen)    start_model "Qwen3.6 35B-A3B"            "Qwen3.6-35B-A3B-UD-Q3_K_M.gguf" ;;
-  qwen36u) start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" 8192 ;;
-  gemma)   start_model "Gemma4 26B-A4B"             "gemma-4-26B-A4B-it-UD-IQ4_NL.gguf" ;;
+  qwen)    start_model "Qwen3.6 35B-A3B"            "Qwen3.6-35B-A3B-UD-Q3_K_M.gguf"                              65536  16384 $YARN ;;
+  qwen36u) start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" 32768   8192 ;;
+  gemma)   start_model "Gemma4 26B-A4B"             "gemma-4-26B-A4B-it-UD-IQ4_NL.gguf"                          65536  12288 ;;
   *) echo "Usage: $0 [qwen|qwen36u|gemma]" >&2; exit 1 ;;
 esac
