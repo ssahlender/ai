@@ -19,28 +19,32 @@ if pgrep -x llama-server >/dev/null 2>&1; then
 fi
 
 start_model() {
-  local name="$1" model="$2"
-  echo "Starting $name on port $PORT..."
+  local name="$1" model="$2" ctx="${3:-32768}" cram="${4:-16384}"; shift 4
+  echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB)..."
   "$SERVER" \
     -m "$MODELS_DIR/$model" \
     -ngl 0 \
     --threads 8 \
     --threads-batch 16 \
-    --ctx-size 32768 \
+    --ctx-size "$ctx" \
     -sps 0.5 \
-    -cram 16384 \
+    -cram "$cram" \
     -crs 0.5 \
     --port $PORT \
     --host 0.0.0.0 \
     --jinja \
     -rea off \
-    -v
+    -v \
+    "$@"
 }
 
+YARN="--rope-scaling yarn --yarn-orig-ctx 32768"
+
+#                                                                                             ctx     cram  extra
 case "$MODE" in
-  qwen36)      start_model "Qwen3.6 35B-A3B"           "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf" ;;
-  gemma4)      start_model "Gemma4 26B-A4B"            "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf" ;;
-  qwen36u)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" ;;
-  supergemma4) start_model "SuperGemma4 26B Uncensored" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
+  qwen36)      start_model "Qwen3.6 35B-A3B"            "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"                              65536  16384 $YARN ;;
+  gemma4)      start_model "Gemma4 26B-A4B"             "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf"                           131072 32768 ;;
+  qwen36u)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf"  65536  16384 $YARN ;;
+  supergemma4) start_model "SuperGemma4 26B Uncensored" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"               131072 32768 ;;
   *) echo "Usage: $0 [qwen36|gemma4|qwen36u|supergemma4]" >&2; exit 1 ;;
 esac
