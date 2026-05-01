@@ -28,12 +28,13 @@ start_model() {
   "$SERVER" \
     -m "$(win_path "$MODELS_DIR/$model")" \
     -ngl 0 \
-    --threads 12 \
-    --threads-batch 6 \
+    --threads 16 \
+    --threads-batch 8 \
     --ctx-size "$ctx" \
     -sps 0.5 \
     -cram "$cram" \
     -crs 0.5 \
+    --cache-prompt \
     --port $PORT \
     --host 0.0.0.0 \
     --jinja \
@@ -42,7 +43,8 @@ start_model() {
     "$@"
 }
 
-YARN="--rope-scaling yarn --yarn-orig-ctx 32768"
+# Qwen3 recommended YaRN params (beta-fast/slow from Qwen3 technical report)
+YARN="--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1"
 
 #                                                                                              ctx    cram  extra
 case "$MODE" in
