@@ -34,7 +34,9 @@ start_model() {
     -sps 0.5 \
     -cram "$cram" \
     -crs 0.5 \
-    --cache-prompt \
+    -ctk q8_0 \
+    -ctv q8_0 \
+    -dt 0.1 \
     --port $PORT \
     --host 0.0.0.0 \
     --jinja \
