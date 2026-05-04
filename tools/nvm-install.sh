@@ -58,6 +58,3 @@ nvm alias default lts/*
 nvm use default
 
 node -v && npm -v && npx -v
-
-npm install -g @rely-ai/caliber
-echo "caliber installed: $(caliber --version)"
