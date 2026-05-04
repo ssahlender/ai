@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts llama-server on i9-13900 (Debian). Usage: ./start-i9.sh [qwen36|gemma4|qwen36u|supergemma4|granite]
+# Starts llama-server on i9-13900 (Debian). Usage: ./start-i9.sh [qwen36|gemma4|qwen36u|supergemma4|qwen3coder]
 set -euo pipefail
 
 IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
@@ -9,7 +9,7 @@ PORT=9080
 MODE="${1:-}"
 
 if [ -z "$MODE" ]; then
-  echo "Usage: $0 [qwen36|gemma4|qwen36u|supergemma4|granite]" >&2
+  echo "Usage: $0 [qwen36|gemma4|qwen36u|supergemma4|qwen3coder]" >&2
   exit 1
 fi
 
@@ -51,6 +51,6 @@ case "$MODE" in
   gemma4)      start_model "Gemma4 26B-A4B"             "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf"                           131072 32768 ;;
   qwen36u)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf"  65536  16384 $YARN ;;
   supergemma4) start_model "SuperGemma4 26B Uncensored" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"               131072 32768 ;;
-  granite)     start_model "Granite 4.1 8B"             "granite-4.1-8b-Q6_K.gguf"                                    131072 16384 ;;
-  *) echo "Usage: $0 [qwen36|gemma4|qwen36u|supergemma4|granite]" >&2; exit 1 ;;
+  qwen3coder)  start_model "Qwen3-Coder 30B-A3B"        "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"                    65536  16384 $YARN ;;
+  *) echo "Usage: $0 [qwen36|gemma4|qwen36u|supergemma4|qwen3coder]" >&2; exit 1 ;;
 esac
