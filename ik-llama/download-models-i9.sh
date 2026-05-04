@@ -1,28 +1,43 @@
 #!/usr/bin/env bash
-# Downloads Qwen3.6 Q4 and Gemma4 Q5 models for i9-13900 (64 GB RAM)
+# Downloads models for i9-13900 (64 GB RAM)
 set -euo pipefail
 
 export UV_NATIVE_TLS=1
 export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
 export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
 
-MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
+# ---------------------------------------------------------------------------
+# HF_TOKEN: required for gated/private models, optional for public ones.
+# Set it in your shell profile so it's never hardcoded here:
+#   echo 'export HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx' >> ~/.bashrc
+#   source ~/.bashrc
+# Get your token at: https://huggingface.co/settings/tokens
+# ---------------------------------------------------------------------------
+HF_TOKEN="${HF_TOKEN:-}"
 
-if ! command -v hf >/dev/null 2>&1; then
-  echo "huggingface-cli not found. Install with: curl -LsSf https://hf.co/cli/install.sh | bash" >&2
-  exit 1
+MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
+HF_BASE="https://huggingface.co"
+
+if ! command -v curl >/dev/null 2>&1; then
+  echo "curl not found." >&2; exit 1
 fi
 
 mkdir -p "$MODELS_DIR"
 
 download_if_missing() {
   local repo="$1" file="$2"
-  if [ -f "$MODELS_DIR/$file" ]; then
+  local dest="$MODELS_DIR/$file"
+  if [ -f "$dest" ]; then
     echo "Already present: $file"
-  else
-    echo "Downloading $file..."
-    hf download "$repo" "$file" --local-dir "$MODELS_DIR"
+    return
   fi
+
+  echo "Downloading $file..."
+  local curl_args=(-L --progress-bar --cacert "$SSL_CERT_FILE" -o "$dest")
+  if [ -n "$HF_TOKEN" ]; then
+    curl_args+=(-H "Authorization: Bearer $HF_TOKEN")
+  fi
+  curl "${curl_args[@]}" "${HF_BASE}/${repo}/resolve/main/${file}"
 }
 
 # --- Qwen3.6 ---
@@ -30,10 +45,10 @@ download_if_missing unsloth/Qwen3.6-35B-A3B-GGUF                            Qwen
 download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf
 
 # --- Gemma 4 ---
-download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                   gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
-download_if_missing Jiunsong/supergemma4-26b-uncensored-gguf-v2        supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
+download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                         gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
+download_if_missing Jiunsong/supergemma4-26b-uncensored-gguf-v2              supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
 
 # --- Granite 4.1 ---
-download_if_missing unsloth/granite-4.1-8b-GGUF granite-4.1-8b-Q6_K.gguf
+download_if_missing unsloth/granite-4.1-8b-GGUF                             granite-4.1-8b-Q6_K.gguf
 
 echo "All models ready in $MODELS_DIR"
