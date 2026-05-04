@@ -48,7 +48,7 @@ download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive Qwen
 download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                         gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
 download_if_missing Jiunsong/supergemma4-26b-uncensored-gguf-v2              supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
 
-# --- Granite 4.1 ---
-download_if_missing unsloth/granite-4.1-8b-GGUF                             granite-4.1-8b-Q6_K.gguf
+# --- Qwen3-Coder ---
+download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF               Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
 
 echo "All models ready in $MODELS_DIR"
