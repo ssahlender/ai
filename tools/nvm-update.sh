@@ -29,6 +29,3 @@ npm install -g npm@latest
 npm update -g
 
 node -v && npm -v && npx -v
-
-npm install -g @rely-ai/caliber
-echo "caliber updated: $(caliber --version)"
