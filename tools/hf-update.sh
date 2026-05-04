@@ -4,8 +4,8 @@ set -euo pipefail
 
 FORMULA="hf"
 
-# On the i9 (native Linux, company proxy) brew commands need the proxy-aware aliases
-if [[ "$(uname -s)" == "Linux" ]] && ! grep -qi "microsoft" /proc/version 2>/dev/null; then
+# On the i9 (company proxy) brew commands need the proxy-aware aliases
+if [[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
   current=$(hf version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "not installed")
   echo "Current version: $current"
   echo "Run manually on this machine:"

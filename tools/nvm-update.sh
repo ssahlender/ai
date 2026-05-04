@@ -2,8 +2,8 @@
 # Updates nvm via Homebrew and installs the latest LTS Node. Skipped on i9 (work provides Node).
 set -euo pipefail
 
-# Skip on i9 (native Linux, company proxy) — work provides its own Node stack
-if [[ "$(uname -s)" == "Linux" ]] && ! grep -qi "microsoft" /proc/version 2>/dev/null; then
+# Skip on i9 (company proxy) — work provides its own Node stack
+if [[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
   echo "Skipping on i9 — work provides its own Node stack."
   exit 0
 fi
