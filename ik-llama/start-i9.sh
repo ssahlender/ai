@@ -44,13 +44,15 @@ start_model() {
 
 # Qwen3 recommended YaRN params (beta-fast/slow from Qwen3 technical report)
 YARN="--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1"
+# Qwen3 recommended sampling params (thinking mode, from Qwen3 technical report)
+SAMPLE="--temp 0.6 --top-p 0.95 --top-k 20"
 
 #                                                                                             ctx     cram  extra
 case "$MODE" in
-  qwen36)      start_model "Qwen3.6 35B-A3B"            "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"                              65536  16384 $YARN ;;
+  qwen36)      start_model "Qwen3.6 35B-A3B"            "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"                              65536  16384 $YARN $SAMPLE ;;
   gemma4)      start_model "Gemma4 26B-A4B"             "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf"                           131072 32768 ;;
-  qwen36u)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf"  65536  16384 $YARN ;;
+  qwen36u)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf"  65536  16384 $YARN $SAMPLE ;;
   supergemma4) start_model "SuperGemma4 26B Uncensored" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"               131072 32768 ;;
-  qwen3coder)  start_model "Qwen3-Coder 30B-A3B"        "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"                    65536  16384 $YARN ;;
+  qwen3coder)  start_model "Qwen3-Coder 30B-A3B"        "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"                    65536  16384 $YARN $SAMPLE ;;
   *) echo "Usage: $0 [qwen36|gemma4|qwen36u|supergemma4|qwen3coder]" >&2; exit 1 ;;
 esac
