@@ -10,8 +10,7 @@ run() {
 
 #run ./ollama-update.sh
 #run ./ollama-models-update.sh
-#run ./nvm-update.sh
-#run ./caliber-update.sh
+run ./nvm-update.sh
 run ./claude-update.sh
 run ./opencode-update.sh
 run ./codex-update.sh

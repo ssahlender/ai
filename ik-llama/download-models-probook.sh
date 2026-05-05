@@ -29,4 +29,7 @@ download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                         gemm
 # --- Qwen3-Coder ---
 download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF               Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf
 
+# --- GLM-4.7-Flash (30B MoE, ~3B active, DeepSeek2 arch, coding-focused) ---
+download_if_missing bartowski/zai-org_GLM-4.7-Flash-GGUF                    zai-org_GLM-4.7-Flash-Q4_K_M.gguf
+
 echo "All models ready in $MODELS_DIR"
