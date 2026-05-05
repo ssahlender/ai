@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts llama-server on i9-13900 (Debian). Usage: ./start-i9.sh [qwen36|gemma4|qwen36u|supergemma4|qwen3coder]
+# Starts llama-server on i9-13900 (Debian). Usage: ./start-i9.sh [qwen36|gemma4|qwen36u|supergemma4|qwen3coder|glm47flash]
 set -euo pipefail
 
 IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
@@ -54,5 +54,6 @@ case "$MODE" in
   qwen36u)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf"  65536  16384 $YARN $SAMPLE ;;
   supergemma4) start_model "SuperGemma4 26B Uncensored" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"               131072 32768 ;;
   qwen3coder)  start_model "Qwen3-Coder 30B-A3B"        "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"                    65536  16384 $YARN $SAMPLE ;;
-  *) echo "Usage: $0 [qwen36|gemma4|qwen36u|supergemma4|qwen3coder]" >&2; exit 1 ;;
+  glm47flash)  start_model "GLM-4.7-Flash 30B"          "zai-org_GLM-4.7-Flash-Q5_K_M.gguf"                           65536  16384        $SAMPLE --flash-attn off ;;
+  *) echo "Usage: $0 [qwen36|gemma4|qwen36u|supergemma4|qwen3coder|glm47flash]" >&2; exit 1 ;;
 esac

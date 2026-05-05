@@ -13,7 +13,8 @@
         "qwen3.6-uncensored":{ "name": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P" },
         "gemma4":            { "name": "gemma-4-26B-A4B-it-UD-Q5_K_M" },
         "supergemma4":       { "name": "supergemma4-26b-uncensored-fast-v2-Q4_K_M" },
-        "qwen3coder":        { "name": "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M" }
+        "qwen3coder":        { "name": "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M" },
+        "glm4.7-flash":      { "name": "zai-org_GLM-4.7-Flash-Q5_K_M" }
       }
     }
   }
