@@ -40,16 +40,15 @@ download_if_missing() {
   curl "${curl_args[@]}" "${HF_BASE}/${repo}/resolve/main/${file}"
 }
 
+#
+
 # --- Qwen3.6 ---
-download_if_missing unsloth/Qwen3.6-35B-A3B-GGUF                            Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+download_if_missing unsloth/Qwen3.6-27B-GGUF:Q4_K_M Qwen3.6-27B-Q4_K_M.gguf
 download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf
 
 # --- Gemma 4 ---
 download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                         gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
 download_if_missing Jiunsong/supergemma4-26b-uncensored-gguf-v2              supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
-
-# --- Qwen3-Coder ---
-download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF               Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
 
 # --- GLM-4.7-Flash (30B MoE, ~3B active, DeepSeek2 arch, coding-focused) ---
 download_if_missing bartowski/zai-org_GLM-4.7-Flash-GGUF                    zai-org_GLM-4.7-Flash-Q5_K_M.gguf
