@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Starts llama-server (Windows exe) from WSL2 on HP ProBook.
-# Usage: ./start-probook.sh [qwen|qwen36u|gemma|qwen3coder|glm47flash]
+# Usage: ./start-probook.sh [qwen36u35b|gemma|qwen3coder|glm47flash]
 set -euo pipefail
 
 IK_LLAMA_DIR="${IK_LLAMA_DIR:-/mnt/c/data/llm/ik_llama}"
@@ -10,7 +10,7 @@ PORT=8080
 MODE="${1:-}"
 
 if [ -z "$MODE" ]; then
-  echo "Usage: $0 [qwen|qwen36u|gemma|qwen3coder|glm47flash]" >&2
+  echo "Usage: $0 [qwen36u35b|gemma|qwen3coder|glm47flash]" >&2
   exit 1
 fi
 
@@ -52,10 +52,9 @@ SAMPLE="--temp 0.6 --top-p 0.95 --top-k 20"
 
 #                                                                                              ctx    cram  extra
 case "$MODE" in
-  qwen)    start_model "Qwen3.6 35B-A3B"            "Qwen3.6-35B-A3B-UD-Q3_K_M.gguf"                              65536  16384 $YARN $SAMPLE ;;
-  qwen36u) start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" 32768   8192        $SAMPLE ;;
+  qwen36u35b) start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" 32768   8192        $SAMPLE ;;
   gemma)   start_model "Gemma4 26B-A4B"             "gemma-4-26B-A4B-it-UD-IQ4_NL.gguf"                          65536  12288 ;;
   qwen3coder) start_model "Qwen3-Coder 30B-A3B"     "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf"                   65536  16384 $YARN $SAMPLE ;;
   glm47flash) start_model "GLM-4.7-Flash 30B"       "zai-org_GLM-4.7-Flash-Q4_K_M.gguf"                          32768   8192        $SAMPLE ;;
-  *) echo "Usage: $0 [qwen|qwen36u|gemma|qwen3coder|glm47flash]" >&2; exit 1 ;;
+  *) echo "Usage: $0 [qwen36u35b|gemma|qwen3coder|glm47flash]" >&2; exit 1 ;;
 esac
