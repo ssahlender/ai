@@ -10,7 +10,7 @@ PORT=8080
 MODE="${1:-}"
 
 if [ -z "$MODE" ]; then
-  echo "Usage: $0 [qwen|qwen36u|gemma|qwen3coder]" >&2
+  echo "Usage: $0 [qwen|qwen36u|gemma|qwen3coder|glm47flash]" >&2
   exit 1
 fi
 
