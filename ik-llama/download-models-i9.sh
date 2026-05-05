@@ -43,8 +43,8 @@ download_if_missing() {
 #
 
 # --- Qwen3.6 ---
-download_if_missing unsloth/Qwen3.6-27B-GGUF:Q4_K_M Qwen3.6-27B-Q4_K_M.gguf
-download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf
+download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive      Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf
+download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf
 
 # --- Gemma 4 ---
 download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                         gemma-4-26B-A4B-it-UD-Q5_K_M.gguf

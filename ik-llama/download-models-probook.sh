@@ -22,7 +22,6 @@ download_if_missing() {
   fi
 }
 
-download_if_missing unsloth/Qwen3.6-35B-A3B-GGUF                            Qwen3.6-35B-A3B-UD-Q3_K_M.gguf
 download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf
 download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                         gemma-4-26B-A4B-it-UD-IQ4_NL.gguf
 

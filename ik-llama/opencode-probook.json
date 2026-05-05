@@ -9,8 +9,7 @@
         "apiKey": "dummy"
       },
       "models": {
-        "qwen3.6":           { "name": "Qwen3.6-35B-A3B-UD-Q3_K_M" },
-        "qwen3.6-uncensored":{ "name": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL" },
+        "qwen36u35b":{ "name": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL" },
         "gemma4":            { "name": "gemma-4-26B-A4B-it-UD-IQ4_NL" },
         "qwen3coder":        { "name": "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M" },
         "glm4.7-flash":      { "name": "zai-org_GLM-4.7-Flash-Q4_K_M" }
