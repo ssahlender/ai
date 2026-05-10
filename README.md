@@ -27,7 +27,7 @@ Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.s
 ./update-all.sh
 ```
 
-Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`.
+Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `hermes-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`.
 
 ---
 
@@ -85,6 +85,15 @@ export NVM_DIR="$HOME/.nvm"
 | `hf-update.sh` | `$BREW install/upgrade hf` |
 
 The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `hf`.
+
+---
+
+### Hermes Agent (Nous Research)
+
+| Script | What it does |
+|---|---|
+| `hermes-install.sh` | `$BREW install hermes-agent` |
+| `hermes-update.sh` | `$BREW install/upgrade hermes-agent` |
 
 ---
 
