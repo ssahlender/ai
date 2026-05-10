@@ -2,14 +2,16 @@
 # Updates nvm via Homebrew and installs the latest LTS Node. Skipped on i9 (work provides Node).
 set -euo pipefail
 
-# Skip on i9 (company proxy) — work provides its own Node stack
-if [[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+
+# Skip on i9 — work provides its own Node stack
+if [ -n "$IS_I9" ]; then
   echo "Skipping on i9 — work provides its own Node stack."
   exit 0
 fi
 
 echo "Updating nvm..."
-brew upgrade nvm || true
+$BREW upgrade nvm || true
 
 # Source nvm
 export NVM_DIR="$HOME/.nvm"

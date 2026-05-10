@@ -19,7 +19,7 @@ Install and update scripts for AI coding tools. All tools are installed via Home
 
 ### Machine detection
 
-Scripts detect the i9 work PC via proxy environment variables. On i9, brew commands are printed as manual instructions using the proxy-aware aliases (`brewupd` / `brewupg`). On all other machines, brew runs directly.
+Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.sh`). On i9, brew commands are printed as manual instructions using the full `sudo -n -u brewuser` command. On all other machines, brew runs directly. To enable: add the brew binary to sudoers with the `NOPASSWD` flag.
 
 ### update-all.sh
 

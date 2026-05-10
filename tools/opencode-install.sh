@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+
+if [ -n "$IS_I9" ]; then
   echo "Run manually on this machine:"
-  echo "  brewupd && brew install opencode"
+  echo "  $BREW update && $BREW install opencode"
   exit 0
 fi
 
-brew install opencode
+$BREW install opencode

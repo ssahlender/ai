@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# On the i9 (company proxy), brew needs proxy-aware aliases
-if [[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+
+if [ -n "$IS_I9" ]; then
   echo "Run manually on this machine:"
-  echo "  brewupd && brew install --cask claude-code"
+  echo "  $BREW update && $BREW install --cask claude-code"
   exit 0
 fi
 
-brew install --cask claude-code
+$BREW install --cask claude-code
