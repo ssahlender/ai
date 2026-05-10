@@ -4,6 +4,8 @@
 # skips tools already managed by brew.
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+
 changed=0
 needs_sudo=()
 
@@ -19,10 +21,10 @@ uninstall_if_not_brew() {
 
   # Check if already managed by brew
   if command -v brew >/dev/null 2>&1; then
-    if [ "$brew_type" = "cask" ] && brew list --cask "$brew_name" &>/dev/null; then
+    if [ "$brew_type" = "cask" ] && $BREW list --cask "$brew_name" &>/dev/null; then
       echo "  $bin_name: managed by brew (cask) — skipping"
       return
-    elif [ "$brew_type" = "formula" ] && brew list --formula "$brew_name" &>/dev/null; then
+    elif [ "$brew_type" = "formula" ] && $BREW list --formula "$brew_name" &>/dev/null; then
       echo "  $bin_name: managed by brew (formula) — skipping"
       return
     fi
@@ -57,7 +59,11 @@ echo
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ "$changed" -gt 0 ]; then
   echo "$changed tool(s) removed. Reinstall with brew:"
-  echo "  cd $SCRIPT_DIR && ./claude-install.sh && ./opencode-install.sh && ./ollama-install.sh"
+  if [ -n "$IS_I9" ]; then
+    echo "  cd $SCRIPT_DIR && $BREW update && $BREW install claude-code opencode codex"
+  else
+    echo "  cd $SCRIPT_DIR && $BREW install --cask claude-code && $BREW install opencode && $BREW install --cask codex"
+  fi
 else
   echo "Nothing to remove — all tools already managed by brew or not installed."
 fi

@@ -2,16 +2,18 @@
 # Installs nvm via Homebrew and configures the shell. Skipped on i9 (work provides Node).
 set -euo pipefail
 
-# Skip on i9 (company proxy) — work provides its own Node stack
-if [[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+
+# Skip on i9 — work provides its own Node stack
+if [ -n "$IS_I9" ]; then
   echo "Skipping on i9 — work provides its own Node stack."
   exit 0
 fi
 
 # Install nvm via brew
-if ! brew list --formula nvm &>/dev/null; then
+if ! $BREW list --formula nvm &>/dev/null; then
   echo "Installing nvm..."
-  brew install nvm
+  $BREW install nvm
 else
   echo "nvm is already installed."
 fi

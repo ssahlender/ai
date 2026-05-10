@@ -2,28 +2,29 @@
 # Installs or updates the Hugging Face CLI via Homebrew.
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+
 FORMULA="hf"
 
-# On the i9 (company proxy) brew commands need the proxy-aware aliases
-if [[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
+if [ -n "$IS_I9" ]; then
   current=$(hf version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "not installed")
   echo "Current version: $current"
   echo "Run manually on this machine:"
   if [[ "$current" == "not installed" ]]; then
-    echo "  brewupd && brew install $FORMULA"
+    echo "  $BREW update && $BREW install $FORMULA"
   else
-    echo "  brewupd && brewupg $FORMULA"
+    echo "  $BREW update && $BREW upgrade $FORMULA"
   fi
   exit 0
 fi
 
-if ! brew list --formula "$FORMULA" &>/dev/null; then
+if ! $BREW list --formula "$FORMULA" &>/dev/null; then
   echo "Installing Hugging Face CLI..."
-  brew install "$FORMULA"
+  $BREW install "$FORMULA"
 else
   current=$(hf version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown")
   echo "Updating Hugging Face CLI (installed: $current)..."
-  brew upgrade "$FORMULA" || true
+  $BREW upgrade "$FORMULA" || true
 fi
 
 echo "Version: $(hf version 2>/dev/null | head -1 || echo 'unknown')"

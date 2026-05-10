@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+
 cd "$(dirname "$0")"
 
 run() {
@@ -22,5 +24,10 @@ fi
 
 # Clean up old brew versions to prevent disk bloat
 if command -v brew >/dev/null 2>&1; then
-  brew cleanup --prune=all
+  if [ -n "$IS_I9" ]; then
+    echo "Run manually on this machine:"
+    echo "  $BREW cleanup --prune=all"
+  else
+    $BREW cleanup --prune=all
+  fi
 fi
