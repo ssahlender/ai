@@ -22,6 +22,16 @@ if command -v ollama >/dev/null 2>&1; then
   run ./ollama-models-update.sh
 fi
 
+# Upgrade all brew packages (casks + formulas)
+if command -v brew >/dev/null 2>&1; then
+  if [ -n "$IS_I9" ]; then
+    echo "Run manually on this machine:"
+    echo "  $BREW upgrade"
+  else
+    $BREW upgrade
+  fi
+fi
+
 # Clean up old brew versions to prevent disk bloat
 if command -v brew >/dev/null 2>&1; then
   if [ -n "$IS_I9" ]; then
