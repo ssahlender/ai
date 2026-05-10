@@ -19,3 +19,8 @@ if command -v ollama >/dev/null 2>&1; then
   run ./ollama-update.sh
   run ./ollama-models-update.sh
 fi
+
+# Clean up old brew versions to prevent disk bloat
+if command -v brew >/dev/null 2>&1; then
+  brew cleanup --prune=all
+fi
