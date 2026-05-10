@@ -15,29 +15,19 @@ Scripts for running local AI tools across multiple machines.
 
 ## tools/
 
-Install and update scripts for AI coding tools. All scripts are standalone — run them individually or use `update-all.sh` to update everything at once.
+Install and update scripts for AI coding tools. All tools are installed via Homebrew — consistent across macOS and Linux. Run scripts individually or use `update-all.sh` to update everything at once.
 
 ### Machine detection
 
-Scripts detect the i9 work PC via proxy environment variables:
-
-```bash
-[[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]
-```
-
-On i9, brew operations are printed as manual commands using the proxy-aware shell aliases (`brewupd` / `brewupg`) rather than run directly.
+Scripts detect the i9 work PC via proxy environment variables. On i9, brew commands are printed as manual instructions using the proxy-aware aliases (`brewupd` / `brewupg`). On all other machines, brew runs directly.
 
 ### update-all.sh
-
-Runs all update scripts in order:
 
 ```bash
 ./update-all.sh
 ```
 
-Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh`
-
-Ollama update is commented out (run separately if needed).
+Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed).
 
 ---
 
@@ -45,8 +35,8 @@ Ollama update is commented out (run separately if needed).
 
 | Script | What it does |
 |---|---|
-| `claude-install.sh` | `curl -fsSL https://claude.ai/install.sh \| bash` |
-| `claude-update.sh` | `claude update` |
+| `claude-install.sh` | `brew install --cask claude-code` |
+| `claude-update.sh` | `brew upgrade --cask claude-code` |
 
 ---
 
@@ -54,8 +44,8 @@ Ollama update is commented out (run separately if needed).
 
 | Script | What it does |
 |---|---|
-| `opencode-install.sh` | `curl -fsSL https://opencode.ai/install \| bash` |
-| `opencode-update.sh` | `opencode upgrade --method curl` |
+| `opencode-install.sh` | `brew install opencode` |
+| `opencode-update.sh` | `brew upgrade opencode` |
 
 ---
 
@@ -64,7 +54,7 @@ Ollama update is commented out (run separately if needed).
 | Script | What it does |
 |---|---|
 | `codex-install.sh` | `brew install --cask codex` |
-| `codex-update.sh` | `brew upgrade --cask codex` (prints manual command if no brew) |
+| `codex-update.sh` | `brew upgrade --cask codex` |
 
 ---
 
@@ -102,10 +92,9 @@ The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `h
 
 | Script | What it does |
 |---|---|
-| `ollama-install.sh` | Checks GitHub for latest release, installs/updates via `ollama.com/install.sh` |
+| `ollama-install.sh` | `brew install ollama` (skipped on i9 — CPU too slow) |
+| `ollama-update.sh` | `brew upgrade ollama` (skipped on i9) |
 | `ollama-models-update.sh` | Pulls latest version of every installed model (`ollama list \| xargs ollama pull`) |
-
-`ollama-install.sh` compares installed vs latest version and skips if already up to date.
 
 ---
 
