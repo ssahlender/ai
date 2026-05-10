@@ -4,6 +4,8 @@ How to wire AI coding agents to the tools in this repo.
 
 ## Local LLM (OpenCode + Claude Code)
 
+### x86 CPU (ProBook + i9)
+
 See [`ik-llama/AGENTS.md`](ik-llama/AGENTS.md) for full setup:
 
 - OpenCode provider config (setup scripts for ProBook and i9)
@@ -11,6 +13,15 @@ See [`ik-llama/AGENTS.md`](ik-llama/AGENTS.md) for full setup:
 - Disabling the KV cache attribution header (causes ~90% slowdown with local servers)
 - WSL2 memory config
 - Prompt cache warmup tip
+
+### Apple Silicon (MacBook Air M4)
+
+See [`ollama/`](ollama/) for Mac setup:
+
+- Ollama + Metal GPU acceleration
+- `download-models-mac.sh` — pulls models for 24 GB
+- `setup-opencode-mac.sh` — auto-generates OpenCode provider config from `ollama list`
+- No Claude Code env vars needed (use OpenCode with ollama provider)
 
 ## tools/ scripts
 

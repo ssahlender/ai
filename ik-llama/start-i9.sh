@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts llama-server on i9-13900 (Debian). Usage: ./start-i9.sh [qwen36u35b27b|qwen36u35b|gemma4|supergemma4|glm47flash]
+# Starts llama-server on i9-13900 (Debian). Usage: ./start-i9.sh [qwen36u27b|qwen36u35b|gemma4|supergemma4|glm47flash]
 set -euo pipefail
 
 IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
@@ -9,7 +9,7 @@ PORT=9080
 MODE="${1:-}"
 
 if [ -z "$MODE" ]; then
-  echo "Usage: $0 [qwen36u35b27b|qwen36u35b|gemma4|supergemma4|glm47flash]" >&2
+  echo "Usage: $0 [qwen36u27b|qwen36u35b|gemma4|supergemma4|glm47flash]" >&2
   exit 1
 fi
 
@@ -24,8 +24,8 @@ start_model() {
   "$SERVER" \
     -m "$MODELS_DIR/$model" \
     -ngl 0 \
-    --threads 16 \
-    --threads-batch 20 \
+    --threads "${IK_LLAMA_THREADS:-8}" \
+    --threads-batch "${IK_LLAMA_THREADS_BATCH:-28}" \
     --ctx-size "$ctx" \
     -sps 0.5 \
     -cram "$cram" \
@@ -34,6 +34,7 @@ start_model() {
     -ctv q8_0 \
     -dt 0.1 \
     --mlock \
+    --numa distribute \
     --port $PORT \
     --host 0.0.0.0 \
     --jinja \
@@ -49,10 +50,10 @@ SAMPLE="--temp 0.6 --top-p 0.95 --top-k 20"
 
 #                                                                                             ctx     cram  extra
 case "$MODE" in
-  qwen36u35b27b)     start_model "Qwen3.6 27B Uncensored"     "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"      65536  24576 $YARN $SAMPLE ;;
+  qwen36u27b)     start_model "Qwen3.6 27B Uncensored"     "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"      65536  24576 $YARN $SAMPLE ;;
   qwen36u35b)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf"  65536  16384 $YARN $SAMPLE ;;
   gemma4)      start_model "Gemma4 26B-A4B"             "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf"                           131072 32768 ;;
   supergemma4) start_model "SuperGemma4 26B Uncensored" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"               131072 32768 ;;
   glm47flash)  start_model "GLM-4.7-Flash 30B"          "zai-org_GLM-4.7-Flash-Q5_K_M.gguf"                           65536  16384        $SAMPLE ;;
-  *) echo "Usage: $0 [qwen36u35b27b|qwen36u35b|gemma4|supergemma4|glm47flash]" >&2; exit 1 ;;
+  *) echo "Usage: $0 [qwen36u27b|qwen36u35b|gemma4|supergemma4|glm47flash]" >&2; exit 1 ;;
 esac
