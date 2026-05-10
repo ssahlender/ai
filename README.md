@@ -93,7 +93,7 @@ The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `h
 | Script | What it does |
 |---|---|
 | `ollama-install.sh` | `brew install ollama` (skipped on i9 — CPU too slow) |
-| `ollama-update.sh` | `brew upgrade ollama` (skipped on i9) |
+| `ollama-update.sh` | `brew install/upgrade ollama` (skipped on i9) |
 | `ollama-models-update.sh` | Pulls latest version of every installed model (`ollama list \| xargs ollama pull`) |
 
 ---
