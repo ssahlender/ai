@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if command -v brew >/dev/null 2>&1; then
-  brew update
-  brew upgrade --cask codex
-  brew cleanup --prune=all
-else
-  echo "run brewupd + brewupg"
+if [[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
+  echo "Run manually on this machine:"
+  echo "  brewupd && brew upgrade --cask codex"
+  exit 0
 fi
+
+brew upgrade --cask codex
