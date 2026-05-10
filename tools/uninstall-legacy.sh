@@ -5,6 +5,7 @@
 set -euo pipefail
 
 changed=0
+needs_sudo=()
 
 uninstall_if_not_brew() {
   local bin_name="$1" brew_name="$2" brew_type="${3:-formula}"  # formula | cask
@@ -28,11 +29,12 @@ uninstall_if_not_brew() {
   fi
 
   echo "  $bin_name: found at $bin (not managed by brew) — removing..."
-  if rm -f "$bin"; then
+  if rm -f "$bin" 2>/dev/null; then
     echo "  $bin_name: removed"
     changed=$((changed + 1))
   else
-    echo "  $bin_name: permission denied — try: sudo rm $bin" >&2
+    echo "  $bin_name: permission denied (queued for sudo)"
+    needs_sudo+=("$bin")
   fi
 }
 
@@ -44,10 +46,18 @@ uninstall_if_not_brew opencode opencode    formula
 uninstall_if_not_brew codex    codex       cask
 uninstall_if_not_brew ollama   ollama      formula
 
+if [ ${#needs_sudo[@]} -gt 0 ]; then
+  echo
+  echo "${#needs_sudo[@]} need(s) root. Run:"
+  echo "  sudo rm -f ${needs_sudo[*]}"
+  changed=$((changed + ${#needs_sudo[@]}))
+fi
+
 echo
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ "$changed" -gt 0 ]; then
   echo "$changed tool(s) removed. Reinstall with brew:"
-  echo "  cd $(dirname "$0") && ./claude-install.sh && ./opencode-install.sh && ./ollama-install.sh"
+  echo "  cd $SCRIPT_DIR && ./claude-install.sh && ./opencode-install.sh && ./ollama-install.sh"
 else
   echo "Nothing to remove — all tools already managed by brew or not installed."
 fi
