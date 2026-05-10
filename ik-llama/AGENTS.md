@@ -4,7 +4,7 @@ How to wire OpenCode and Claude Code to the local ik_llama.cpp server.
 
 ## OpenCode
 
-Run the setup script for your machine — it merges the provider config and auth into your OpenCode installation:
+Run the setup script for your machine — it parses the start script for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included.
 
 ```bash
 # ProBook (WSL2)
@@ -14,28 +14,9 @@ Run the setup script for your machine — it merges the provider config and auth
 ./setup-opencode-i9.sh
 ```
 
-The ProBook script auto-detects the Windows host IP from the WSL2 default gateway. The config files (`opencode-probook.json`, `opencode-i9.json`) use `WSL_HOST_IP` as a placeholder which the script substitutes at install time.
+The ProBook script auto-detects the Windows host IP from the WSL2 default gateway. The generated config uses `http://<host-ip>:8080/v1` (ProBook) or `http://localhost:9080/v1` (i9).
 
-### Model shortnames
-
-#### ProBook
-
-| Shortname | Model |
-|---|---|
-| `ik-llama/qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL |
-| `ik-llama/gemma4` | Gemma4-26B-A4B IQ4\_NL |
-| `ik-llama/qwen3coder` | Qwen3-Coder-30B-A3B Q3\_K\_M |
-| `ik-llama/glm4.7-flash` | GLM-4.7-Flash Q4\_K\_M |
-
-#### i9
-
-| Shortname | Model |
-|---|---|
-| `ik-llama/qwen36u27b` | Qwen3.6-27B-Uncensored Q5\_K\_P |
-| `ik-llama/qwen36u35b` | Qwen3.6-35B-A3B-Uncensored Q4\_K\_P |
-| `ik-llama/gemma4` | Gemma4-26B-A4B Q5\_K\_M |
-| `ik-llama/supergemma4` | SuperGemma4-26B-Uncensored Q4\_K\_M |
-| `ik-llama/glm4.7-flash` | GLM-4.7-Flash Q5\_K\_M |
+Model shortnames are derived from the `start-*.sh` case statements. Run the setup script to see available shortnames — they're printed after install. No static config file to maintain.
 
 ## Claude Code
 

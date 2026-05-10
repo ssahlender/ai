@@ -21,22 +21,26 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `download-models-i9.sh` | Download GGUF models to `/data/llm/models` |
 | `start-probook.sh <mode>` | Start llama-server on ProBook (runs from WSL2) |
 | `start-i9.sh <mode>` | Start llama-server on i9 |
-| `setup-opencode-probook.sh` | Install OpenCode provider config for ProBook (WSL2) |
-| `setup-opencode-i9.sh` | Install OpenCode provider config for i9 |
+| `setup-opencode-probook.sh` | Auto-generate OpenCode provider config from start script |
+| `setup-opencode-i9.sh` | Auto-generate OpenCode provider config from start script |
+| `tune-i9.sh` | OS-level tuning for inference (cpu governor, THP, NUMA) |
 
 ### Quick start — ProBook
 
 ```bash
 ./update-probook.sh
 ./download-models-probook.sh
+./setup-opencode-probook.sh
 ./start-probook.sh qwen36u35b   # or: gemma qwen3coder glm47flash
 ```
 
 ### Quick start — i9
 
 ```bash
+sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update-i9.sh
 ./download-models-i9.sh
+./setup-opencode-i9.sh
 ./start-i9.sh qwen36u27b   # or: qwen36u35b gemma4 supergemma4 glm47flash
 ```
 
@@ -79,8 +83,8 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | Flag | Value | Purpose |
 |---|---|---|
 | `-ngl 0` | 0 | CPU-only, disables GPU offload |
-| `--threads` | 16 | Generation threads |
-| `--threads-batch` | 8 (ProBook) / 20 (i9) | Prompt processing threads |
+| `--threads` | 8 | Generation threads (P-cores only). Override: `IK_LLAMA_THREADS` |
+| `--threads-batch` | 28 | Prompt processing threads. Override: `IK_LLAMA_THREADS_BATCH` |
 | `--ctx-size` | 32768–131072 | Context window |
 | `-sps 0.5` | 0.5 | Slot prompt similarity for cache reuse |
 | `-cram <MB>` | 8192–32768 | KV cache RAM limit |
@@ -93,6 +97,7 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | `-rea off` | off | Disable thinking/reasoning mode |
 | `-v` | — | Verbose output (shows tok/s, timing) |
 | `--mlock` | — | Lock model in RAM (i9 only, prevents swapping) |
+| `--numa` | distribute | Optimize memory placement on multi-socket/NUMA |
 
 ### Qwen3 YaRN (context extension)
 
@@ -109,6 +114,16 @@ Applied to Qwen3-family models when using contexts beyond 32K.
 ```
 
 Recommended by the Qwen3 technical report for thinking/chat mode.
+
+## OS tuning (i9)
+
+Run `sudo ./tune-i9.sh` once per boot to apply:
+
+- **CPU governor → performance** — prevents frequency scaling latency on the single-token generation path
+- **Transparent Huge Pages → madvise** — lets llama-server opt into 2MB pages without wasting them on other processes
+- **NUMA balancing → off** — no benefit on single-socket; avoids kernel migration overhead
+
+All changes revert on reboot. The script is idempotent — safe to re-run.
 
 ## Performance
 
