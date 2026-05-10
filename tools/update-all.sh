@@ -24,20 +24,10 @@ fi
 
 # Upgrade all brew packages (casks + formulas)
 if command -v brew >/dev/null 2>&1; then
-  if [ -n "$IS_I9" ]; then
-    echo "Run manually on this machine:"
-    echo "  $BREW upgrade"
-  else
-    $BREW upgrade
-  fi
+  $BREW upgrade
 fi
 
 # Clean up old brew versions to prevent disk bloat
 if command -v brew >/dev/null 2>&1; then
-  if [ -n "$IS_I9" ]; then
-    echo "Run manually on this machine:"
-    echo "  $BREW cleanup --prune=all"
-  else
-    $BREW cleanup --prune=all
-  fi
+  $BREW cleanup --prune=all
 fi

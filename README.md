@@ -19,7 +19,7 @@ Install and update scripts for AI coding tools. All tools are installed via Home
 
 ### Machine detection
 
-Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.sh`). On i9, brew commands are printed as manual instructions using the full `sudo -n -u brewuser` command. On all other machines, brew runs directly. To enable: add the brew binary to sudoers with the `NOPASSWD` flag.
+Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.sh`). On i9, brew runs via `sudo -n -u brewuser`. On all other machines, brew runs directly. To enable on i9: add the brew binary to sudoers with the `NOPASSWD` flag.
 
 ### update-all.sh
 
@@ -35,8 +35,8 @@ Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `code
 
 | Script | What it does |
 |---|---|
-| `claude-install.sh` | `brew install --cask claude-code` |
-| `claude-update.sh` | `brew upgrade --cask claude-code` |
+| `claude-install.sh` | `$BREW install --cask claude-code` |
+| `claude-update.sh` | `$BREW install/upgrade --cask claude-code` |
 
 ---
 
@@ -44,8 +44,8 @@ Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `code
 
 | Script | What it does |
 |---|---|
-| `opencode-install.sh` | `brew install opencode` |
-| `opencode-update.sh` | `brew upgrade opencode` |
+| `opencode-install.sh` | `$BREW install opencode` |
+| `opencode-update.sh` | `$BREW install/upgrade opencode` |
 
 ---
 
@@ -53,8 +53,8 @@ Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `code
 
 | Script | What it does |
 |---|---|
-| `codex-install.sh` | `brew install --cask codex` |
-| `codex-update.sh` | `brew upgrade --cask codex` |
+| `codex-install.sh` | `$BREW install --cask codex` |
+| `codex-update.sh` | `$BREW install/upgrade --cask codex` |
 
 ---
 
@@ -81,8 +81,8 @@ export NVM_DIR="$HOME/.nvm"
 
 | Script | What it does |
 |---|---|
-| `hf-install.sh` | `brew install hf` (prints manual command on i9) |
-| `hf-update.sh` | `brew upgrade hf` (prints manual command on i9) |
+| `hf-install.sh` | `$BREW install hf` |
+| `hf-update.sh` | `$BREW install/upgrade hf` |
 
 The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `hf`.
 
@@ -92,8 +92,8 @@ The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `h
 
 | Script | What it does |
 |---|---|
-| `ollama-install.sh` | `brew install ollama` (skipped on i9 — CPU too slow) |
-| `ollama-update.sh` | `brew install/upgrade ollama` (skipped on i9) |
+| `ollama-install.sh` | `$BREW install ollama` (skipped on i9 — CPU too slow) |
+| `ollama-update.sh` | `$BREW install/upgrade ollama` (skipped on i9) |
 | `ollama-models-update.sh` | Pulls latest version of every installed model (`ollama list \| xargs ollama pull`) |
 
 ---

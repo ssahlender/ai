@@ -59,11 +59,7 @@ echo
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ "$changed" -gt 0 ]; then
   echo "$changed tool(s) removed. Reinstall with brew:"
-  if [ -n "$IS_I9" ]; then
-    echo "  cd $SCRIPT_DIR && $BREW update && $BREW install claude-code opencode codex"
-  else
-    echo "  cd $SCRIPT_DIR && $BREW install --cask claude-code && $BREW install opencode && $BREW install --cask codex"
-  fi
+  echo "  cd $SCRIPT_DIR && $BREW install --cask claude-code && $BREW install opencode && $BREW install --cask codex"
 else
   echo "Nothing to remove — all tools already managed by brew or not installed."
 fi
