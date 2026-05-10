@@ -1,0 +1,137 @@
+# ik_llama.cpp scripts
+
+CPU-only local LLM inference on two machines using [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) — a fork of llama.cpp with better AVX512/AVX2 kernels, optimized quantization formats (IQ\*, K\_P variants), and improved MoE scheduling.
+
+## Hardware
+
+| Machine | CPU | RAM | OS | Notes |
+|---|---|---|---|---|
+| HP ProBook (Ryzen) | AMD Ryzen 7 250 (Zen 5) | 32 GB | Windows 11 + WSL2 | AVX512 VNNI VBMI BF16 |
+| Work PC (i9) | Intel Core i9-13900 (Raptor Lake) | 64 GB | Debian 13 | AVX2 only — no AVX512 |
+
+Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vulkan OOM crashes — always use `-ngl 0`.
+
+## Scripts
+
+| Script | Purpose |
+|---|---|
+| `update-probook.sh` | Download/update ik_llama.cpp Windows binary |
+| `update-i9.sh` | Download/update ik_llama.cpp Linux binary |
+| `download-models-probook.sh` | Download GGUF models to `/mnt/c/data/llm/models` |
+| `download-models-i9.sh` | Download GGUF models to `/data/llm/models` |
+| `start-probook.sh <mode>` | Start llama-server on ProBook (runs from WSL2) |
+| `start-i9.sh <mode>` | Start llama-server on i9 |
+| `setup-opencode-probook.sh` | Install OpenCode provider config for ProBook (WSL2) |
+| `setup-opencode-i9.sh` | Install OpenCode provider config for i9 |
+
+### Quick start — ProBook
+
+```bash
+./update-probook.sh
+./download-models-probook.sh
+./start-probook.sh qwen36u35b   # or: gemma qwen3coder glm47flash
+```
+
+### Quick start — i9
+
+```bash
+./update-i9.sh
+./download-models-i9.sh
+./start-i9.sh qwen36u27b   # or: qwen36u35b gemma4 supergemma4 glm47flash
+```
+
+## Models
+
+### ProBook (32 GB RAM)
+
+| Mode | Model | Size | Context | Notes |
+|---|---|---|---|---|
+| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 32 K | 35B MoE, 3B active |
+| `gemma` | Gemma4-26B-A4B IQ4\_NL | ~13 GB | 64 K | 26B MoE, 4B active |
+| `qwen3coder` | Qwen3-Coder-30B-A3B Q3\_K\_M | ~14 GB | 64 K | 30B MoE, 3B active |
+| `glm47flash` | GLM-4.7-Flash Q4\_K\_M | ~17 GB | 32 K | 30B MoE, 3B active, DeepSeek-V2 MLA |
+
+### i9 (64 GB RAM)
+
+| Mode | Model | Size | Context | Notes |
+|---|---|---|---|---|
+| `qwen36u27b` | Qwen3.6-27B-Uncensored Q5\_K\_P | ~20 GB | 64 K | 27B dense — all params active |
+| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored Q4\_K\_P | ~21 GB | 64 K | 35B MoE, 3B active |
+| `gemma4` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | 26B MoE, 4B active |
+| `supergemma4` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | Uncensored Gemma4 fine-tune |
+| `glm47flash` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | 30B MoE, 3B active, coding-focused |
+
+GLM-4.7-Flash uses the DeepSeek-V2 MLA attention architecture which is more efficient per active parameter and outperforms standard MoE attention at the same active-param count. It scores ~59% on SWE-Bench Verified.
+
+## Binaries
+
+Downloaded automatically by `update-*.sh`. Correct build for each machine:
+
+| Machine | Build pattern |
+|---|---|
+| ProBook (Windows) | `*-bin-win-cpu-x64-avx512_vnni_vbmi_bf16.zip` |
+| i9 (Linux) | `*-bin-ubuntu-x64-avx2.zip` |
+
+Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5` — the znver5 build crashes with Qwen3 MoE models.
+
+## Flag reference
+
+| Flag | Value | Purpose |
+|---|---|---|
+| `-ngl 0` | 0 | CPU-only, disables GPU offload |
+| `--threads` | 16 | Generation threads |
+| `--threads-batch` | 8 (ProBook) / 20 (i9) | Prompt processing threads |
+| `--ctx-size` | 32768–131072 | Context window |
+| `-sps 0.5` | 0.5 | Slot prompt similarity for cache reuse |
+| `-cram <MB>` | 8192–32768 | KV cache RAM limit |
+| `-crs 0.5` | 0.5 | Cache similarity threshold |
+| `-ctk q8_0` | q8_0 | Quantize K cache (requires flash attention) |
+| `-ctv q8_0` | q8_0 | Quantize V cache (requires flash attention) |
+| `-dt 0.1` | 0.1 | Defragmentation threshold |
+| `--host 0.0.0.0` | — | Listen on all interfaces (required for WSL2) |
+| `--jinja` | — | Enable Jinja templates (required for tool calling) |
+| `-rea off` | off | Disable thinking/reasoning mode |
+| `-v` | — | Verbose output (shows tok/s, timing) |
+| `--mlock` | — | Lock model in RAM (i9 only, prevents swapping) |
+
+### Qwen3 YaRN (context extension)
+
+```
+--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1
+```
+
+Applied to Qwen3-family models when using contexts beyond 32K.
+
+### Qwen3 sampling
+
+```
+--temp 0.6 --top-p 0.95 --top-k 20
+```
+
+Recommended by the Qwen3 technical report for thinking/chat mode.
+
+## Performance
+
+### ProBook (Ryzen 7 250, Zen 5, AVX512)
+
+- Prompt eval: ~44 tok/s
+- Generation: ~7 tok/s
+- First message with long system prompt: ~5 min (cache cold)
+- Subsequent messages: ~2.5 s (cache hit)
+
+### i9-13900 (Raptor Lake, AVX2)
+
+- Prompt eval: ~40–50 tok/s
+- Generation: ~8–10 tok/s
+
+## Key lessons
+
+1. **`-ngl 0` always** — integrated GPU causes Vulkan OOM crashes
+2. **Quantized KV cache requires flash attention on** — `-ctv q8_0` is incompatible with `--flash-attn off`; ik_llama.cpp enables FA by default which is correct
+3. **Avoid `_XL` variants** — incompatible quantization format with ik_llama.cpp
+4. **ProBook: use generic AVX512 build** — `znver5` crashes with MoE models
+5. **i9 has no AVX512** — despite being 13th gen Raptor Lake; use AVX2 build only
+6. **Prompt cache is critical** — first message is slow; subsequent messages hit cache and are fast
+7. **`-rea off`** — disables thinking mode; cuts response time 50–80% for coding tasks
+8. **MoE active-parameter ceiling** — 3B active params is the real intelligence limit regardless of quantization level; for more intelligence use a dense model like `qwen36u27b`
+9. **GLM-4.7-Flash > Qwen3-Coder** at the same active-param count due to MLA attention architecture
