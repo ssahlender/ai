@@ -27,4 +27,4 @@ See [`ollama/`](ollama/) for Mac setup:
 
 No special agent config needed — scripts are self-contained bash. Run directly or via `update-all.sh`.
 
-On the i9, scripts that need brew print the manual command rather than running it, since brew requires the proxy-aware `brewupd`/`brewupg` aliases.
+On the i9, scripts use the `_brew-i9.sh` helper which runs brew via `sudo -n -u brewuser` with the full absolute path. Other machines run brew directly.
