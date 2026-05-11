@@ -70,6 +70,8 @@ Summarize benchmark CSVs:
 ./summarize-bench.py bench-results/*-summary.tsv
 ```
 
+`bench-results/` is ignored by git. Keep benchmark outputs local unless you explicitly want to share them for analysis.
+
 ## Models
 
 ### ProBook (32 GB RAM)
