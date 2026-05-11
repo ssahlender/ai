@@ -128,7 +128,9 @@ docker compose up -d
 
 CPU-only local LLM inference using [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) on two machines (HP ProBook + i9-13900). Models: Qwen3.6, Gemma4, GLM-4.7-Flash.
 
-See [`ik-llama/README.md`](ik-llama/README.md) for full details: hardware, models, flags, performance, and lessons learned.
+See [`ik-llama/README.md`](ik-llama/README.md) for full details: hardware, models, flags, benchmark scripts, performance, and lessons learned.
+
+Generated benchmark output goes into `bench-results/` and is intentionally ignored by git. Python bytecode caches such as `__pycache__/` and `*.pyc` are also ignored.
 
 ---
 
