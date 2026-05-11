@@ -66,14 +66,15 @@ timestamp=$(date +%Y%m%d-%H%M%S)
 summary="$OUT_DIR/${timestamp}-${MODE}-summary.tsv"
 
 help_text=$("$BENCH" -h 2>&1 || true)
+bench_strings=$(strings "$BENCH" 2>/dev/null || true)
+option_text="${help_text}"$'\n'"${bench_strings}"
 threads_batch_flag=""
-if grep -q -- "--threads-batch" <<< "$help_text"; then
+if grep -q -- "-tgb" <<< "$option_text"; then
+  threads_batch_flag="-tgb"
+elif grep -q -- "--threads-batch" <<< "$option_text"; then
   threads_batch_flag="--threads-batch"
-elif grep -q -- "-tb" <<< "$help_text"; then
+elif grep -q -- "-tb" <<< "$option_text"; then
   threads_batch_flag="-tb"
-else
-  # Most current llama.cpp/ik_llama builds support this even if help output is unavailable.
-  threads_batch_flag="--threads-batch"
 fi
 
 {
@@ -106,15 +107,21 @@ for run_mode in "${RUN_MODES[@]}"; do
       args=(
         -m "$(win_path "$model")"
         -ngl 0
-        -t "$threads"
         -p "$PROMPT_TOKENS"
         -n "$GEN_TOKENS"
         -r "$REPETITIONS"
-        -ctk q8_0
-        -ctv q8_0
         -o csv
-        "$threads_batch_flag" "$threads_batch"
       )
+
+      if [ "$threads_batch_flag" = "-tgb" ]; then
+        args+=("-tgb" "${threads},${threads_batch}")
+      else
+        args+=("-t" "$threads")
+      fi
+
+      if [ -n "$threads_batch_flag" ] && [ "$threads_batch_flag" != "-tgb" ]; then
+        args+=("$threads_batch_flag" "$threads_batch")
+      fi
 
       "$BENCH" "${args[@]}" | tee "$output"
       printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \

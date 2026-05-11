@@ -64,6 +64,12 @@ BENCH_THREADS="6 8 10" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen3coder
 
 To compare results, start with the generated `*-summary.tsv`, then inspect the referenced CSV files. Look for the highest prompt processing throughput (`pp`/prompt tok/s) that does not hurt generation throughput (`tg`/generation tok/s). For OpenCode, prefer the best overall balance over the absolute highest prompt-only score.
 
+Summarize benchmark CSVs:
+
+```bash
+./summarize-bench.py bench-results/*-summary.tsv
+```
+
 ## Models
 
 ### ProBook (32 GB RAM)
