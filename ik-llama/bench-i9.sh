@@ -63,11 +63,15 @@ mkdir -p "$OUT_DIR"
 timestamp=$(date +%Y%m%d-%H%M%S)
 summary="$OUT_DIR/${timestamp}-${MODE}-summary.tsv"
 
-help_text=$("$BENCH" --help 2>&1 || true)
+help_text=$("$BENCH" -h 2>&1 || true)
+bench_strings=$(strings "$BENCH" 2>/dev/null || true)
+option_text="${help_text}"$'\n'"${bench_strings}"
 threads_batch_flag=""
-if grep -q -- "--threads-batch" <<< "$help_text"; then
+if grep -q -- "-tgb" <<< "$option_text"; then
+  threads_batch_flag="-tgb"
+elif grep -q -- "--threads-batch" <<< "$option_text"; then
   threads_batch_flag="--threads-batch"
-elif grep -q -- "-tb" <<< "$help_text"; then
+elif grep -q -- "-tb" <<< "$option_text"; then
   threads_batch_flag="-tb"
 fi
 
@@ -104,16 +108,19 @@ for run_mode in "${RUN_MODES[@]}"; do
       args=(
         -m "$model"
         -ngl 0
-        -t "$threads"
         -p "$PROMPT_TOKENS"
         -n "$GEN_TOKENS"
         -r "$REPETITIONS"
-        -ctk q8_0
-        -ctv q8_0
         -o csv
       )
 
-      if [ -n "$threads_batch_flag" ]; then
+      if [ "$threads_batch_flag" = "-tgb" ]; then
+        args+=("-tgb" "${threads},${threads_batch}")
+      else
+        args+=("-t" "$threads")
+      fi
+
+      if [ -n "$threads_batch_flag" ] && [ "$threads_batch_flag" != "-tgb" ]; then
         args+=("$threads_batch_flag" "$threads_batch")
       fi
 
