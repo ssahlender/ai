@@ -4,6 +4,7 @@
 # skips tools already managed by brew.
 set -euo pipefail
 
+# shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
 
 changed=0

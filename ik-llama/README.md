@@ -84,7 +84,7 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 |---|---|---|
 | `-ngl 0` | 0 | CPU-only, disables GPU offload |
 | `--threads` | 8 | Generation threads (P-cores only). Override: `IK_LLAMA_THREADS` |
-| `--threads-batch` | 28 | Prompt processing threads. Override: `IK_LLAMA_THREADS_BATCH` |
+| `--threads-batch` | 24 | Prompt processing threads. Override: `IK_LLAMA_THREADS_BATCH` |
 | `--ctx-size` | 32768–131072 | Context window |
 | `-sps 0.5` | 0.5 | Slot prompt similarity for cache reuse |
 | `-cram <MB>` | 8192–32768 | KV cache RAM limit |
@@ -138,6 +138,16 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 - Prompt eval: ~40–50 tok/s
 - Generation: ~8–10 tok/s
+
+### i9 speed notes
+
+The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27b` is the highest-quality local option here, but it is not the fastest. For interactive coding latency, try these before changing infrastructure:
+
+- Prefer `glm47flash` or `qwen36u35b` when speed matters more than dense-model quality.
+- Keep context as low as the task allows; 64K/128K context improves long sessions but slows prompt processing and grows KV memory.
+- Sweep generation threads instead of assuming more is better: `IK_LLAMA_THREADS=6`, `8`, `10`, and `12` are worth testing on the i9.
+- Sweep prompt threads separately with `IK_LLAMA_THREADS_BATCH=16`, `24`, and `32`; this mostly affects cold prompts and large context ingestion.
+- If latency is still poor, add a smaller dense coding model tier (for example 14B-ish Q4/Q5) for routine edits and keep the 27B dense model for harder tasks.
 
 ## Key lessons
 

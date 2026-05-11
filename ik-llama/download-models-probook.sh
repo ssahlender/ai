@@ -6,7 +6,7 @@ set -euo pipefail
 MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}"
 
 if ! command -v hf >/dev/null 2>&1; then
-  echo "huggingface-cli not found. Install with: curl -LsSf https://hf.co/cli/install.sh | bash" >&2
+  echo "hf not found. Install with: ../tools/hf-install.sh" >&2
   exit 1
 fi
 

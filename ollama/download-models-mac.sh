@@ -10,7 +10,7 @@ MODELS_DIR="${MODELS_DIR:-$HOME/.ollama-models}"
 mkdir -p "$MODELS_DIR"
 
 if ! command -v ollama >/dev/null 2>&1; then
-  echo "ollama not found. Install: curl -fsSL https://ollama.com/install.sh | sh" >&2
+  echo "ollama not found. Install with: ../tools/ollama-install.sh" >&2
   exit 1
 fi
 
@@ -27,7 +27,8 @@ download_gguf() {
 }
 
 create_ollama_model() {
-  local name="$1" gguf="$2" shift 2
+  local name="$1" gguf="$2"
+  shift 2
   local gguf_path="$MODELS_DIR/$gguf"
 
   if ollama list | awk '{print $1}' | grep -Fxq "$name"; then

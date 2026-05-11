@@ -2,6 +2,7 @@
 # Updates nvm via Homebrew and installs the latest LTS Node. Skipped on i9 (work provides Node).
 set -euo pipefail
 
+# shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
 
 # Skip on i9 — work provides its own Node stack

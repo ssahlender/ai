@@ -70,6 +70,7 @@ print(json.dumps(existing, indent=2))
 " > "$TARGET.tmp" && mv "$TARGET.tmp" "$TARGET"
   echo "Merged ik-llama provider into $TARGET"
 else
+  # shellcheck disable=SC2016
   config='{"$schema":"https://opencode.ai/config.json","provider":'"$MODELS_JSON"'}'
   echo "$config" | python3 -c "
 import json, sys
