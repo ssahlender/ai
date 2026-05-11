@@ -40,6 +40,7 @@ Benchmark thread settings:
 
 ```bash
 ./bench-probook.sh qwen36u35b
+./bench-probook.sh all
 BENCH_THREADS="8 12 16" BENCH_THREADS_BATCH="8 12 16" ./bench-probook.sh qwen36u35b
 ```
 
@@ -57,8 +58,11 @@ Benchmark thread settings:
 
 ```bash
 ./bench-i9.sh qwen3coder
+./bench-i9.sh all
 BENCH_THREADS="6 8 10" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen3coder
 ```
+
+To compare results, start with the generated `*-summary.tsv`, then inspect the referenced CSV files. Look for the highest prompt processing throughput (`pp`/prompt tok/s) that does not hurt generation throughput (`tg`/generation tok/s). For OpenCode, prefer the best overall balance over the absolute highest prompt-only score.
 
 ## Models
 
