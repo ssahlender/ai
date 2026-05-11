@@ -10,6 +10,11 @@ if [ -n "$IS_I9" ]; then
   exit 0
 fi
 
+if ! $BREW list --formula nvm &>/dev/null; then
+  echo "nvm not installed — skipping"
+  exit 0
+fi
+
 echo "Updating nvm..."
 $BREW upgrade nvm || true
 

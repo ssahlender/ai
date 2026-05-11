@@ -24,11 +24,11 @@ if command -v ollama >/dev/null 2>&1; then
 fi
 
 # Upgrade all brew packages (casks + formulas)
-if command -v brew >/dev/null 2>&1; then
+if [ -n "$IS_I9" ] || command -v brew >/dev/null 2>&1; then
   $BREW upgrade
 fi
 
 # Clean up old brew versions to prevent disk bloat
-if command -v brew >/dev/null 2>&1; then
+if [ -n "$IS_I9" ] || command -v brew >/dev/null 2>&1; then
   $BREW cleanup --prune=all
 fi

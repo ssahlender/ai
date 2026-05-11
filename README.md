@@ -27,7 +27,7 @@ Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.s
 ./update-all.sh
 ```
 
-Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `hermes-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`.
+Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `hermes-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`. Each `*-update.sh` upgrades only if already installed and skips otherwise — run `*-install.sh` for new tools.
 
 ---
 
@@ -36,7 +36,7 @@ Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `code
 | Script | What it does |
 |---|---|
 | `claude-install.sh` | `$BREW install --cask claude-code` |
-| `claude-update.sh` | `$BREW install/upgrade --cask claude-code` |
+| `claude-update.sh` | `$BREW upgrade --cask claude-code` (skips if not installed) |
 
 ---
 
@@ -45,7 +45,7 @@ Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `code
 | Script | What it does |
 |---|---|
 | `opencode-install.sh` | `$BREW install opencode` |
-| `opencode-update.sh` | `$BREW install/upgrade opencode` |
+| `opencode-update.sh` | `$BREW upgrade opencode` (skips if not installed) |
 
 ---
 
@@ -54,7 +54,7 @@ Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `code
 | Script | What it does |
 |---|---|
 | `codex-install.sh` | `$BREW install --cask codex` |
-| `codex-update.sh` | `$BREW install/upgrade --cask codex` |
+| `codex-update.sh` | `$BREW upgrade --cask codex` (skips if not installed) |
 
 ---
 
@@ -82,7 +82,7 @@ export NVM_DIR="$HOME/.nvm"
 | Script | What it does |
 |---|---|
 | `hf-install.sh` | `$BREW install hf` |
-| `hf-update.sh` | `$BREW install/upgrade hf` |
+| `hf-update.sh` | `$BREW upgrade hf` (skips if not installed) |
 
 The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `hf`.
 
@@ -93,7 +93,7 @@ The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `h
 | Script | What it does |
 |---|---|
 | `hermes-install.sh` | `$BREW install hermes-agent` |
-| `hermes-update.sh` | `$BREW install/upgrade hermes-agent` |
+| `hermes-update.sh` | `$BREW upgrade hermes-agent` (skips if not installed) |
 
 ---
 
@@ -102,7 +102,7 @@ The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `h
 | Script | What it does |
 |---|---|
 | `ollama-install.sh` | `$BREW install ollama` (skipped on i9 — CPU too slow) |
-| `ollama-update.sh` | `$BREW install/upgrade ollama` (skipped on i9) |
+| `ollama-update.sh` | `$BREW upgrade ollama` (skipped on i9) |
 | `ollama-models-update.sh` | Pulls latest version of every installed model (`ollama list \| xargs ollama pull`) |
 
 ---
