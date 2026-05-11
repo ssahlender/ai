@@ -6,7 +6,7 @@
 # Environment overrides:
 #   IK_LLAMA_DIR=/data/llm/ik_llama
 #   MODELS_DIR=/data/llm/models
-#   BENCH_THREADS="6 8 10 12"
+#   BENCH_THREADS="6 8"
 #   BENCH_THREADS_BATCH="24 32"
 #   BENCH_PROMPT_TOKENS=2048
 #   BENCH_GEN_TOKENS=128
@@ -18,9 +18,9 @@ IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
 MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
 BENCH="$IK_LLAMA_DIR/build/bin/llama-bench"
 MODE="${1:-qwen3coder}"
-MODES=(qwen3coder qwen3fast qwen36u27b qwen36u35b gemma4 supergemma4 glm47flash)
+MODES=(qwen3coder qwen3coderq3 qwen3fast qwen3fastq4 qwen38b qwen38bq4 qwen36u27b qwen36u35b qwen36u35biq4 gemma4 supergemma4 glm47flash)
 
-THREADS="${BENCH_THREADS:-6 8 10 12}"
+THREADS="${BENCH_THREADS:-6 8}"
 THREADS_BATCH="${BENCH_THREADS_BATCH:-24 32}"
 PROMPT_TOKENS="${BENCH_PROMPT_TOKENS:-2048}"
 GEN_TOKENS="${BENCH_GEN_TOKENS:-128}"
@@ -28,15 +28,20 @@ REPETITIONS="${BENCH_REPETITIONS:-3}"
 OUT_DIR="${BENCH_OUT_DIR:-$PWD/bench-results}"
 
 usage() {
-  echo "Usage: $0 [qwen3coder|qwen3fast|qwen36u27b|qwen36u35b|gemma4|supergemma4|glm47flash|all]" >&2
+  echo "Usage: $0 [qwen3coder|qwen3coderq3|qwen3fast|qwen3fastq4|qwen38b|qwen38bq4|qwen36u27b|qwen36u35b|qwen36u35biq4|gemma4|supergemma4|glm47flash|all]" >&2
 }
 
 model_for_mode() {
   case "$1" in
     qwen3coder)   echo "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ;;
+    qwen3coderq3) echo "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf" ;;
     qwen3fast)    echo "Qwen3-14B-Q5_K_M.gguf" ;;
+    qwen3fastq4)  echo "Qwen3-14B-Q4_K_M.gguf" ;;
+    qwen38b)      echo "Qwen3-8B-Q5_K_M.gguf" ;;
+    qwen38bq4)    echo "Qwen3-8B-Q4_K_M.gguf" ;;
     qwen36u27b)   echo "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" ;;
     qwen36u35b)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" ;;
+    qwen36u35biq4) echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" ;;
     gemma4)       echo "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf" ;;
     supergemma4)  echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
     glm47flash)   echo "zai-org_GLM-4.7-Flash-Q5_K_M.gguf" ;;

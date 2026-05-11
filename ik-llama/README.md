@@ -51,7 +51,7 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update-i9.sh
 ./download-models-i9.sh
 ./setup-opencode-i9.sh
-./start-i9.sh qwen3coder   # or: qwen3fast qwen36u27b qwen36u35b gemma4 supergemma4 glm47flash
+./start-i9.sh qwen3coder   # or: qwen3coderq3 qwen3fast qwen3fastq4 qwen38b qwen38bq4 qwen36u27b qwen36u35b qwen36u35biq4 gemma4 supergemma4 glm47flash
 ```
 
 Benchmark thread settings:
@@ -59,7 +59,7 @@ Benchmark thread settings:
 ```bash
 ./bench-i9.sh qwen3coder
 ./bench-i9.sh all
-BENCH_THREADS="6 8 10" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen3coder
+BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen3coder
 ```
 
 To compare results, start with the generated `*-summary.tsv`, then inspect the referenced CSV files. Look for the highest prompt processing throughput (`pp`/prompt tok/s) that does not hurt generation throughput (`tg`/generation tok/s). For OpenCode, prefer the best overall balance over the absolute highest prompt-only score.
@@ -88,9 +88,14 @@ Summarize benchmark CSVs:
 | Mode | Model | Size | Context | Notes |
 |---|---|---|---|---|
 | `qwen3coder` | Qwen3-Coder-30B-A3B-Instruct Q4\_K\_M | ~19 GB | 64 K | Main coding/docs model, 3B active |
+| `qwen3coderq3` | Qwen3-Coder-30B-A3B-Instruct Q3\_K\_M | ~15 GB | 64 K | Faster coder-tier comparison |
 | `qwen3fast` | Qwen3-14B Q5\_K\_M | ~10 GB | 32 K | Fast dense fallback for routine edits/docs |
+| `qwen3fastq4` | Qwen3-14B Q4\_K\_M | ~9 GB | 32 K | Lower-bandwidth dense fallback test |
+| `qwen38b` | Qwen3-8B Q5\_K\_M | ~6 GB | 32 K | Small dense low-latency test |
+| `qwen38bq4` | Qwen3-8B Q4\_K\_M | ~5 GB | 32 K | Smallest Qwen low-latency test |
 | `qwen36u27b` | Qwen3.6-27B-Uncensored Q5\_K\_P | ~20 GB | 64 K | 27B dense — all params active |
 | `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored Q4\_K\_P | ~21 GB | 64 K | 35B MoE, 3B active |
+| `qwen36u35biq4` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 64 K | Compare against Q4\_K\_P for speed |
 | `gemma4` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | 26B MoE, 4B active |
 | `supergemma4` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | Uncensored Gemma4 fine-tune |
 | `glm47flash` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | 30B MoE, 3B active, coding-focused |
@@ -178,6 +183,35 @@ The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-
 - Sweep generation threads instead of assuming more is better: `IK_LLAMA_THREADS=6`, `8`, `10`, and `12` are worth testing on the i9.
 - Sweep prompt threads separately with `IK_LLAMA_THREADS_BATCH=24` and `32`; this mostly affects cold prompts and large context ingestion.
 - If latency is still poor, add a smaller dense coding model tier (for example 14B-ish Q4/Q5) for routine edits and keep the 27B dense model for harder tasks.
+
+### Pending benchmark notes
+
+Early i9 `llama-bench` results showed `qwen3coder` at `8/24` around 142 prompt tok/s and 32 generation tok/s. `qwen36u35b` had even higher prompt throughput (~153 tok/s) but lower generation (~26 tok/s). `qwen3fast` was unexpectedly slower despite being a smaller dense model. Treat this as provisional until all model runs are complete.
+
+Possible explanations to check:
+
+- The 14B Qwen3 GGUF may be using slower kernels or a less CPU-friendly quantization path than the Qwen3-Coder MoE file.
+- Dense 14B touches all parameters every token, while Qwen3-Coder 30B-A3B only activates a small expert subset per token.
+- The benchmark prompt/generation mix may favor the MoE architecture more than real OpenCode sessions.
+- `Qwen3-14B-Q5_K_M` may not be the right fast tier for this CPU; test Q4\_K\_M or a smaller coder-oriented model before keeping it.
+
+Follow-up candidates:
+
+- `Qwen3-14B-Q4_K_M` as a lower-bandwidth dense fallback.
+- `Qwen3-Coder-30B-A3B-Instruct-Q3_K_M` as a faster coder-tier comparison.
+- `Qwen3-8B-Q5_K_M` or `Qwen3-8B-Q4_K_M` if a genuinely fast low-latency tier is still needed.
+- `Qwen3.6-35B-A3B IQ4_NL` to see whether the fast prompt-ingestion MoE also improves generation versus Q4\_K\_P.
+
+Tomorrow's i9 benchmark plan:
+
+```bash
+./download-models-i9.sh
+./setup-opencode-i9.sh
+./bench-i9.sh all
+./summarize-bench.py bench-results/*-summary.tsv
+```
+
+Focus first on `qwen3coder`, `qwen3coderq3`, `qwen36u35b`, `qwen36u35biq4`, `qwen3fastq4`, `qwen38b`, and `qwen38bq4`. Compare against the existing `qwen3fast` Q5 result before deciding whether the dense fast tier is useful. The default i9 sweep is now `6 8` threads with `24 32` batch threads because `10` and `12` were consistently worse in the first completed results.
 
 ## Key lessons
 
