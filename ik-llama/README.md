@@ -59,6 +59,8 @@ Benchmark thread settings:
 ```bash
 ./bench-i9.sh qwen3coder
 ./bench-i9.sh all
+./bench-i9.sh tomorrow
+./bench-i9.sh qwen3coder:q3
 BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen3coder
 ```
 
@@ -207,11 +209,17 @@ Tomorrow's i9 benchmark plan:
 ```bash
 ./download-models-i9.sh
 ./setup-opencode-i9.sh
-./bench-i9.sh all
+./bench-i9.sh tomorrow
 ./summarize-bench.py bench-results/*-summary.tsv
 ```
 
-Focus first on `qwen3coder`, `qwen3coderq3`, `qwen36u35b`, `qwen36u35biq4`, `qwen3fastq4`, `qwen38b`, and `qwen38bq4`. Compare against the existing `qwen3fast` Q5 result before deciding whether the dense fast tier is useful. The default i9 sweep is now `6 8` threads with `24 32` batch threads because `10` and `12` were consistently worse in the first completed results.
+The benchmark script accepts either legacy mode names like `qwen3coderq3` or explicit quantized presets like `qwen3coder:q3`. Use the explicit `preset:quant` form for new benchmark notes.
+
+The `tomorrow` group runs `qwen3coder:q4`, `qwen3coder:q3`, `qwen36u35b:q4kp`, `qwen36u35b:iq4nl`, `qwen3fast:q4`, `qwen38b:q5`, and `qwen38b:q4`.
+
+The `today` group records the model set from the run that started before the extra candidates were added: `qwen3coder:q4`, `qwen3fast:q5`, `qwen36u27b:q5kp`, `qwen36u35b:q4kp`, `gemma4:q5km`, `supergemma4:q4km`, and `glm47flash:q5km`.
+
+Compare tomorrow's results against the existing `qwen3fast` Q5 result before deciding whether the dense fast tier is useful. The default i9 sweep is now `6 8` threads with `24 32` batch threads because `10` and `12` were consistently worse in the first completed results.
 
 ## Key lessons
 

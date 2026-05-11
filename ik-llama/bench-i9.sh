@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Benchmarks ik_llama.cpp CPU thread settings on the i9.
 # Usage:
-#   ./bench-i9.sh [mode|all]
+#   ./bench-i9.sh [preset|preset:quant|all|today|tomorrow]
 #
 # Environment overrides:
 #   IK_LLAMA_DIR=/data/llm/ik_llama
@@ -18,7 +18,9 @@ IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
 MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
 BENCH="$IK_LLAMA_DIR/build/bin/llama-bench"
 MODE="${1:-qwen3coder}"
-MODES=(qwen3coder qwen3coderq3 qwen3fast qwen3fastq4 qwen38b qwen38bq4 qwen36u27b qwen36u35b qwen36u35biq4 gemma4 supergemma4 glm47flash)
+MODES=(qwen3coder:q4 qwen3coder:q3 qwen3fast:q5 qwen3fast:q4 qwen38b:q5 qwen38b:q4 qwen36u27b:q5kp qwen36u35b:q4kp qwen36u35b:iq4nl gemma4:q5km supergemma4:q4km glm47flash:q5km)
+TODAY_MODES=(qwen3coder:q4 qwen3fast:q5 qwen36u27b:q5kp qwen36u35b:q4kp gemma4:q5km supergemma4:q4km glm47flash:q5km)
+TOMORROW_MODES=(qwen3coder:q4 qwen3coder:q3 qwen36u35b:q4kp qwen36u35b:iq4nl qwen3fast:q4 qwen38b:q5 qwen38b:q4)
 
 THREADS="${BENCH_THREADS:-6 8}"
 THREADS_BATCH="${BENCH_THREADS_BATCH:-24 32}"
@@ -28,23 +30,43 @@ REPETITIONS="${BENCH_REPETITIONS:-3}"
 OUT_DIR="${BENCH_OUT_DIR:-$PWD/bench-results}"
 
 usage() {
-  echo "Usage: $0 [qwen3coder|qwen3coderq3|qwen3fast|qwen3fastq4|qwen38b|qwen38bq4|qwen36u27b|qwen36u35b|qwen36u35biq4|gemma4|supergemma4|glm47flash|all]" >&2
+  echo "Usage: $0 [preset|preset:quant|all|today|tomorrow]" >&2
+  echo "Presets: qwen3coder, qwen3fast, qwen38b, qwen36u27b, qwen36u35b, gemma4, supergemma4, glm47flash" >&2
+}
+
+normalize_mode() {
+  case "$1" in
+    qwen3coder)   echo "qwen3coder:q4" ;;
+    qwen3coderq3) echo "qwen3coder:q3" ;;
+    qwen3fast)    echo "qwen3fast:q5" ;;
+    qwen3fastq4)  echo "qwen3fast:q4" ;;
+    qwen38b)      echo "qwen38b:q5" ;;
+    qwen38bq4)    echo "qwen38b:q4" ;;
+    qwen36u27b)   echo "qwen36u27b:q5kp" ;;
+    qwen36u35b)   echo "qwen36u35b:q4kp" ;;
+    qwen36u35biq4) echo "qwen36u35b:iq4nl" ;;
+    gemma4)       echo "gemma4:q5km" ;;
+    supergemma4)  echo "supergemma4:q4km" ;;
+    glm47flash)   echo "glm47flash:q5km" ;;
+    *:*)          echo "$1" ;;
+    *) return 1 ;;
+  esac
 }
 
 model_for_mode() {
-  case "$1" in
-    qwen3coder)   echo "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ;;
-    qwen3coderq3) echo "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf" ;;
-    qwen3fast)    echo "Qwen3-14B-Q5_K_M.gguf" ;;
-    qwen3fastq4)  echo "Qwen3-14B-Q4_K_M.gguf" ;;
-    qwen38b)      echo "Qwen3-8B-Q5_K_M.gguf" ;;
-    qwen38bq4)    echo "Qwen3-8B-Q4_K_M.gguf" ;;
-    qwen36u27b)   echo "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" ;;
-    qwen36u35b)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" ;;
-    qwen36u35biq4) echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" ;;
-    gemma4)       echo "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf" ;;
-    supergemma4)  echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
-    glm47flash)   echo "zai-org_GLM-4.7-Flash-Q5_K_M.gguf" ;;
+  case "$(normalize_mode "$1")" in
+    qwen3coder:q4)   echo "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ;;
+    qwen3coder:q3)   echo "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf" ;;
+    qwen3fast:q5)    echo "Qwen3-14B-Q5_K_M.gguf" ;;
+    qwen3fast:q4)    echo "Qwen3-14B-Q4_K_M.gguf" ;;
+    qwen38b:q5)      echo "Qwen3-8B-Q5_K_M.gguf" ;;
+    qwen38b:q4)      echo "Qwen3-8B-Q4_K_M.gguf" ;;
+    qwen36u27b:q5kp) echo "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" ;;
+    qwen36u35b:q4kp) echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" ;;
+    qwen36u35b:iq4nl) echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" ;;
+    gemma4:q5km)     echo "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf" ;;
+    supergemma4:q4km) echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
+    glm47flash:q5km) echo "zai-org_GLM-4.7-Flash-Q5_K_M.gguf" ;;
     *) return 1 ;;
   esac
 }
@@ -57,8 +79,12 @@ fi
 
 if [ "$MODE" = "all" ]; then
   RUN_MODES=("${MODES[@]}")
-elif model_for_mode "$MODE" >/dev/null; then
-  RUN_MODES=("$MODE")
+elif [ "$MODE" = "today" ]; then
+  RUN_MODES=("${TODAY_MODES[@]}")
+elif [ "$MODE" = "tomorrow" ]; then
+  RUN_MODES=("${TOMORROW_MODES[@]}")
+elif normalized_mode=$(normalize_mode "$MODE") && model_for_mode "$normalized_mode" >/dev/null; then
+  RUN_MODES=("$normalized_mode")
 else
   usage
   exit 1
@@ -93,6 +119,7 @@ fi
 echo
 
 for run_mode in "${RUN_MODES[@]}"; do
+  run_mode=$(normalize_mode "$run_mode")
   model_file=$(model_for_mode "$run_mode")
   model="$MODELS_DIR/$model_file"
 
