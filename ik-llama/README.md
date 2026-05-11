@@ -99,7 +99,6 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | `-rea off` | off | Disable thinking/reasoning mode |
 | `-v` | — | Verbose output (shows tok/s, timing) |
 | `--mlock` | — | Lock model in RAM (i9 only, prevents swapping) |
-| `--numa` | distribute | Optimize memory placement on multi-socket/NUMA |
 
 ### Qwen3 YaRN (context extension)
 
@@ -147,8 +146,9 @@ The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-
 
 - Prefer `qwen3coder` for coding/docs work and `qwen3fast` when responsiveness matters more than max quality.
 - Keep context as low as the task allows; 64K/128K context improves long sessions but slows prompt processing and grows KV memory.
+- Keep `qwen3coder` at 64K for OpenCode sessions that quickly fill context; use `qwen3fast` when you can trade context and quality for responsiveness.
 - Sweep generation threads instead of assuming more is better: `IK_LLAMA_THREADS=6`, `8`, `10`, and `12` are worth testing on the i9.
-- Sweep prompt threads separately with `IK_LLAMA_THREADS_BATCH=16`, `24`, and `32`; this mostly affects cold prompts and large context ingestion.
+- Sweep prompt threads separately with `IK_LLAMA_THREADS_BATCH=24` and `32`; this mostly affects cold prompts and large context ingestion.
 - If latency is still poor, add a smaller dense coding model tier (for example 14B-ish Q4/Q5) for routine edits and keep the 27B dense model for harder tasks.
 
 ## Key lessons

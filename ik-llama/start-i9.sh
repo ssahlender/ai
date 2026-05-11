@@ -34,7 +34,6 @@ start_model() {
     -ctv q8_0 \
     -dt 0.1 \
     --mlock \
-    --numa distribute \
     --port $PORT \
     --host 0.0.0.0 \
     --jinja \
