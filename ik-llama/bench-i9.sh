@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Benchmarks ik_llama.cpp CPU thread settings on the i9.
 # Usage:
-#   ./bench-i9.sh [mode]
+#   ./bench-i9.sh [mode|all]
 #
 # Environment overrides:
 #   IK_LLAMA_DIR=/data/llm/ik_llama
@@ -18,6 +18,7 @@ IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
 MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
 BENCH="$IK_LLAMA_DIR/build/bin/llama-bench"
 MODE="${1:-qwen3coder}"
+MODES=(qwen3coder qwen3fast qwen36u27b qwen36u35b gemma4 supergemma4 glm47flash)
 
 THREADS="${BENCH_THREADS:-6 8 10 12}"
 THREADS_BATCH="${BENCH_THREADS_BATCH:-24 32}"
@@ -27,7 +28,7 @@ REPETITIONS="${BENCH_REPETITIONS:-3}"
 OUT_DIR="${BENCH_OUT_DIR:-$PWD/bench-results}"
 
 usage() {
-  echo "Usage: $0 [qwen3coder|qwen3fast|qwen36u27b|qwen36u35b|gemma4|supergemma4|glm47flash]" >&2
+  echo "Usage: $0 [qwen3coder|qwen3fast|qwen36u27b|qwen36u35b|gemma4|supergemma4|glm47flash|all]" >&2
 }
 
 model_for_mode() {
@@ -43,22 +44,18 @@ model_for_mode() {
   esac
 }
 
-if ! model_file=$(model_for_mode "$MODE"); then
-  usage
-  exit 1
-fi
-
-MODEL="$MODELS_DIR/$model_file"
-
 if [ ! -x "$BENCH" ]; then
   echo "llama-bench not found or not executable: $BENCH" >&2
   echo "Run ./update-i9.sh first, or set IK_LLAMA_DIR to the ik_llama.cpp install path." >&2
   exit 1
 fi
 
-if [ ! -f "$MODEL" ]; then
-  echo "Model not found: $MODEL" >&2
-  echo "Run ./download-models-i9.sh first, or set MODELS_DIR." >&2
+if [ "$MODE" = "all" ]; then
+  RUN_MODES=("${MODES[@]}")
+elif model_for_mode "$MODE" >/dev/null; then
+  RUN_MODES=("$MODE")
+else
+  usage
   exit 1
 fi
 
@@ -79,7 +76,6 @@ fi
 } > "$summary"
 
 echo "Benchmarking $MODE"
-echo "Model: $MODEL"
 echo "Output: $OUT_DIR"
 echo "Summary: $summary"
 if [ -z "$threads_batch_flag" ]; then
@@ -87,31 +83,45 @@ if [ -z "$threads_batch_flag" ]; then
 fi
 echo
 
-for threads in $THREADS; do
-  for threads_batch in $THREADS_BATCH; do
-    output="$OUT_DIR/${timestamp}-${MODE}-t${threads}-tb${threads_batch}.csv"
-    echo "==> threads=$threads threads_batch=$threads_batch"
+for run_mode in "${RUN_MODES[@]}"; do
+  model_file=$(model_for_mode "$run_mode")
+  model="$MODELS_DIR/$model_file"
 
-    args=(
-      -m "$MODEL"
-      -ngl 0
-      -t "$threads"
-      -p "$PROMPT_TOKENS"
-      -n "$GEN_TOKENS"
-      -r "$REPETITIONS"
-      -ctk q8_0
-      -ctv q8_0
-      -o csv
-    )
-
-    if [ -n "$threads_batch_flag" ]; then
-      args+=("$threads_batch_flag" "$threads_batch")
-    fi
-
-    "$BENCH" "${args[@]}" | tee "$output"
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-      "$MODE" "$threads" "$threads_batch" "$PROMPT_TOKENS" "$GEN_TOKENS" "$REPETITIONS" "$output" >> "$summary"
+  if [ ! -f "$model" ]; then
+    echo "Skipping $run_mode; model not found: $model"
     echo
+    continue
+  fi
+
+  echo "Model mode: $run_mode"
+  echo "Model file: $model"
+
+  for threads in $THREADS; do
+    for threads_batch in $THREADS_BATCH; do
+      output="$OUT_DIR/${timestamp}-${run_mode}-t${threads}-tb${threads_batch}.csv"
+      echo "==> mode=$run_mode threads=$threads threads_batch=$threads_batch"
+
+      args=(
+        -m "$model"
+        -ngl 0
+        -t "$threads"
+        -p "$PROMPT_TOKENS"
+        -n "$GEN_TOKENS"
+        -r "$REPETITIONS"
+        -ctk q8_0
+        -ctv q8_0
+        -o csv
+      )
+
+      if [ -n "$threads_batch_flag" ]; then
+        args+=("$threads_batch_flag" "$threads_batch")
+      fi
+
+      "$BENCH" "${args[@]}" | tee "$output"
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$run_mode" "$threads" "$threads_batch" "$PROMPT_TOKENS" "$GEN_TOKENS" "$REPETITIONS" "$output" >> "$summary"
+      echo
+    done
   done
 done
 
