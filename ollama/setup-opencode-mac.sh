@@ -7,7 +7,7 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 AUTH_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/opencode/auth.json"
 
 if ! command -v ollama >/dev/null 2>&1; then
-  echo "ollama not found. Install: curl -fsSL https://ollama.com/install.sh | sh" >&2
+  echo "ollama not found. Install with: ../tools/ollama-install.sh" >&2
   exit 1
 fi
 
@@ -63,6 +63,7 @@ print(json.dumps(existing, indent=2))
 " > "$TARGET.tmp" && mv "$TARGET.tmp" "$TARGET"
   echo "Merged ollama provider into $TARGET"
 else
+  # shellcheck disable=SC2016
   config='{"$schema":"https://opencode.ai/config.json","provider":'"$NEW_PROVIDER"'}'
   echo "$config" | python3 -c "
 import json, sys

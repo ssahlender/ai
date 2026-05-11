@@ -1,3 +1,5 @@
+# shellcheck shell=bash
+# shellcheck disable=SC2034
 # Shared i9 (company proxy) detection for scripts that invoke brew.
 # Source this file in scripts that need to run or print brew commands.
 #

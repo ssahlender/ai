@@ -135,6 +135,7 @@ See [`ik-llama/README.md`](ik-llama/README.md) for full details: hardware, model
 ## ollama/
 
 GPU-accelerated local inference using Ollama on Apple Silicon (MacBook Air M4, 24 GB). Uses Metal GPU offload. Auto-discovers installed models for OpenCode config.
+See [`ollama/README.md`](ollama/README.md) for speed guidance and Ollama vs direct llama.cpp notes.
 
 ```bash
 ./tools/ollama-install.sh               # install Ollama binary

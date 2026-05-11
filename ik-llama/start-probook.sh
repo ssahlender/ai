@@ -46,15 +46,15 @@ start_model() {
 }
 
 # Qwen3 recommended YaRN params (beta-fast/slow from Qwen3 technical report)
-YARN="--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1"
+YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
 # Qwen3 recommended sampling params (thinking mode, from Qwen3 technical report)
-SAMPLE="--temp 0.6 --top-p 0.95 --top-k 20"
+SAMPLE=(--temp 0.6 --top-p 0.95 --top-k 20)
 
 #                                                                                              ctx    cram  extra
 case "$MODE" in
-  qwen36u35b) start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" 32768   8192        $SAMPLE ;;
+  qwen36u35b) start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" 32768   8192        "${SAMPLE[@]}" ;;
   gemma)   start_model "Gemma4 26B-A4B"             "gemma-4-26B-A4B-it-UD-IQ4_NL.gguf"                          65536  12288 ;;
-  qwen3coder) start_model "Qwen3-Coder 30B-A3B"     "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf"                   65536  16384 $YARN $SAMPLE ;;
-  glm47flash) start_model "GLM-4.7-Flash 30B"       "zai-org_GLM-4.7-Flash-Q4_K_M.gguf"                          32768   8192        $SAMPLE ;;
+  qwen3coder) start_model "Qwen3-Coder 30B-A3B"     "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf"                   65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
+  glm47flash) start_model "GLM-4.7-Flash 30B"       "zai-org_GLM-4.7-Flash-Q4_K_M.gguf"                          32768   8192        "${SAMPLE[@]}" ;;
   *) echo "Usage: $0 [qwen36u35b|gemma|qwen3coder|glm47flash]" >&2; exit 1 ;;
 esac

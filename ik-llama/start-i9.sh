@@ -44,16 +44,16 @@ start_model() {
 }
 
 # Qwen3 recommended YaRN params (beta-fast/slow from Qwen3 technical report)
-YARN="--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1"
+YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
 # Qwen3 recommended sampling params (thinking mode, from Qwen3 technical report)
-SAMPLE="--temp 0.6 --top-p 0.95 --top-k 20"
+SAMPLE=(--temp 0.6 --top-p 0.95 --top-k 20)
 
 #                                                                                             ctx     cram  extra
 case "$MODE" in
-  qwen36u27b)     start_model "Qwen3.6 27B Uncensored"     "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"      65536  24576 $YARN $SAMPLE ;;
-  qwen36u35b)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf"  65536  16384 $YARN $SAMPLE ;;
+  qwen36u27b)     start_model "Qwen3.6 27B Uncensored"     "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"      65536  24576 "${YARN[@]}" "${SAMPLE[@]}" ;;
+  qwen36u35b)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf"  65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
   gemma4)      start_model "Gemma4 26B-A4B"             "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf"                           131072 32768 ;;
   supergemma4) start_model "SuperGemma4 26B Uncensored" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"               131072 32768 ;;
-  glm47flash)  start_model "GLM-4.7-Flash 30B"          "zai-org_GLM-4.7-Flash-Q5_K_M.gguf"                           65536  16384        $SAMPLE ;;
+  glm47flash)  start_model "GLM-4.7-Flash 30B"          "zai-org_GLM-4.7-Flash-Q5_K_M.gguf"                           65536  16384        "${SAMPLE[@]}" ;;
   *) echo "Usage: $0 [qwen36u27b|qwen36u35b|gemma4|supergemma4|glm47flash]" >&2; exit 1 ;;
 esac
