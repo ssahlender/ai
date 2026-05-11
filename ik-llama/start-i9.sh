@@ -25,7 +25,7 @@ start_model() {
     -m "$MODELS_DIR/$model" \
     -ngl 0 \
     --threads "${IK_LLAMA_THREADS:-8}" \
-    --threads-batch "${IK_LLAMA_THREADS_BATCH:-28}" \
+    --threads-batch "${IK_LLAMA_THREADS_BATCH:-24}" \
     --ctx-size "$ctx" \
     -sps 0.5 \
     -cram "$cram" \
