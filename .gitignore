@@ -1,3 +1,5 @@
 .codex
 *.log
 bench-results/
+__pycache__/
+*.py[cod]
