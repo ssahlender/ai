@@ -41,7 +41,7 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update-i9.sh
 ./download-models-i9.sh
 ./setup-opencode-i9.sh
-./start-i9.sh qwen36u27b   # or: qwen36u35b gemma4 supergemma4 glm47flash
+./start-i9.sh qwen3coder   # or: qwen3fast qwen36u27b qwen36u35b gemma4 supergemma4 glm47flash
 ```
 
 ## Models
@@ -59,6 +59,8 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 
 | Mode | Model | Size | Context | Notes |
 |---|---|---|---|---|
+| `qwen3coder` | Qwen3-Coder-30B-A3B-Instruct Q4\_K\_M | ~19 GB | 64 K | Main coding/docs model, 3B active |
+| `qwen3fast` | Qwen3-14B Q5\_K\_M | ~10 GB | 32 K | Fast dense fallback for routine edits/docs |
 | `qwen36u27b` | Qwen3.6-27B-Uncensored Q5\_K\_P | ~20 GB | 64 K | 27B dense — all params active |
 | `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored Q4\_K\_P | ~21 GB | 64 K | 35B MoE, 3B active |
 | `gemma4` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | 26B MoE, 4B active |
@@ -143,7 +145,7 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27b` is the highest-quality local option here, but it is not the fastest. For interactive coding latency, try these before changing infrastructure:
 
-- Prefer `glm47flash` or `qwen36u35b` when speed matters more than dense-model quality.
+- Prefer `qwen3coder` for coding/docs work and `qwen3fast` when responsiveness matters more than max quality.
 - Keep context as low as the task allows; 64K/128K context improves long sessions but slows prompt processing and grows KV memory.
 - Sweep generation threads instead of assuming more is better: `IK_LLAMA_THREADS=6`, `8`, `10`, and `12` are worth testing on the i9.
 - Sweep prompt threads separately with `IK_LLAMA_THREADS_BATCH=16`, `24`, and `32`; this mostly affects cold prompts and large context ingestion.
