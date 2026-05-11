@@ -12,5 +12,5 @@ fi
 if $BREW list --formula ollama &>/dev/null; then
   $BREW upgrade ollama
 else
-  $BREW install ollama
+  echo "ollama not installed — skipping"
 fi

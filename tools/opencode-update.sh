@@ -6,5 +6,5 @@ source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
 if $BREW list --formula opencode &>/dev/null; then
   $BREW upgrade opencode
 else
-  $BREW install opencode
+  echo "opencode not installed — skipping"
 fi
