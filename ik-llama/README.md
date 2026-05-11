@@ -21,6 +21,8 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `download-models-i9.sh` | Download GGUF models to `/data/llm/models` |
 | `start-probook.sh <mode>` | Start llama-server on ProBook (runs from WSL2) |
 | `start-i9.sh <mode>` | Start llama-server on i9 |
+| `bench-i9.sh <mode>` | Benchmark i9 CPU thread settings with llama-bench |
+| `bench-probook.sh <mode>` | Benchmark ProBook CPU thread settings with Windows llama-bench.exe |
 | `setup-opencode-probook.sh` | Auto-generate OpenCode provider config from start script |
 | `setup-opencode-i9.sh` | Auto-generate OpenCode provider config from start script |
 | `tune-i9.sh` | OS-level tuning for inference (cpu governor, THP, NUMA) |
@@ -34,6 +36,13 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 ./start-probook.sh qwen36u35b   # or: gemma qwen3coder glm47flash
 ```
 
+Benchmark thread settings:
+
+```bash
+./bench-probook.sh qwen36u35b
+BENCH_THREADS="8 12 16" BENCH_THREADS_BATCH="8 12 16" ./bench-probook.sh qwen36u35b
+```
+
 ### Quick start — i9
 
 ```bash
@@ -42,6 +51,13 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./download-models-i9.sh
 ./setup-opencode-i9.sh
 ./start-i9.sh qwen3coder   # or: qwen3fast qwen36u27b qwen36u35b gemma4 supergemma4 glm47flash
+```
+
+Benchmark thread settings:
+
+```bash
+./bench-i9.sh qwen3coder
+BENCH_THREADS="6 8 10" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen3coder
 ```
 
 ## Models
