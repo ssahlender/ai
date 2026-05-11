@@ -99,5 +99,5 @@ echo "$NEW_PROVIDER" | python3 -c '
 import json, sys
 models = json.load(sys.stdin)["ollama"]["models"]
 for short, m in models.items():
-    print(f"  ollama/{short}  →  {m[\"name\"]}")
+    print("  ollama/{}  →  {}".format(short, m["name"]))
 '

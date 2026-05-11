@@ -18,7 +18,7 @@ fi
 echo "Windows host IP: $WSL_HOST_IP"
 
 # --- Parse start-probook.sh to extract shortname → filename.gguf ------------
-MODELS_JSON=$(python3 -c "
+MODELS_JSON=$(START_SCRIPT="$START_SCRIPT" MODELS_DIR="$MODELS_DIR" WSL_HOST_IP="$WSL_HOST_IP" python3 -c "
 import re, json, os, sys
 
 models_dir = os.environ['MODELS_DIR']
@@ -48,7 +48,7 @@ provider = {
 }
 
 print(json.dumps(provider, indent=2))
-" START_SCRIPT="$START_SCRIPT" MODELS_DIR="$MODELS_DIR" WSL_HOST_IP="$WSL_HOST_IP")
+")
 
 if [ "$(echo "$MODELS_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d.get("ik-llama",{}).get("models",{})))')" -eq 0 ]; then
   echo "No models found in $MODELS_DIR. Run download-models-probook.sh first." >&2
@@ -106,7 +106,7 @@ echo "$MODELS_JSON" | python3 -c '
 import json, sys
 models = json.load(sys.stdin)["ik-llama"]["models"]
 for short, m in models.items():
-    print(f"  ik-llama/{short}  →  {m[\"name\"]}")
+    print("  ik-llama/{}  →  {}".format(short, m["name"]))
 '
 echo
 echo "Provider key: ik-llama (type the provider name in OpenCode to switch)"
