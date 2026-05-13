@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts llama-server on i9-13900 (Debian). Usage: ./start-i9.sh [qwen332bq5km|qwen332bq4km|qwen25coder32bq5km|qwen25coder32bq4km|qwen3coderq5km|qwen3coderq4|qwen3coderq3|qwen36u27bq5kp|qwen36u35bq4kp|gemma4q5km|supergemma4q4km|glm47flashq5km]
+# Starts llama-server on i9-13900 (Debian). Usage: ./start-i9.sh [qwen3coderq5km|qwen36u27bq5kp|qwen36u35bq4kp|gemma4q5km|supergemma4q4km|glm47flashq5km]
 set -euo pipefail
 
 IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
@@ -9,19 +9,13 @@ PORT=9080
 MODE="${1:-}"
 
 if [ -z "$MODE" ]; then
-  echo "Usage: $0 [qwen332bq5km|qwen332bq4km|qwen25coder32bq5km|qwen25coder32bq4km|qwen3coderq5km|qwen3coderq4|qwen3coderq3|qwen36u27bq5kp|qwen36u35bq4kp|gemma4q5km|supergemma4q4km|glm47flashq5km]" >&2
+  echo "Usage: $0 [qwen3coderq5km|qwen36u27bq5kp|qwen36u35bq4kp|gemma4q5km|supergemma4q4km|glm47flashq5km]" >&2
   exit 1
 fi
 
 normalize_mode() {
   case "$1" in
-    qwen332b:q5|qwen332bq5|qwen332bq5km) echo "qwen332bq5km" ;;
-    qwen332b|qwen332b:q4|qwen332bq4|qwen332bq4km) echo "qwen332bq4km" ;;
-    qwen25coder32b:q5|qwen25coder32bq5|qwen25coder32bq5km) echo "qwen25coder32bq5km" ;;
-    qwen25coder32b|qwen25coder32b:q4|qwen25coder32bq4|qwen25coder32bq4km) echo "qwen25coder32bq4km" ;;
     qwen3coder:q5|qwen3coderq5|qwen3coderq5km) echo "qwen3coderq5km" ;;
-    qwen3coder|qwen3coderq4) echo "qwen3coderq4" ;;
-    qwen3coderq3) echo "qwen3coderq3" ;;
     qwen36u27b|qwen36u27bq5kp) echo "qwen36u27bq5kp" ;;
     qwen36u35b|qwen36u35bq4kp) echo "qwen36u35bq4kp" ;;
     gemma4|gemma4q5km) echo "gemma4q5km" ;;
@@ -69,17 +63,11 @@ SAMPLE=(--temp 0.6 --top-p 0.95 --top-k 20)
 MODE="$(normalize_mode "$MODE" || true)"
 
 case "$MODE" in
-  qwen332bq5km)   start_model "Qwen3 32B Dense Q5_K_M" "Qwen3-32B-Q5_K_M.gguf"                                           65536  24576 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen332bq4km)   start_model "Qwen3 32B Dense Q4_K_M" "Qwen3-32B-Q4_K_M.gguf"                                           65536  20480 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen25coder32bq5km) start_model "Qwen2.5-Coder 32B Instruct Q5_K_M" "qwen2.5-coder-32b-instruct-q5_k_m.gguf"             32768  24576 "${SAMPLE[@]}" ;;
-  qwen25coder32bq4km) start_model "Qwen2.5-Coder 32B Instruct Q4_K_M" "qwen2.5-coder-32b-instruct-q4_k_m.gguf"             32768  20480 "${SAMPLE[@]}" ;;
   qwen3coderq5km) start_model "Qwen3-Coder 30B-A3B Instruct Q5_K_M" "Qwen3-Coder-30B-A3B-Instruct-Q5_K_M.gguf"             65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen3coderq4)   start_model "Qwen3-Coder 30B-A3B Instruct Q4" "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"                65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen3coderq3)   start_model "Qwen3-Coder 30B-A3B Instruct Q3" "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf"                65536  12288 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u27bq5kp) start_model "Qwen3.6 27B Uncensored Q5_K_P" "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"    65536  24576 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u35bq4kp) start_model "Qwen3.6 35B-A3B Uncensored Q4_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" 65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
   gemma4q5km)     start_model "Gemma4 26B-A4B Q5_K_M"     "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf"                           131072 32768 ;;
   supergemma4q4km) start_model "SuperGemma4 26B Uncensored Q4_K_M" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"       131072 32768 ;;
   glm47flashq5km) start_model "GLM-4.7-Flash 30B Q5_K_M"   "zai-org_GLM-4.7-Flash-Q5_K_M.gguf"                           65536  16384        "${SAMPLE[@]}" ;;
-  *) echo "Usage: $0 [qwen332bq5km|qwen332bq4km|qwen25coder32bq5km|qwen25coder32bq4km|qwen3coderq5km|qwen3coderq4|qwen3coderq3|qwen36u27bq5kp|qwen36u35bq4kp|gemma4q5km|supergemma4q4km|glm47flashq5km]" >&2; exit 1 ;;
+  *) echo "Usage: $0 [qwen3coderq5km|qwen36u27bq5kp|qwen36u35bq4kp|gemma4q5km|supergemma4q4km|glm47flashq5km]" >&2; exit 1 ;;
 esac
