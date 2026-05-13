@@ -23,10 +23,18 @@ esac
 
 obsolete_models=(
   "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf"
+  "Qwen3-32B-Q5_K_M.gguf"
+  "Qwen3-32B-Q4_K_M.gguf"
   "Qwen3-14B-Q5_K_M.gguf"
   "Qwen3-14B-Q4_K_M.gguf"
   "Qwen3-8B-Q5_K_M.gguf"
   "Qwen3-8B-Q4_K_M.gguf"
+  "Qwen2.5-Coder-32B-Instruct-Q5_K_M.gguf"
+  "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"
+  "qwen2.5-coder-32b-instruct-q5_k_m.gguf"
+  "qwen2.5-coder-32b-instruct-q4_k_m.gguf"
+  "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
+  "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf"
 )
 
 echo "Model directory: $MODELS_DIR"
