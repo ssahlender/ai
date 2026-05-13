@@ -59,8 +59,8 @@ model_for_mode() {
   case "$(normalize_mode "$1")" in
     qwen332bq5km)     echo "Qwen3-32B-Q5_K_M.gguf" ;;
     qwen332bq4km)     echo "Qwen3-32B-Q4_K_M.gguf" ;;
-    qwen25coder32bq5km) echo "Qwen2.5-Coder-32B-Instruct-Q5_K_M.gguf" ;;
-    qwen25coder32bq4km) echo "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf" ;;
+    qwen25coder32bq5km) echo "qwen2.5-coder-32b-instruct-q5_k_m.gguf" ;;
+    qwen25coder32bq4km) echo "qwen2.5-coder-32b-instruct-q4_k_m.gguf" ;;
     qwen3coderq5km)   echo "Qwen3-Coder-30B-A3B-Instruct-Q5_K_M.gguf" ;;
     qwen3coderq4)     echo "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ;;
     qwen3coderq3)     echo "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf" ;;

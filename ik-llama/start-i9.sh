@@ -71,8 +71,8 @@ MODE="$(normalize_mode "$MODE" || true)"
 case "$MODE" in
   qwen332bq5km)   start_model "Qwen3 32B Dense Q5_K_M" "Qwen3-32B-Q5_K_M.gguf"                                           65536  24576 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen332bq4km)   start_model "Qwen3 32B Dense Q4_K_M" "Qwen3-32B-Q4_K_M.gguf"                                           65536  20480 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen25coder32bq5km) start_model "Qwen2.5-Coder 32B Instruct Q5_K_M" "Qwen2.5-Coder-32B-Instruct-Q5_K_M.gguf"             32768  24576 "${SAMPLE[@]}" ;;
-  qwen25coder32bq4km) start_model "Qwen2.5-Coder 32B Instruct Q4_K_M" "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"             32768  20480 "${SAMPLE[@]}" ;;
+  qwen25coder32bq5km) start_model "Qwen2.5-Coder 32B Instruct Q5_K_M" "qwen2.5-coder-32b-instruct-q5_k_m.gguf"             32768  24576 "${SAMPLE[@]}" ;;
+  qwen25coder32bq4km) start_model "Qwen2.5-Coder 32B Instruct Q4_K_M" "qwen2.5-coder-32b-instruct-q4_k_m.gguf"             32768  20480 "${SAMPLE[@]}" ;;
   qwen3coderq5km) start_model "Qwen3-Coder 30B-A3B Instruct Q5_K_M" "Qwen3-Coder-30B-A3B-Instruct-Q5_K_M.gguf"             65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen3coderq4)   start_model "Qwen3-Coder 30B-A3B Instruct Q4" "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"                65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen3coderq3)   start_model "Qwen3-Coder 30B-A3B Instruct Q3" "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf"                65536  12288 "${YARN[@]}" "${SAMPLE[@]}" ;;
