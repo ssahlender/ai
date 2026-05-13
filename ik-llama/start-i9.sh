@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts llama-server on i9-13900 (Debian). Usage: ./start-i9.sh [qwen3coder|qwen3coderq3|qwen3fast|qwen3fastq4|qwen38b|qwen38bq4|qwen36u27b|qwen36u35b|qwen36u35biq4|gemma4|supergemma4|glm47flash]
+# Starts llama-server on i9-13900 (Debian). Usage: ./start-i9.sh [qwen3coderq4|qwen3coderq3|qwen36u27bq5kp|qwen36u35bq4kp|gemma4q5km|supergemma4q4km|glm47flashq5km]
 set -euo pipefail
 
 IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
@@ -9,9 +9,22 @@ PORT=9080
 MODE="${1:-}"
 
 if [ -z "$MODE" ]; then
-  echo "Usage: $0 [qwen3coder|qwen3coderq3|qwen3fast|qwen3fastq4|qwen38b|qwen38bq4|qwen36u27b|qwen36u35b|qwen36u35biq4|gemma4|supergemma4|glm47flash]" >&2
+  echo "Usage: $0 [qwen3coderq4|qwen3coderq3|qwen36u27bq5kp|qwen36u35bq4kp|gemma4q5km|supergemma4q4km|glm47flashq5km]" >&2
   exit 1
 fi
+
+normalize_mode() {
+  case "$1" in
+    qwen3coder|qwen3coderq4) echo "qwen3coderq4" ;;
+    qwen3coderq3) echo "qwen3coderq3" ;;
+    qwen36u27b|qwen36u27bq5kp) echo "qwen36u27bq5kp" ;;
+    qwen36u35b|qwen36u35bq4kp) echo "qwen36u35bq4kp" ;;
+    gemma4|gemma4q5km) echo "gemma4q5km" ;;
+    supergemma4|supergemma4q4km) echo "supergemma4q4km" ;;
+    glm47flash|glm47flashq5km) echo "glm47flashq5km" ;;
+    *) return 1 ;;
+  esac
+}
 
 if pgrep -x llama-server >/dev/null 2>&1; then
   echo "llama-server is already running. Stop it first." >&2
@@ -48,18 +61,15 @@ YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-
 SAMPLE=(--temp 0.6 --top-p 0.95 --top-k 20)
 
 #                                                                                             ctx     cram  extra
+MODE="$(normalize_mode "$MODE" || true)"
+
 case "$MODE" in
-  qwen3coder)     start_model "Qwen3-Coder 30B-A3B Instruct" "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"                   65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
+  qwen3coderq4)   start_model "Qwen3-Coder 30B-A3B Instruct Q4" "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"                65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen3coderq3)   start_model "Qwen3-Coder 30B-A3B Instruct Q3" "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf"                65536  12288 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen3fast)      start_model "Qwen3 14B"                    "Qwen3-14B-Q5_K_M.gguf"                                      32768  12288        "${SAMPLE[@]}" ;;
-  qwen3fastq4)    start_model "Qwen3 14B Q4"                 "Qwen3-14B-Q4_K_M.gguf"                                      32768  8192         "${SAMPLE[@]}" ;;
-  qwen38b)        start_model "Qwen3 8B"                     "Qwen3-8B-Q5_K_M.gguf"                                       32768  8192         "${SAMPLE[@]}" ;;
-  qwen38bq4)      start_model "Qwen3 8B Q4"                  "Qwen3-8B-Q4_K_M.gguf"                                       32768  8192         "${SAMPLE[@]}" ;;
-  qwen36u27b)     start_model "Qwen3.6 27B Uncensored"     "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"      65536  24576 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen36u35b)     start_model "Qwen3.6 35B-A3B Uncensored" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf"  65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen36u35biq4)  start_model "Qwen3.6 35B-A3B Uncensored IQ4_NL" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" 65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  gemma4)      start_model "Gemma4 26B-A4B"             "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf"                           131072 32768 ;;
-  supergemma4) start_model "SuperGemma4 26B Uncensored" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"               131072 32768 ;;
-  glm47flash)  start_model "GLM-4.7-Flash 30B"          "zai-org_GLM-4.7-Flash-Q5_K_M.gguf"                           65536  16384        "${SAMPLE[@]}" ;;
-  *) echo "Usage: $0 [qwen3coder|qwen3coderq3|qwen3fast|qwen3fastq4|qwen38b|qwen38bq4|qwen36u27b|qwen36u35b|qwen36u35biq4|gemma4|supergemma4|glm47flash]" >&2; exit 1 ;;
+  qwen36u27bq5kp) start_model "Qwen3.6 27B Uncensored Q5_K_P" "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"    65536  24576 "${YARN[@]}" "${SAMPLE[@]}" ;;
+  qwen36u35bq4kp) start_model "Qwen3.6 35B-A3B Uncensored Q4_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" 65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
+  gemma4q5km)     start_model "Gemma4 26B-A4B Q5_K_M"     "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf"                           131072 32768 ;;
+  supergemma4q4km) start_model "SuperGemma4 26B Uncensored Q4_K_M" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"       131072 32768 ;;
+  glm47flashq5km) start_model "GLM-4.7-Flash 30B Q5_K_M"   "zai-org_GLM-4.7-Flash-Q5_K_M.gguf"                           65536  16384        "${SAMPLE[@]}" ;;
+  *) echo "Usage: $0 [qwen3coderq4|qwen3coderq3|qwen36u27bq5kp|qwen36u35bq4kp|gemma4q5km|supergemma4q4km|glm47flashq5km]" >&2; exit 1 ;;
 esac

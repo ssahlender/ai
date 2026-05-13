@@ -19,6 +19,7 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `update-i9.sh` | Download/update ik_llama.cpp Linux binary |
 | `download-models-probook.sh` | Download GGUF models to `/mnt/c/data/llm/models` |
 | `download-models-i9.sh` | Download GGUF models to `/data/llm/models` |
+| `cleanup-models-i9.sh` | Remove rejected/obsolete i9 GGUF files (dry-run by default) |
 | `start-probook.sh <mode>` | Start llama-server on ProBook (runs from WSL2) |
 | `start-i9.sh <mode>` | Start llama-server on i9 |
 | `bench-i9.sh <mode>` | Benchmark i9 CPU thread settings with llama-bench |
@@ -51,17 +52,18 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update-i9.sh
 ./download-models-i9.sh
 ./setup-opencode-i9.sh
-./start-i9.sh qwen3coder   # or: qwen3coderq3 qwen3fast qwen3fastq4 qwen38b qwen38bq4 qwen36u27b qwen36u35b qwen36u35biq4 gemma4 supergemma4 glm47flash
+./start-i9.sh qwen3coderq4   # or: qwen3coderq3 qwen36u27bq5kp qwen36u35bq4kp gemma4q5km supergemma4q4km glm47flashq5km
+./cleanup-models-i9.sh     # dry-run obsolete GGUF cleanup
 ```
 
 Benchmark thread settings:
 
 ```bash
-./bench-i9.sh qwen3coder
+./bench-i9.sh qwen3coderq4
 ./bench-i9.sh all
 ./bench-i9.sh tomorrow
-./bench-i9.sh qwen3coder:q3
-BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen3coder
+./bench-i9.sh qwen3coderq3
+BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen3coderq4
 ```
 
 To compare results, start with the generated `*-summary.tsv`, then inspect the referenced CSV files. Look for the highest prompt processing throughput (`pp`/prompt tok/s) that does not hurt generation throughput (`tg`/generation tok/s). For OpenCode, prefer the best overall balance over the absolute highest prompt-only score.
@@ -89,20 +91,15 @@ Summarize benchmark CSVs:
 
 | Mode | Model | Size | Context | Notes |
 |---|---|---|---|---|
-| `qwen3coder` | Qwen3-Coder-30B-A3B-Instruct Q4\_K\_M | ~19 GB | 64 K | Main coding/docs model, 3B active |
+| `qwen3coderq4` | Qwen3-Coder-30B-A3B-Instruct Q4\_K\_M | ~19 GB | 64 K | Main coding/docs model, 3B active |
 | `qwen3coderq3` | Qwen3-Coder-30B-A3B-Instruct Q3\_K\_M | ~15 GB | 64 K | Faster coder-tier comparison |
-| `qwen3fast` | Qwen3-14B Q5\_K\_M | ~10 GB | 32 K | Fast dense fallback for routine edits/docs |
-| `qwen3fastq4` | Qwen3-14B Q4\_K\_M | ~9 GB | 32 K | Lower-bandwidth dense fallback test |
-| `qwen38b` | Qwen3-8B Q5\_K\_M | ~6 GB | 32 K | Small dense low-latency test |
-| `qwen38bq4` | Qwen3-8B Q4\_K\_M | ~5 GB | 32 K | Smallest Qwen low-latency test |
-| `qwen36u27b` | Qwen3.6-27B-Uncensored Q5\_K\_P | ~20 GB | 64 K | 27B dense — all params active |
-| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored Q4\_K\_P | ~21 GB | 64 K | 35B MoE, 3B active |
-| `qwen36u35biq4` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 64 K | Compare against Q4\_K\_P for speed |
-| `gemma4` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | 26B MoE, 4B active |
-| `supergemma4` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | Uncensored Gemma4 fine-tune |
-| `glm47flash` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | 30B MoE, 3B active, coding-focused |
+| `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P | ~20 GB | 64 K | 27B dense — all params active |
+| `qwen36u35bq4kp` | Qwen3.6-35B-A3B-Uncensored Q4\_K\_P | ~21 GB | 64 K | 35B MoE, 3B active |
+| `gemma4q5km` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | 26B MoE, 4B active |
+| `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | Uncensored Gemma4 fine-tune |
+| `glm47flashq5km` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | 30B MoE, 3B active, coding-focused |
 
-GLM-4.7-Flash uses the DeepSeek-V2 MLA attention architecture which is more efficient per active parameter and outperforms standard MoE attention at the same active-param count. It scores ~59% on SWE-Bench Verified.
+GLM-4.7-Flash uses the DeepSeek-V2 MLA attention architecture and remains a useful comparison model, but measured slower than the Qwen MoE models on this i9. It scores ~59% on SWE-Bench Verified.
 
 ## Binaries
 
@@ -172,54 +169,53 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 ### i9-13900 (Raptor Lake, AVX2)
 
-- Prompt eval: ~40–50 tok/s
-- Generation: ~8–10 tok/s
+- `qwen3coderq4` best default row: ~142 prompt tok/s, ~32.5 gen tok/s at `8/24`
+- `qwen3coderq3` fastest generation row: ~112 prompt tok/s, ~40.5 gen tok/s at `8/24` (quality check still needed)
 
 ### i9 speed notes
 
-The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27b` is the highest-quality local option here, but it is not the fastest. For interactive coding latency, try these before changing infrastructure:
+The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27bq5kp` is the highest-quality local option here, but it is not the fastest. For interactive coding latency, try these before changing infrastructure:
 
-- Prefer `qwen3coder` for coding/docs work and `qwen3fast` when responsiveness matters more than max quality.
+- Prefer `qwen3coderq4` for coding/docs work. Use `qwen3coderq3` only after checking quality on real OpenCode tasks.
 - Keep context as low as the task allows; 64K/128K context improves long sessions but slows prompt processing and grows KV memory.
-- Keep `qwen3coder` at 64K for OpenCode sessions that quickly fill context; use `qwen3fast` when you can trade context and quality for responsiveness.
-- Sweep generation threads instead of assuming more is better: `IK_LLAMA_THREADS=6`, `8`, `10`, and `12` are worth testing on the i9.
-- Sweep prompt threads separately with `IK_LLAMA_THREADS_BATCH=24` and `32`; this mostly affects cold prompts and large context ingestion.
-- If latency is still poor, add a smaller dense coding model tier (for example 14B-ish Q4/Q5) for routine edits and keep the 27B dense model for harder tasks.
+- Keep `qwen3coderq4` at 64K for OpenCode sessions that quickly fill context.
+- Use `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default i9 startup point.
+- Avoid `IK_LLAMA_THREADS=10` and `12`; benchmarks were consistently worse than `6` and `8`.
+- Keep `qwen36u27bq5kp` for quality checks only. It is too slow for normal OpenCode loops.
 
-### Pending benchmark notes
+### Completed i9 benchmark notes
 
-Early i9 `llama-bench` results showed `qwen3coder` at `8/24` around 142 prompt tok/s and 32 generation tok/s. `qwen36u35b` had even higher prompt throughput (~153 tok/s) but lower generation (~26 tok/s). `qwen3fast` was unexpectedly slower despite being a smaller dense model. Treat this as provisional until all model runs are complete.
+The completed i9 `llama-bench` runs point to `8/24` as the best default thread setting. `8/32` is usually close, but not better enough to justify changing the default. The dense "fast" Qwen models were not actually fast on this AVX2 CPU.
 
-Possible explanations to check:
+Best observed rows:
 
-- The 14B Qwen3 GGUF may be using slower kernels or a less CPU-friendly quantization path than the Qwen3-Coder MoE file.
-- Dense 14B touches all parameters every token, while Qwen3-Coder 30B-A3B only activates a small expert subset per token.
-- The benchmark prompt/generation mix may favor the MoE architecture more than real OpenCode sessions.
-- `Qwen3-14B-Q5_K_M` may not be the right fast tier for this CPU; test Q4\_K\_M or a smaller coder-oriented model before keeping it.
+| Use | Mode | Threads | Prompt tok/s | Gen tok/s | Notes |
+|---|---|---:|---:|---:|---|
+| Default coding/docs | `qwen3coderq4` | 8/24 | ~142 | ~32.5 | Conservative default; coding tuned |
+| Faster coding candidate | `qwen3coderq3` | 8/24 | ~112 | ~40.5 | Fastest generation; validate quality manually |
+| Prompt ingestion | `qwen36u35bq4kp` | 8/24–8/32 | ~152 | ~26–28 | Fastest prompt processing, less coding-specific |
+| General fallback | `supergemma4q4km` | 8/24–8/32 | ~129 | ~23 | Decent non-Qwen fallback |
+| GLM fallback | `glm47flashq5km` | 8/24 | ~92 | ~21 | Slower than expected here |
+| Dense quality check | `qwen36u27bq5kp` | 8/24 | ~21 | ~3 | Quality-only, not interactive |
 
-Follow-up candidates:
+Rejected fast-tier candidates:
 
-- `Qwen3-14B-Q4_K_M` as a lower-bandwidth dense fallback.
-- `Qwen3-Coder-30B-A3B-Instruct-Q3_K_M` as a faster coder-tier comparison.
-- `Qwen3-8B-Q5_K_M` or `Qwen3-8B-Q4_K_M` if a genuinely fast low-latency tier is still needed.
-- `Qwen3.6-35B-A3B IQ4_NL` to see whether the fast prompt-ingestion MoE also improves generation versus Q4\_K\_P.
+- `qwen3fast:q5` and `qwen3fast:q4` were much slower than the MoE models.
+- `qwen38b:q5` and `qwen38b:q4` were faster than `qwen3fast`, but still not competitive with `qwen3coderq4`.
+- `qwen36u35b:iq4nl` did not beat `qwen36u35b:q4kp`.
 
-Tomorrow's i9 benchmark plan:
+The benchmark script accepts legacy mode names like `qwen3coder` and explicit quantized presets like `qwen3coder:q4`, but the canonical script/OpenCode names include the quantization suffix.
+
+The active benchmark set is `qwen3coderq4`, `qwen3coderq3`, `qwen36u27bq5kp`, `qwen36u35bq4kp`, `gemma4q5km`, `supergemma4q4km`, and `glm47flashq5km`.
+
+The `all`, `today`, and `tomorrow` benchmark groups now use only the pruned active model list. `all` covers every active preset, `today` keeps the conservative comparison set, and `tomorrow` is the focused follow-up set. For normal future checks, benchmark explicit presets instead of rerunning the full matrix.
+
+To free disk space after benchmarking rejected candidates:
 
 ```bash
-./download-models-i9.sh
-./setup-opencode-i9.sh
-./bench-i9.sh tomorrow
-./summarize-bench.py bench-results/*-summary.tsv
+./cleanup-models-i9.sh
+./cleanup-models-i9.sh --apply
 ```
-
-The benchmark script accepts either legacy mode names like `qwen3coderq3` or explicit quantized presets like `qwen3coder:q3`. Use the explicit `preset:quant` form for new benchmark notes.
-
-The `tomorrow` group runs `qwen3coder:q4`, `qwen3coder:q3`, `qwen36u35b:q4kp`, `qwen36u35b:iq4nl`, `qwen3fast:q4`, `qwen38b:q5`, and `qwen38b:q4`.
-
-The `today` group records the model set from the run that started before the extra candidates were added: `qwen3coder:q4`, `qwen3fast:q5`, `qwen36u27b:q5kp`, `qwen36u35b:q4kp`, `gemma4:q5km`, `supergemma4:q4km`, and `glm47flash:q5km`.
-
-Compare tomorrow's results against the existing `qwen3fast` Q5 result before deciding whether the dense fast tier is useful. The default i9 sweep is now `6 8` threads with `24 32` batch threads because `10` and `12` were consistently worse in the first completed results.
 
 ## Key lessons
 
@@ -230,5 +226,5 @@ Compare tomorrow's results against the existing `qwen3fast` Q5 result before dec
 5. **i9 has no AVX512** — despite being 13th gen Raptor Lake; use AVX2 build only
 6. **Prompt cache is critical** — first message is slow; subsequent messages hit cache and are fast
 7. **`-rea off`** — disables thinking mode; cuts response time 50–80% for coding tasks
-8. **MoE active-parameter ceiling** — 3B active params is the real intelligence limit regardless of quantization level; for more intelligence use a dense model like `qwen36u27b`
-9. **GLM-4.7-Flash > Qwen3-Coder** at the same active-param count due to MLA attention architecture
+8. **MoE active-parameter ceiling** — 3B active params is the real intelligence limit regardless of quantization level; for more intelligence use a dense model like `qwen36u27bq5kp`
+9. **GLM-4.7-Flash is not faster than Qwen3-Coder on this i9** — despite MLA, measured throughput was lower than the Qwen MoE models
