@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Benchmarks ik_llama.cpp CPU thread settings on the i9.
 # Usage:
-#   ./bench-i9.sh [preset|preset:quant|all|today|tomorrow|coder]
+#   ./bench-i9.sh [preset|preset:quant|all|today|tomorrow|coder|dense|quality]
 #
 # Environment overrides:
 #   IK_LLAMA_DIR=/data/llm/ik_llama
@@ -18,10 +18,12 @@ IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
 MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
 BENCH="$IK_LLAMA_DIR/build/bin/llama-bench"
 MODE="${1:-qwen3coderq4}"
-MODES=(qwen3coderq5km qwen3coderq4 qwen3coderq3 qwen36u27bq5kp qwen36u35bq4kp gemma4q5km supergemma4q4km glm47flashq5km)
+MODES=(qwen332bq5km qwen332bq4km qwen25coder32bq5km qwen25coder32bq4km qwen3coderq5km qwen3coderq4 qwen3coderq3 qwen36u27bq5kp qwen36u35bq4kp gemma4q5km supergemma4q4km glm47flashq5km)
 TODAY_MODES=(qwen3coderq4 qwen36u27bq5kp qwen36u35bq4kp gemma4q5km supergemma4q4km glm47flashq5km)
-TOMORROW_MODES=(qwen3coderq5km qwen3coderq4 qwen3coderq3 qwen36u35bq4kp)
+TOMORROW_MODES=(qwen332bq5km qwen332bq4km qwen25coder32bq5km qwen25coder32bq4km qwen3coderq5km qwen3coderq4)
 CODER_MODES=(qwen3coderq5km qwen3coderq4 qwen3coderq3)
+DENSE_MODES=(qwen332bq5km qwen332bq4km qwen25coder32bq5km qwen25coder32bq4km)
+QUALITY_MODES=(qwen332bq5km qwen332bq4km qwen25coder32bq5km qwen25coder32bq4km qwen36u27bq5kp qwen3coderq5km qwen3coderq4)
 
 THREADS="${BENCH_THREADS:-6 8}"
 THREADS_BATCH="${BENCH_THREADS_BATCH:-24 32}"
@@ -31,12 +33,16 @@ REPETITIONS="${BENCH_REPETITIONS:-3}"
 OUT_DIR="${BENCH_OUT_DIR:-$PWD/bench-results}"
 
 usage() {
-  echo "Usage: $0 [preset|preset:quant|all|today|tomorrow|coder]" >&2
-  echo "Presets: qwen3coderq5km, qwen3coderq4, qwen3coderq3, qwen36u27bq5kp, qwen36u35bq4kp, gemma4q5km, supergemma4q4km, glm47flashq5km" >&2
+  echo "Usage: $0 [preset|preset:quant|all|today|tomorrow|coder|dense|quality]" >&2
+  echo "Presets: qwen332bq5km, qwen332bq4km, qwen25coder32bq5km, qwen25coder32bq4km, qwen3coderq5km, qwen3coderq4, qwen3coderq3, qwen36u27bq5kp, qwen36u35bq4kp, gemma4q5km, supergemma4q4km, glm47flashq5km" >&2
 }
 
 normalize_mode() {
   case "$1" in
+    qwen332b:q5|qwen332bq5|qwen332bq5km) echo "qwen332bq5km" ;;
+    qwen332b|qwen332b:q4|qwen332bq4|qwen332bq4km) echo "qwen332bq4km" ;;
+    qwen25coder32b:q5|qwen25coder32bq5|qwen25coder32bq5km) echo "qwen25coder32bq5km" ;;
+    qwen25coder32b|qwen25coder32b:q4|qwen25coder32bq4|qwen25coder32bq4km) echo "qwen25coder32bq4km" ;;
     qwen3coder:q5|qwen3coderq5|qwen3coderq5km) echo "qwen3coderq5km" ;;
     qwen3coder|qwen3coder:q4|qwen3coderq4) echo "qwen3coderq4" ;;
     qwen3coder:q3|qwen3coderq3) echo "qwen3coderq3" ;;
@@ -51,6 +57,10 @@ normalize_mode() {
 
 model_for_mode() {
   case "$(normalize_mode "$1")" in
+    qwen332bq5km)     echo "Qwen3-32B-Q5_K_M.gguf" ;;
+    qwen332bq4km)     echo "Qwen3-32B-Q4_K_M.gguf" ;;
+    qwen25coder32bq5km) echo "Qwen2.5-Coder-32B-Instruct-Q5_K_M.gguf" ;;
+    qwen25coder32bq4km) echo "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf" ;;
     qwen3coderq5km)   echo "Qwen3-Coder-30B-A3B-Instruct-Q5_K_M.gguf" ;;
     qwen3coderq4)     echo "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ;;
     qwen3coderq3)     echo "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf" ;;
@@ -77,6 +87,10 @@ elif [ "$MODE" = "tomorrow" ]; then
   RUN_MODES=("${TOMORROW_MODES[@]}")
 elif [ "$MODE" = "coder" ]; then
   RUN_MODES=("${CODER_MODES[@]}")
+elif [ "$MODE" = "dense" ]; then
+  RUN_MODES=("${DENSE_MODES[@]}")
+elif [ "$MODE" = "quality" ]; then
+  RUN_MODES=("${QUALITY_MODES[@]}")
 elif normalized_mode=$(normalize_mode "$MODE") && model_for_mode "$normalized_mode" >/dev/null; then
   RUN_MODES=("$normalized_mode")
 else
