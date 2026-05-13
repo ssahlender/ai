@@ -24,21 +24,67 @@ fi
 
 mkdir -p "$MODELS_DIR"
 
+is_bad_download() {
+  local file="$1" size
+  size=$(wc -c < "$file")
+  if [ "$size" -ge 1048576 ]; then
+    return 1
+  fi
+
+  return 0
+}
+
 download_if_missing() {
   local repo="$1" file="$2"
   local dest="$MODELS_DIR/$file"
   if [ -f "$dest" ]; then
-    echo "Already present: $file"
-    return
+    if is_bad_download "$dest"; then
+      echo "Removing invalid partial/error download: $file"
+      rm -f "$dest"
+    else
+      echo "Already present: $file"
+      return
+    fi
+  fi
+
+  local tmp="$dest.part"
+  if [ -f "$tmp" ]; then
+    echo "Removing old partial download: $tmp"
+    rm -f "$tmp"
   fi
 
   echo "Downloading $file..."
-  local curl_args=(-L --progress-bar --cacert "$SSL_CERT_FILE" -o "$dest")
+  local curl_args=(-fL --progress-bar --cacert "$SSL_CERT_FILE" -o "$tmp")
   if [ -n "$HF_TOKEN" ]; then
     curl_args+=(-H "Authorization: Bearer $HF_TOKEN")
   fi
-  curl "${curl_args[@]}" "${HF_BASE}/${repo}/resolve/main/${file}"
+
+  if ! curl "${curl_args[@]}" "${HF_BASE}/${repo}/resolve/main/${file}"; then
+    rm -f "$tmp"
+    echo "Download failed: ${HF_BASE}/${repo}/resolve/main/${file}" >&2
+    exit 1
+  fi
+
+  if is_bad_download "$tmp"; then
+    rm -f "$tmp"
+    echo "Downloaded file looks like an error page, not a GGUF: $file" >&2
+    exit 1
+  fi
+
+  mv "$tmp" "$dest"
 }
+
+download_if_present() {
+  local file="$1"
+  local dest="$MODELS_DIR/$file"
+  if [ -f "$dest" ] && is_bad_download "$dest"; then
+    echo "Removing invalid partial/error download: $file"
+    rm -f "$dest"
+  fi
+}
+
+download_if_present "Qwen2.5-Coder-32B-Instruct-Q5_K_M.gguf"
+download_if_present "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"
 
 # --- Qwen3.6 ---
 download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive      Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf
@@ -54,8 +100,8 @@ download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF                Qwe
 download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF                Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf
 
 # --- Qwen2.5 dense coding tier ---
-download_if_missing Qwen/Qwen2.5-Coder-32B-Instruct-GGUF                     Qwen2.5-Coder-32B-Instruct-Q5_K_M.gguf
-download_if_missing Qwen/Qwen2.5-Coder-32B-Instruct-GGUF                     Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf
+download_if_missing Qwen/Qwen2.5-Coder-32B-Instruct-GGUF                     qwen2.5-coder-32b-instruct-q5_k_m.gguf
+download_if_missing Qwen/Qwen2.5-Coder-32B-Instruct-GGUF                     qwen2.5-coder-32b-instruct-q4_k_m.gguf
 
 # --- Gemma 4 ---
 download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                         gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
