@@ -23,7 +23,8 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `start-probook.sh <mode>` | Start llama-server on ProBook (runs from WSL2) |
 | `start-i9.sh <mode>` | Start llama-server on i9 |
 | `bench-i9.sh <mode>` | Benchmark i9 CPU thread settings with llama-bench |
-| `bench-i9-coder.sh` | Focused i9 Qwen3-Coder Q8/Q6/Q5 benchmark |
+| `bench-i9-coder.sh` | Focused i9 coding-quality benchmark alias |
+| `bench-i9-qwen36.sh` | Focused i9 Qwen3.6 35B/27B benchmark |
 | `bench-probook.sh <mode>` | Benchmark ProBook CPU thread settings with Windows llama-bench.exe |
 | `setup-opencode-probook.sh` | Auto-generate OpenCode provider config from start script |
 | `setup-opencode-i9.sh` | Auto-generate OpenCode provider config from start script |
@@ -53,7 +54,7 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update-i9.sh
 ./download-models-i9.sh
 ./setup-opencode-i9.sh
-./start-i9.sh qwen3coderq5km   # or: qwen3coderq6k qwen3coderq8 qwen36u27bq5kp qwen36u35bq4kp gemma4q5km supergemma4q4km glm47flashq5km
+./start-i9.sh qwen36u35bq5kp   # or: qwen36u35bq6kp qwen36u35bq8kp qwen36u35bq4kp qwen36u27bq5kp gemma4q5km supergemma4q4km glm47flashq5km
 ./cleanup-models-i9.sh     # dry-run obsolete GGUF cleanup
 ```
 
@@ -63,7 +64,7 @@ For OpenCode edit loops where "Preparing write" feels slow, first try the same c
 model with a smaller active context:
 
 ```bash
-IK_LLAMA_CTX_SIZE=32768 ./start-i9.sh qwen3coderq5km
+IK_LLAMA_CTX_SIZE=32768 ./start-i9.sh qwen36u35bq5kp
 ```
 
 Use the normal 64K default again when the session really needs the extra context.
@@ -71,12 +72,13 @@ Use the normal 64K default again when the session really needs the extra context
 Benchmark thread settings:
 
 ```bash
-./bench-i9.sh qwen3coderq5km
+./bench-i9.sh qwen36u35bq5kp
 ./bench-i9.sh all
 ./bench-i9.sh tomorrow
 ./bench-i9.sh coder
-./bench-i9-coder.sh
-BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen3coderq5km
+./bench-i9-qwen36.sh
+./bench-i9.sh qwen36
+BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen36u35bq5kp
 ```
 
 To compare results, start with the generated `*-summary.tsv`, then inspect the referenced CSV files. Look for the highest prompt processing throughput (`pp`/prompt tok/s) that does not hurt generation throughput (`tg`/generation tok/s). For OpenCode, prefer the best overall balance over the absolute highest prompt-only score.
@@ -104,11 +106,11 @@ Summarize benchmark CSVs:
 
 | Mode | Model | Size | Context | Notes |
 |---|---|---|---|---|
-| `qwen3coderq8` | Qwen3-Coder-30B-A3B-Instruct Q8\_0 | ~30 GB | 64 K | Highest-quant MoE quality check |
-| `qwen3coderq6k` | Qwen3-Coder-30B-A3B-Instruct Q6\_K | ~23–27 GB | 64 K | Higher-quant MoE quality check |
-| `qwen3coderq5km` | Qwen3-Coder-30B-A3B-Instruct Q5\_K\_M | ~23 GB | 64 K | Current MoE quality/responsiveness baseline |
 | `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P | ~20 GB | 64 K | 27B dense — all params active |
 | `qwen36u35bq4kp` | Qwen3.6-35B-A3B-Uncensored Q4\_K\_P | ~21 GB | 64 K | 35B MoE, 3B active |
+| `qwen36u35bq5kp` | Qwen3.6-35B-A3B-Uncensored Q5\_K\_P | ~28 GB | 64 K | Next likely quality/speed default |
+| `qwen36u35bq6kp` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 64 K | Main quality candidate |
+| `qwen36u35bq8kp` | Qwen3.6-35B-A3B-Uncensored Q8\_K\_P | ~44 GB | 32 K default | Quality ceiling; memory-tight on 64 GB |
 | `gemma4q5km` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | 26B MoE, 4B active |
 | `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | Uncensored Gemma4 fine-tune |
 | `glm47flashq5km` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | 30B MoE, 3B active, coding-focused |
@@ -192,9 +194,9 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 ### i9 speed notes
 
-The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27bq5kp` is the retained dense quality option, but it is not interactive. For responsive coding, Qwen3-Coder A3B is now testing Q5/Q6/Q8 to see whether higher quantization fixes quality enough. Speed benchmarks do not decide the default by themselves; manual code quality does.
+The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27bq5kp` is the retained dense quality option, but it is not interactive. Qwen3-Coder A3B failed manual quality even at Q8, so the next responsive-quality track is Qwen3.6 35B-A3B with higher HauhauCS K_P quants. Speed benchmarks do not decide the default by themselves; manual code quality does.
 
-- Test `qwen3coderq5km`, `qwen3coderq6k`, and `qwen3coderq8` for responsiveness/quality. If Q8 still fails like Q3/Q4, remove the whole Qwen3-Coder A3B family.
+- Test `qwen36u35bq5kp`, `qwen36u35bq6kp`, and `qwen36u35bq8kp` for responsiveness/quality. Use Q8 at 32K first because it is memory-tight.
 - Keep context as low as the task allows; 64K/128K context improves long sessions but slows prompt processing and grows KV memory.
 - Use `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default i9 startup point.
 - Avoid `IK_LLAMA_THREADS=10` and `12`; benchmarks were consistently worse than `6` and `8`.
@@ -228,11 +230,11 @@ Rejected fast-tier candidates:
 - `qwen332b:q4/q5` and `qwen25coder32b:q4/q5` were all around 3–3.6 gen tok/s.
 - `qwen3coderq3` and `qwen3coderq4` were responsive but not useful in manual coding tests.
 
-The benchmark script accepts explicit quantized presets like `qwen3coder:q5`, `qwen3coder:q6`, and `qwen3coder:q8`, but the canonical script/OpenCode names include the quantization suffix.
+The benchmark script accepts explicit quantized presets like `qwen36u35b:q5kp`, `qwen36u35b:q6kp`, and `qwen36u35b:q8kp`, but the canonical script/OpenCode names include the quantization suffix.
 
-The active benchmark set is `qwen3coderq8`, `qwen3coderq6k`, `qwen3coderq5km`, `qwen36u27bq5kp`, `qwen36u35bq4kp`, `gemma4q5km`, `supergemma4q4km`, and `glm47flashq5km`.
+The active benchmark set is `qwen36u35bq4kp`, `qwen36u35bq5kp`, `qwen36u35bq6kp`, `qwen36u35bq8kp`, `qwen36u27bq5kp`, `gemma4q5km`, `supergemma4q4km`, and `glm47flashq5km`.
 
-The `all`, `today`, `tomorrow`, and `coder` benchmark groups now use only the active model list. `all` and `today` cover the retained models, `tomorrow` checks Qwen3-Coder Q8/Q6/Q5 against `qwen36u27bq5kp`, and `coder` runs the Qwen3-Coder Q8/Q6/Q5 comparison.
+The `all`, `today`, `tomorrow`, `coder`, and `qwen36` benchmark groups now use only the active model list. `tomorrow` checks Qwen3.6 35B-A3B Q5/Q6/Q8 against `qwen36u27bq5kp`, and `qwen36` runs the full Qwen3.6 comparison.
 
 For OpenCode, keep `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default. `6/24` can be useful when prompt ingestion dominates a long-context session. Avoid `8/32` as a default: the Q5 generation gain is negligible compared with the prompt throughput loss.
 
@@ -257,6 +259,8 @@ To free disk space after benchmarking rejected candidates:
 ./cleanup-models-i9.sh
 ./cleanup-models-i9.sh --apply
 ```
+
+The cleanup list includes the rejected Qwen3-Coder Q3/Q4/Q5/Q6/Q8 files.
 
 ## Key lessons
 

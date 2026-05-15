@@ -35,6 +35,9 @@ obsolete_models=(
   "qwen2.5-coder-32b-instruct-q4_k_m.gguf"
   "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
   "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf"
+  "Qwen3-Coder-30B-A3B-Instruct-Q5_K_M.gguf"
+  "Qwen3-Coder-30B-A3B-Instruct-Q6_K.gguf"
+  "Qwen3-Coder-30B-A3B-Instruct-Q8_0.gguf"
 )
 
 echo "Model directory: $MODELS_DIR"

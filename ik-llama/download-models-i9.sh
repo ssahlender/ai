@@ -89,11 +89,9 @@ download_if_present "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"
 # --- Qwen3.6 ---
 download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive      Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf
 download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf
-
-# --- Qwen3 coding tier ---
-download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF                Qwen3-Coder-30B-A3B-Instruct-Q8_0.gguf
-download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF                Qwen3-Coder-30B-A3B-Instruct-Q6_K.gguf
-download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF                Qwen3-Coder-30B-A3B-Instruct-Q5_K_M.gguf
+download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf
+download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf
+download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q8_K_P.gguf
 
 # --- Gemma 4 ---
 download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                         gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
