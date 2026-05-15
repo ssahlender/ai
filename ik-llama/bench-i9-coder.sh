@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Focused i9 benchmark for Qwen3-Coder quantization tradeoffs.
+# Focused i9 benchmark for the current coding-quality candidates.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
