@@ -17,6 +17,7 @@ run ./opencode-update.sh
 run ./codex-update.sh
 run ./hf-update.sh
 run ./hermes-update.sh
+run ./rtk-update.sh
 
 # Ollama is only present on machines that use it (Mac, etc.)
 if command -v ollama >/dev/null 2>&1; then

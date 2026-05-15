@@ -8,7 +8,7 @@ Scripts for running local AI tools across multiple machines.
 |---|---|
 | `ik-llama/` | CPU-only LLM inference with ik_llama.cpp — models, server, OpenCode config (ProBook, i9) |
 | `ollama/` | GPU-accelerated Ollama inference for Apple Silicon (MacBook Air M4) |
-| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, nvm, hf) |
+| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, nvm, hf, RTK) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
 ---
@@ -27,7 +27,7 @@ Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.s
 ./update-all.sh
 ```
 
-Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `hermes-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`. Each `*-update.sh` upgrades only if already installed and skips otherwise — run `*-install.sh` for new tools.
+Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `hermes-update.sh` → `rtk-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`. Each `*-update.sh` upgrades only if already installed and skips otherwise — run `*-install.sh` for new tools.
 
 ---
 
@@ -94,6 +94,18 @@ The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `h
 |---|---|
 | `hermes-install.sh` | `$BREW install hermes-agent` |
 | `hermes-update.sh` | `$BREW upgrade hermes-agent` (skips if not installed) |
+
+---
+
+### RTK (Rust Token Killer)
+
+| Script | What it does |
+|---|---|
+| `rtk-install.sh` | `$BREW install rtk`, then initializes Claude Code, Codex, and OpenCode integrations |
+| `rtk-update.sh` | `$BREW upgrade rtk`, then refreshes Claude Code, Codex, and OpenCode integrations (skips if not installed) |
+| `rtk-init.sh` | Runs `rtk init -g`, `rtk init -g --codex`, and `rtk init -g --opencode` |
+
+RTK compresses command output before it reaches coding agents. After install/update, restart the affected agent sessions so hooks/plugins are loaded.
 
 ---
 
