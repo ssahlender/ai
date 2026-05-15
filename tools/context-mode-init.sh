@@ -6,7 +6,7 @@ if ! command -v context-mode >/dev/null 2>&1; then
   exit 1
 fi
 
-if command -v claude >/dev/null 2>&1; then
+if [ "${CONTEXT_MODE_ENABLE_CLAUDE:-0}" = "1" ] && command -v claude >/dev/null 2>&1; then
   if claude plugin marketplace list | grep -Eq 'context-mode|mksglu/context-mode'; then
     echo "Claude Code context-mode marketplace already configured"
   else
@@ -19,7 +19,7 @@ if command -v claude >/dev/null 2>&1; then
     claude plugin install context-mode@context-mode
   fi
 else
-  echo "claude not found — skipping Claude Code context-mode plugin"
+  echo "Claude Code context-mode plugin skipped. Set CONTEXT_MODE_ENABLE_CLAUDE=1 to enable it."
 fi
 
 if command -v codex >/dev/null 2>&1; then
@@ -33,11 +33,12 @@ else
 fi
 
 if command -v python3 >/dev/null 2>&1; then
-  python3 - <<'PY'
+  CONTEXT_MODE_ENABLE_OPENCODE="${CONTEXT_MODE_ENABLE_OPENCODE:-0}" python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
+enable_opencode = os.environ.get("CONTEXT_MODE_ENABLE_OPENCODE") == "1"
 config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
 config_path = config_home / "opencode" / "opencode.json"
 config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -51,14 +52,20 @@ else:
     data = {"$schema": "https://opencode.ai/config.json"}
 
 data.setdefault("$schema", "https://opencode.ai/config.json")
-data.setdefault("mcp", {})["context-mode"] = {
-    "type": "local",
-    "command": ["context-mode"],
-    "enabled": True,
-}
+if enable_opencode:
+    data.setdefault("mcp", {})["context-mode"] = {
+        "type": "local",
+        "command": ["context-mode"],
+        "enabled": True,
+    }
+    message = "OpenCode context-mode MCP configured"
+else:
+    if isinstance(data.get("mcp", {}).get("context-mode"), dict):
+        data["mcp"]["context-mode"]["enabled"] = False
+    message = "OpenCode context-mode MCP skipped. Set CONTEXT_MODE_ENABLE_OPENCODE=1 to enable it"
 
 config_path.write_text(json.dumps(data, indent=2) + "\n")
-print(f"OpenCode context-mode MCP configured in {config_path}")
+print(f"{message} in {config_path}")
 PY
 else
   echo "python3 not found — skipping OpenCode context-mode config"

@@ -116,11 +116,35 @@ RTK compresses command output before it reaches coding agents. After install/upd
 | `context-mode-install.sh` | `npm install -g context-mode`, then configures Claude Code, Codex, and OpenCode |
 | `context-mode-update.sh` | `npm update -g context-mode`, then refreshes integrations (skips if not installed) |
 | `context-mode-init.sh` | Re-applies integrations without reinstalling the npm package |
+| `opencode-local-speed.sh` | Disables OpenCode-side helpers that can add latency around local model writes |
 
-Integrations:
-- Claude Code: adds marketplace `mksglu/context-mode`, then installs `context-mode@context-mode`.
+Default integrations:
 - Codex: registers `context-mode` as a user MCP server.
-- OpenCode: writes the `context-mode` local MCP entry into `~/.config/opencode/opencode.json`.
+- OpenCode: skipped by default for local-model speed. Set `CONTEXT_MODE_ENABLE_OPENCODE=1` to write the `context-mode` local MCP entry into `~/.config/opencode/opencode.json`.
+
+Claude Code plugin installation is opt-in because it runs a background Bun plugin process. Enable it explicitly with:
+
+```bash
+CONTEXT_MODE_ENABLE_CLAUDE=1 ./context-mode-install.sh
+CONTEXT_MODE_ENABLE_OPENCODE=1 ./context-mode-init.sh
+```
+
+For local ik_llama.cpp/OpenCode sessions, if "Preparing write" is slow while CPU usage
+is low, disable OpenCode-side helpers and compare:
+
+```bash
+./opencode-local-speed.sh status
+./opencode-local-speed.sh fast
+```
+
+`fast` disables `context-mode` in `opencode.json`, backs up and clears configured
+plugin entries, and moves every auto-loaded file from
+`~/.config/opencode/plugins/` to `~/.config/opencode/plugins.disabled/`.
+Restore the MCP/plugin files with:
+
+```bash
+./opencode-local-speed.sh restore
+```
 
 Restart the affected agent sessions after install/update.
 
@@ -130,12 +154,49 @@ Restart the affected agent sessions after install/update.
 
 | Script | What it does |
 |---|---|
-| `claude-mem-install.sh` | Runs the official `npx -y claude-mem@latest install` flow for Claude Code, Codex CLI, and OpenCode |
-| `claude-mem-update.sh` | Re-runs the installer when claude-mem appears to be installed, otherwise skips |
+| `claude-mem-install.sh` | Installs/enables claude-mem integrations without auto-starting the worker; skips Codex/OpenCode reinstall unless forced |
+| `claude-mem-update.sh` | Reports the available version and skips reinstall by default, because upstream update/install is interactive |
+| `claude-mem-kill.sh` | Stops the claude-mem worker and kills common orphaned Bun/Chroma/MCP subprocesses |
 
-Claude-Mem stores settings under `~/.claude-mem/settings.json` and may install its worker dependencies. Start the worker with `npx -y claude-mem@latest start` and check it with `npx -y claude-mem@latest status` or `curl http://localhost:37700/api/health`.
+Claude-Mem stores settings under `~/.claude-mem/settings.json` and may install worker dependencies. Its worker is a long-running Bun service on port `37700` by default, with Chroma MCP/Python subprocesses for semantic search and an internal Claude Haiku process for memory compression when the Claude provider is used.
 
-Claude Code and OpenCode are installed non-interactively. Codex CLI gets the marketplace and hooks registered non-interactively, but the plugin itself may still need to be selected once from Codex's `/plugins` UI. Restart Claude Code, Codex, and OpenCode after install/update so hooks/plugins are loaded.
+Worker commands:
+
+```bash
+npx -y claude-mem@latest start
+npx -y claude-mem@latest status
+npx -y claude-mem@latest stop
+./claude-mem-kill.sh
+curl http://localhost:37700/api/health
+```
+
+Claude Code plugin installation is opt-in because it starts extra local services, including Bun, Chroma MCP, and an internal Claude process. Enable it explicitly with:
+
+```bash
+CLAUDE_MEM_ENABLE_CLAUDE=1 ./claude-mem-install.sh
+```
+
+OpenCode is installed non-interactively. Codex CLI gets the marketplace and hooks registered non-interactively, but the plugin itself may still need to be selected once from Codex's `/plugins` UI. Restart Codex and OpenCode after install/update so hooks/plugins are loaded.
+
+Operational findings:
+- Do not run claude-mem reinstall from `update-all.sh`: upstream `claude-mem update` currently maps to the same interactive install flow and can prompt with "Overwrite existing installation?".
+- If Claude Code behaves oddly after testing the Claude plugin, disable it with `claude plugin disable claude-mem`, stop the worker with `npx -y claude-mem@latest stop`, and check for leftovers with `ps -eo pid,ppid,etime,cmd | rg -i 'bun|claude-mem|chroma-mcp|claude-haiku'`.
+- To keep the plugin installed/enabled but clear a stuck worker, run `./claude-mem-kill.sh`.
+- To clear the worker and disable the Claude Code plugin in one step, run `./claude-mem-kill.sh --disable-claude`.
+- If Chroma MCP remains after stopping the worker, kill the leftover `chroma-mcp` process before restarting Claude.
+- Keep Claude-Mem enabled first in OpenCode/Codex only; enable the Claude Code plugin only when explicitly testing whether the memory benefit outweighs the background-process cost.
+
+To intentionally reinstall/repair claude-mem during updates:
+
+```bash
+CLAUDE_MEM_UPDATE_REINSTALL=1 ./claude-mem-update.sh
+```
+
+To force the upstream Codex/OpenCode installer again:
+
+```bash
+CLAUDE_MEM_FORCE_INSTALL=1 ./claude-mem-install.sh
+```
 
 ---
 

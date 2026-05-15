@@ -59,6 +59,15 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 
 All i9 start modes default to `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24`. Override these only for explicit benchmark tests.
 
+For OpenCode edit loops where "Preparing write" feels slow, first try the same coder
+model with a smaller active context:
+
+```bash
+IK_LLAMA_CTX_SIZE=32768 ./start-i9.sh qwen3coderq5km
+```
+
+Use the normal 64K default again when the session really needs the extra context.
+
 Benchmark thread settings:
 
 ```bash
@@ -125,6 +134,8 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | `--threads` | 8 | Generation threads (P-cores only). Override: `IK_LLAMA_THREADS` |
 | `--threads-batch` | 24 | Prompt processing threads. Override: `IK_LLAMA_THREADS_BATCH` |
 | `--ctx-size` | 32768–131072 | Context window |
+| `IK_LLAMA_CTX_SIZE` | env override | Override the per-model context size for fast OpenCode edit loops |
+| `IK_LLAMA_CRAM_MB` | env override | Override the per-model KV cache RAM limit |
 | `-sps 0.5` | 0.5 | Slot prompt similarity for cache reuse |
 | `-cram <MB>` | 8192–32768 | KV cache RAM limit |
 | `-crs 0.5` | 0.5 | Cache similarity threshold |
@@ -224,6 +235,21 @@ The active benchmark set is `qwen3coderq8`, `qwen3coderq6k`, `qwen3coderq5km`, `
 The `all`, `today`, `tomorrow`, and `coder` benchmark groups now use only the active model list. `all` and `today` cover the retained models, `tomorrow` checks Qwen3-Coder Q8/Q6/Q5 against `qwen36u27bq5kp`, and `coder` runs the Qwen3-Coder Q8/Q6/Q5 comparison.
 
 For OpenCode, keep `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default. `6/24` can be useful when prompt ingestion dominates a long-context session. Avoid `8/32` as a default: the Q5 generation gain is negligible compared with the prompt throughput loss.
+
+If OpenCode shows "Preparing write" while CPU usage stays low, suspect OpenCode-side
+helpers before changing CPU threads. Disable OpenCode MCP/plugins for an A/B test:
+
+```bash
+../tools/opencode-local-speed.sh status
+../tools/opencode-local-speed.sh fast
+opencode mcp list
+```
+
+With local ik_llama.cpp, keep `context-mode` disabled unless you explicitly need it:
+
+```bash
+CONTEXT_MODE_ENABLE_OPENCODE=1 ../tools/context-mode-init.sh
+```
 
 To free disk space after benchmarking rejected candidates:
 

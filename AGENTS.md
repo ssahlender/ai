@@ -11,6 +11,7 @@ See [`ik-llama/AGENTS.md`](ik-llama/AGENTS.md) for full setup:
 - OpenCode provider config (setup scripts for ProBook and i9)
 - Claude Code environment variables and model names
 - Disabling the KV cache attribution header (causes ~90% slowdown with local servers)
+- OpenCode local-speed mode for disabling MCP/plugins when local writes stall with low CPU
 - WSL2 memory config
 - Prompt cache warmup tip
 
