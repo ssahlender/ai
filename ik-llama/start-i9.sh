@@ -36,6 +36,8 @@ start_model() {
   local name="$1" model="$2" ctx="${3:-32768}" cram="${4:-16384}"; shift 4
   local threads="${IK_LLAMA_THREADS:-8}"
   local threads_batch="${IK_LLAMA_THREADS_BATCH:-24}"
+  ctx="${IK_LLAMA_CTX_SIZE:-$ctx}"
+  cram="${IK_LLAMA_CRAM_MB:-$cram}"
   echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB, threads=${threads}, threads_batch=${threads_batch})..."
   "$SERVER" \
     -m "$MODELS_DIR/$model" \
