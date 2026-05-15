@@ -23,7 +23,7 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `start-probook.sh <mode>` | Start llama-server on ProBook (runs from WSL2) |
 | `start-i9.sh <mode>` | Start llama-server on i9 |
 | `bench-i9.sh <mode>` | Benchmark i9 CPU thread settings with llama-bench |
-| `bench-i9-coder.sh` | Focused i9 Qwen3-Coder Q5/Q4/Q3 benchmark |
+| `bench-i9-coder.sh` | Focused i9 Qwen3-Coder Q8/Q6/Q5 benchmark |
 | `bench-probook.sh <mode>` | Benchmark ProBook CPU thread settings with Windows llama-bench.exe |
 | `setup-opencode-probook.sh` | Auto-generate OpenCode provider config from start script |
 | `setup-opencode-i9.sh` | Auto-generate OpenCode provider config from start script |
@@ -53,9 +53,11 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update-i9.sh
 ./download-models-i9.sh
 ./setup-opencode-i9.sh
-./start-i9.sh qwen3coderq5km   # or: qwen36u27bq5kp qwen36u35bq4kp gemma4q5km supergemma4q4km glm47flashq5km
+./start-i9.sh qwen3coderq5km   # or: qwen3coderq6k qwen3coderq8 qwen36u27bq5kp qwen36u35bq4kp gemma4q5km supergemma4q4km glm47flashq5km
 ./cleanup-models-i9.sh     # dry-run obsolete GGUF cleanup
 ```
+
+All i9 start modes default to `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24`. Override these only for explicit benchmark tests.
 
 Benchmark thread settings:
 
@@ -93,7 +95,9 @@ Summarize benchmark CSVs:
 
 | Mode | Model | Size | Context | Notes |
 |---|---|---|---|---|
-| `qwen3coderq5km` | Qwen3-Coder-30B-A3B-Instruct Q5\_K\_M | ~23 GB | 64 K | Last MoE responsiveness test; Q3/Q4 failed manual quality |
+| `qwen3coderq8` | Qwen3-Coder-30B-A3B-Instruct Q8\_0 | ~30 GB | 64 K | Highest-quant MoE quality check |
+| `qwen3coderq6k` | Qwen3-Coder-30B-A3B-Instruct Q6\_K | ~23–27 GB | 64 K | Higher-quant MoE quality check |
+| `qwen3coderq5km` | Qwen3-Coder-30B-A3B-Instruct Q5\_K\_M | ~23 GB | 64 K | Current MoE quality/responsiveness baseline |
 | `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P | ~20 GB | 64 K | 27B dense — all params active |
 | `qwen36u35bq4kp` | Qwen3.6-35B-A3B-Uncensored Q4\_K\_P | ~21 GB | 64 K | 35B MoE, 3B active |
 | `gemma4q5km` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | 26B MoE, 4B active |
@@ -170,14 +174,14 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 ### i9-13900 (Raptor Lake, AVX2)
 
-- `qwen3coderq4` best default row: ~142 prompt tok/s, ~32.5 gen tok/s at `8/24`
-- `qwen3coderq3` fastest generation row: ~112 prompt tok/s, ~40.5 gen tok/s at `8/24` (quality check still needed)
+- `qwen3coderq5km` retained MoE test row: ~110.6 prompt tok/s, ~29.8 gen tok/s at `8/24`
+- 32B dense candidates were only ~13.5–14.2 prompt tok/s and ~3.0–3.6 gen tok/s
 
 ### i9 speed notes
 
-The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27bq5kp` is the retained dense quality option, but it is not interactive. For responsive coding, only `qwen3coderq5km` remains as a final MoE sanity check.
+The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27bq5kp` is the retained dense quality option, but it is not interactive. For responsive coding, Qwen3-Coder A3B is now testing Q5/Q6/Q8 to see whether higher quantization fixes quality enough. Speed benchmarks do not decide the default by themselves; manual code quality does.
 
-- Test `qwen3coderq5km` once for responsiveness/quality. If it fails like Q3/Q4, remove the whole Qwen3-Coder A3B family.
+- Test `qwen3coderq5km`, `qwen3coderq6k`, and `qwen3coderq8` for responsiveness/quality. If Q8 still fails like Q3/Q4, remove the whole Qwen3-Coder A3B family.
 - Keep context as low as the task allows; 64K/128K context improves long sessions but slows prompt processing and grows KV memory.
 - Use `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default i9 startup point.
 - Avoid `IK_LLAMA_THREADS=10` and `12`; benchmarks were consistently worse than `6` and `8`.
@@ -191,7 +195,9 @@ Best observed rows:
 
 | Use | Mode | Threads | Prompt tok/s | Gen tok/s | Notes |
 |---|---|---:|---:|---:|---|
-| Coder Q5 MoE sanity check | `qwen3coderq5km` | 8/24 | ~111 | ~29.5 | Faster than dense models; quality still needs manual pass |
+| Coder Q8 MoE quality check | `qwen3coderq8` | pending | pending | pending | Highest-quant Qwen3-Coder A3B test |
+| Coder Q6 MoE quality check | `qwen3coderq6k` | pending | pending | pending | Middle step between Q5 and Q8 |
+| Coder Q5 MoE sanity check | `qwen3coderq5km` | 8/24 | ~110.6 | ~29.8 | Faster than dense models; quality decides whether it stays |
 | Rejected dense Qwen3 | `qwen332bq4km`/`qwen332bq5km` | 8/24 | ~13.5–13.7 | ~3.1–3.6 | Too slow for OpenCode daily use |
 | Rejected dense coder | `qwen25coder32bq4km`/`qwen25coder32bq5km` | 8/24 | ~14.1 | ~3.1–3.5 | Too slow for OpenCode daily use |
 | Rejected coder Q4 | `qwen3coderq4` | 8/24 | ~114 | ~33 | Responsive but failed manual quality |
@@ -209,11 +215,11 @@ Rejected fast-tier candidates:
 - `qwen332b:q4/q5` and `qwen25coder32b:q4/q5` were all around 3–3.6 gen tok/s.
 - `qwen3coderq3` and `qwen3coderq4` were responsive but not useful in manual coding tests.
 
-The benchmark script accepts explicit quantized presets like `qwen3coder:q5`, but the canonical script/OpenCode names include the quantization suffix.
+The benchmark script accepts explicit quantized presets like `qwen3coder:q5`, `qwen3coder:q6`, and `qwen3coder:q8`, but the canonical script/OpenCode names include the quantization suffix.
 
-The active benchmark set is `qwen3coderq5km`, `qwen36u27bq5kp`, `qwen36u35bq4kp`, `gemma4q5km`, `supergemma4q4km`, and `glm47flashq5km`.
+The active benchmark set is `qwen3coderq8`, `qwen3coderq6k`, `qwen3coderq5km`, `qwen36u27bq5kp`, `qwen36u35bq4kp`, `gemma4q5km`, `supergemma4q4km`, and `glm47flashq5km`.
 
-The `all`, `today`, `tomorrow`, and `coder` benchmark groups now use only the active model list. `all` and `today` cover the retained models, `tomorrow` checks `qwen3coderq5km` against `qwen36u27bq5kp`, and `coder` runs only the remaining Qwen3-Coder Q5 check.
+The `all`, `today`, `tomorrow`, and `coder` benchmark groups now use only the active model list. `all` and `today` cover the retained models, `tomorrow` checks Qwen3-Coder Q8/Q6/Q5 against `qwen36u27bq5kp`, and `coder` runs the Qwen3-Coder Q8/Q6/Q5 comparison.
 
 To free disk space after benchmarking rejected candidates:
 
