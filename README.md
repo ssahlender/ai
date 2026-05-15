@@ -8,14 +8,14 @@ Scripts for running local AI tools across multiple machines.
 |---|---|
 | `ik-llama/` | CPU-only LLM inference with ik_llama.cpp — models, server, OpenCode config (ProBook, i9) |
 | `ollama/` | GPU-accelerated Ollama inference for Apple Silicon (MacBook Air M4) |
-| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, nvm, hf, RTK) |
+| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, nvm, hf, RTK, context-mode, claude-mem) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
 ---
 
 ## tools/
 
-Install and update scripts for AI coding tools. All tools are installed via Homebrew — consistent across macOS and Linux. Run scripts individually or use `update-all.sh` to update everything at once.
+Install and update scripts for AI coding tools. Core CLIs are installed via Homebrew where available; Node-based agent integrations use npm/npx. Run scripts individually or use `update-all.sh` to update everything at once.
 
 ### Machine detection
 
@@ -27,7 +27,7 @@ Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.s
 ./update-all.sh
 ```
 
-Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `hermes-update.sh` → `rtk-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`. Each `*-update.sh` upgrades only if already installed and skips otherwise — run `*-install.sh` for new tools.
+Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `hermes-update.sh` → `rtk-update.sh` → `context-mode-update.sh` → `claude-mem-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`. Each `*-update.sh` upgrades only if already installed and skips otherwise — run `*-install.sh` for new tools.
 
 ---
 
@@ -106,6 +106,36 @@ The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `h
 | `rtk-init.sh` | Runs `rtk init -g`, `rtk init -g --codex`, and `rtk init -g --opencode` |
 
 RTK compresses command output before it reaches coding agents. After install/update, restart the affected agent sessions so hooks/plugins are loaded.
+
+---
+
+### Context Mode
+
+| Script | What it does |
+|---|---|
+| `context-mode-install.sh` | `npm install -g context-mode`, then configures Claude Code, Codex, and OpenCode |
+| `context-mode-update.sh` | `npm update -g context-mode`, then refreshes integrations (skips if not installed) |
+| `context-mode-init.sh` | Re-applies integrations without reinstalling the npm package |
+
+Integrations:
+- Claude Code: adds marketplace `mksglu/context-mode`, then installs `context-mode@context-mode`.
+- Codex: registers `context-mode` as a user MCP server.
+- OpenCode: writes the `context-mode` local MCP entry into `~/.config/opencode/opencode.json`.
+
+Restart the affected agent sessions after install/update.
+
+---
+
+### Claude-Mem
+
+| Script | What it does |
+|---|---|
+| `claude-mem-install.sh` | Runs the official `npx -y claude-mem@latest install` flow for Claude Code, Codex CLI, and OpenCode |
+| `claude-mem-update.sh` | Re-runs the installer when claude-mem appears to be installed, otherwise skips |
+
+Claude-Mem stores settings under `~/.claude-mem/settings.json` and may install its worker dependencies. Start the worker with `npx -y claude-mem@latest start` and check it with `npx -y claude-mem@latest status` or `curl http://localhost:37700/api/health`.
+
+Claude Code and OpenCode are installed non-interactively. Codex CLI gets the marketplace and hooks registered non-interactively, but the plugin itself may still need to be selected once from Codex's `/plugins` UI. Restart Claude Code, Codex, and OpenCode after install/update so hooks/plugins are loaded.
 
 ---
 
