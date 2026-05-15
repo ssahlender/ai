@@ -174,8 +174,10 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 ### i9-13900 (Raptor Lake, AVX2)
 
-- `qwen3coderq5km` retained MoE test row: ~110.6 prompt tok/s, ~29.8 gen tok/s at `8/24`
-- 32B dense candidates were only ~13.5–14.2 prompt tok/s and ~3.0–3.6 gen tok/s
+- `qwen3coderq5km`: ~110.6 prompt tok/s, ~29.8 gen tok/s at `8/24`; best generation row was ~30.0 gen tok/s at `8/32`, but prompt ingestion dropped to ~90.7 tok/s.
+- `qwen3coderq6k`: ~102.1 prompt tok/s, ~25.6 gen tok/s at `8/24`.
+- `qwen3coderq8`: ~105.8 prompt tok/s, ~20.7 gen tok/s at `8/24`.
+- 32B dense candidates were only ~13.5–14.2 prompt tok/s and ~3.0–3.6 gen tok/s.
 
 ### i9 speed notes
 
@@ -195,9 +197,9 @@ Best observed rows:
 
 | Use | Mode | Threads | Prompt tok/s | Gen tok/s | Notes |
 |---|---|---:|---:|---:|---|
-| Coder Q8 MoE quality check | `qwen3coderq8` | pending | pending | pending | Highest-quant Qwen3-Coder A3B test |
-| Coder Q6 MoE quality check | `qwen3coderq6k` | pending | pending | pending | Middle step between Q5 and Q8 |
-| Coder Q5 MoE sanity check | `qwen3coderq5km` | 8/24 | ~110.6 | ~29.8 | Faster than dense models; quality decides whether it stays |
+| Coder Q8 MoE quality check | `qwen3coderq8` | 8/24 | ~105.8 | ~20.7 | Highest-quant Qwen3-Coder A3B test; slowest of the coder quants |
+| Coder Q6 MoE quality check | `qwen3coderq6k` | 8/24 | ~102.1 | ~25.6 | Middle step between Q5 and Q8 |
+| Coder Q5 MoE sanity check | `qwen3coderq5km` | 8/24 | ~110.6 | ~29.8 | Best responsive coder tradeoff so far; `8/32` only adds ~0.2 gen tok/s while losing prompt speed |
 | Rejected dense Qwen3 | `qwen332bq4km`/`qwen332bq5km` | 8/24 | ~13.5–13.7 | ~3.1–3.6 | Too slow for OpenCode daily use |
 | Rejected dense coder | `qwen25coder32bq4km`/`qwen25coder32bq5km` | 8/24 | ~14.1 | ~3.1–3.5 | Too slow for OpenCode daily use |
 | Rejected coder Q4 | `qwen3coderq4` | 8/24 | ~114 | ~33 | Responsive but failed manual quality |
@@ -220,6 +222,8 @@ The benchmark script accepts explicit quantized presets like `qwen3coder:q5`, `q
 The active benchmark set is `qwen3coderq8`, `qwen3coderq6k`, `qwen3coderq5km`, `qwen36u27bq5kp`, `qwen36u35bq4kp`, `gemma4q5km`, `supergemma4q4km`, and `glm47flashq5km`.
 
 The `all`, `today`, `tomorrow`, and `coder` benchmark groups now use only the active model list. `all` and `today` cover the retained models, `tomorrow` checks Qwen3-Coder Q8/Q6/Q5 against `qwen36u27bq5kp`, and `coder` runs the Qwen3-Coder Q8/Q6/Q5 comparison.
+
+For OpenCode, keep `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default. `6/24` can be useful when prompt ingestion dominates a long-context session. Avoid `8/32` as a default: the Q5 generation gain is negligible compared with the prompt throughput loss.
 
 To free disk space after benchmarking rejected candidates:
 
