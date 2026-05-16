@@ -23,8 +23,6 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `start-probook.sh <mode>` | Start llama-server on ProBook (runs from WSL2) |
 | `start-i9.sh <mode>` | Start llama-server on i9 |
 | `bench-i9.sh <mode>` | Benchmark i9 CPU thread settings with llama-bench |
-| `bench-i9-coder.sh` | Focused i9 coding-quality benchmark alias |
-| `bench-i9-qwen36.sh` | Focused i9 Qwen3.6 35B/27B benchmark |
 | `bench-probook.sh <mode>` | Benchmark ProBook CPU thread settings with Windows llama-bench.exe |
 | `setup-opencode-probook.sh` | Auto-generate OpenCode provider config from start script |
 | `setup-opencode-i9.sh` | Auto-generate OpenCode provider config from start script |
@@ -74,9 +72,6 @@ Benchmark thread settings:
 ```bash
 ./bench-i9.sh qwen36u35bq5kp
 ./bench-i9.sh all
-./bench-i9.sh tomorrow
-./bench-i9.sh coder
-./bench-i9-qwen36.sh
 ./bench-i9.sh qwen36
 BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen36u35bq5kp
 ```
@@ -187,6 +182,10 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 ### i9-13900 (Raptor Lake, AVX2)
 
+- `qwen36u35bq4kp`: ~126.4 prompt tok/s, ~27.2 gen tok/s at `8/24`; fastest retained Qwen3.6 35B-A3B option.
+- `qwen36u35bq5kp`: ~126.2 prompt tok/s, ~24.7 gen tok/s at `8/24`; best higher-quant daily candidate if quality improves over Q4.
+- `qwen36u35bq6kp`: ~122.8 prompt tok/s, ~22.6 gen tok/s at `8/24`; quality candidate, but slower than Q5.
+- `qwen36u35bq8kp`: ~113.4 prompt tok/s, ~17.4 gen tok/s at `8/24`; quality ceiling only, not the default.
 - `qwen3coderq5km`: ~110.6 prompt tok/s, ~29.8 gen tok/s at `8/24`; best generation row was ~30.0 gen tok/s at `8/32`, but prompt ingestion dropped to ~90.7 tok/s.
 - `qwen3coderq6k`: ~102.1 prompt tok/s, ~25.6 gen tok/s at `8/24`.
 - `qwen3coderq8`: ~105.8 prompt tok/s, ~20.7 gen tok/s at `8/24`.
@@ -196,7 +195,7 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27bq5kp` is the retained dense quality option, but it is not interactive. Qwen3-Coder A3B failed manual quality even at Q8, so the next responsive-quality track is Qwen3.6 35B-A3B with higher HauhauCS K_P quants. Speed benchmarks do not decide the default by themselves; manual code quality does.
 
-- Test `qwen36u35bq5kp`, `qwen36u35bq6kp`, and `qwen36u35bq8kp` for responsiveness/quality. Use Q8 at 32K first because it is memory-tight.
+- Test `qwen36u35bq5kp` first for responsiveness/quality. Keep `qwen36u35bq6kp` and `qwen36u35bq8kp` only if manual quality clearly beats Q5. Use Q8 at 32K first because it is memory-tight and much slower.
 - Keep context as low as the task allows; 64K/128K context improves long sessions but slows prompt processing and grows KV memory.
 - Use `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default i9 startup point.
 - Avoid `IK_LLAMA_THREADS=10` and `12`; benchmarks were consistently worse than `6` and `8`.
@@ -210,14 +209,17 @@ Best observed rows:
 
 | Use | Mode | Threads | Prompt tok/s | Gen tok/s | Notes |
 |---|---|---:|---:|---:|---|
-| Coder Q8 MoE quality check | `qwen3coderq8` | 8/24 | ~105.8 | ~20.7 | Highest-quant Qwen3-Coder A3B test; slowest of the coder quants |
-| Coder Q6 MoE quality check | `qwen3coderq6k` | 8/24 | ~102.1 | ~25.6 | Middle step between Q5 and Q8 |
-| Coder Q5 MoE sanity check | `qwen3coderq5km` | 8/24 | ~110.6 | ~29.8 | Best responsive coder tradeoff so far; `8/32` only adds ~0.2 gen tok/s while losing prompt speed |
+| Fast retained Qwen3.6 MoE | `qwen36u35bq4kp` | 8/24 | ~126.4 | ~27.2 | Fastest retained 35B-A3B option; baseline to beat on quality |
+| Higher-quant Qwen3.6 candidate | `qwen36u35bq5kp` | 8/24 | ~126.2 | ~24.7 | Best current daily candidate if manual quality beats Q4 |
+| Higher-quant Qwen3.6 quality check | `qwen36u35bq6kp` | 8/24 | ~122.8 | ~22.6 | Slower than Q5; keep only if quality is noticeably better |
+| Qwen3.6 quality ceiling | `qwen36u35bq8kp` | 8/24 | ~113.4 | ~17.4 | Too slow for default; useful only as a quality reference |
+| Rejected coder Q8 | `qwen3coderq8` | 8/24 | ~105.8 | ~20.7 | Manual quality failed despite highest tested quant |
+| Rejected coder Q6 | `qwen3coderq6k` | 8/24 | ~102.1 | ~25.6 | Manual quality did not justify keeping it |
+| Rejected coder Q5 | `qwen3coderq5km` | 8/24 | ~110.6 | ~29.8 | Responsive, but manual quality failed |
 | Rejected dense Qwen3 | `qwen332bq4km`/`qwen332bq5km` | 8/24 | ~13.5–13.7 | ~3.1–3.6 | Too slow for OpenCode daily use |
 | Rejected dense coder | `qwen25coder32bq4km`/`qwen25coder32bq5km` | 8/24 | ~14.1 | ~3.1–3.5 | Too slow for OpenCode daily use |
 | Rejected coder Q4 | `qwen3coderq4` | 8/24 | ~114 | ~33 | Responsive but failed manual quality |
 | Rejected coder Q3 | `qwen3coderq3` | 8/24 | ~112 | ~40.5 | Responsive but failed manual quality |
-| Prompt ingestion | `qwen36u35bq4kp` | 8/24–8/32 | ~152 | ~26–28 | Fastest prompt processing, less coding-specific |
 | General fallback | `supergemma4q4km` | 8/24–8/32 | ~129 | ~23 | Decent non-Qwen fallback |
 | GLM fallback | `glm47flashq5km` | 8/24 | ~92 | ~21 | Slower than expected here |
 | Dense quality check | `qwen36u27bq5kp` | 8/24 | ~21 | ~3 | Quality-only, not interactive |
@@ -228,15 +230,15 @@ Rejected fast-tier candidates:
 - `qwen38b:q5` and `qwen38b:q4` were faster than `qwen3fast`, but still not competitive with Qwen3-Coder MoE.
 - `qwen36u35b:iq4nl` did not beat `qwen36u35b:q4kp`.
 - `qwen332b:q4/q5` and `qwen25coder32b:q4/q5` were all around 3–3.6 gen tok/s.
-- `qwen3coderq3` and `qwen3coderq4` were responsive but not useful in manual coding tests.
+- `qwen3coderq3` through `qwen3coderq8` were responsive enough, but not useful in manual coding tests.
 
 The benchmark script accepts explicit quantized presets like `qwen36u35b:q5kp`, `qwen36u35b:q6kp`, and `qwen36u35b:q8kp`, but the canonical script/OpenCode names include the quantization suffix.
 
 The active benchmark set is `qwen36u35bq4kp`, `qwen36u35bq5kp`, `qwen36u35bq6kp`, `qwen36u35bq8kp`, `qwen36u27bq5kp`, `gemma4q5km`, `supergemma4q4km`, and `glm47flashq5km`.
 
-The `all`, `today`, `tomorrow`, `coder`, and `qwen36` benchmark groups now use only the active model list. `tomorrow` checks Qwen3.6 35B-A3B Q5/Q6/Q8 against `qwen36u27bq5kp`, and `qwen36` runs the full Qwen3.6 comparison.
+The `all` and `qwen36` benchmark groups use only the active model list. `qwen36` runs the full Qwen3.6 comparison.
 
-For OpenCode, keep `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default. `6/24` can be useful when prompt ingestion dominates a long-context session. Avoid `8/32` as a default: the Q5 generation gain is negligible compared with the prompt throughput loss.
+For OpenCode, keep `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default. The new Qwen3.6 Q5/Q6/Q8 results confirmed that `8/32` loses a lot of prompt throughput without meaningful generation gain. `6/24` can be useful only when prompt ingestion dominates and generation speed matters less.
 
 If OpenCode shows "Preparing write" while CPU usage stays low, suspect OpenCode-side
 helpers before changing CPU threads. Disable OpenCode MCP/plugins for an A/B test:

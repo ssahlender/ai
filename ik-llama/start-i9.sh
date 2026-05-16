@@ -15,9 +15,6 @@ fi
 
 normalize_mode() {
   case "$1" in
-    qwen3coder:q8|qwen3coderq8|qwen3coderq8_0) echo "qwen3coderq8" ;;
-    qwen3coder:q6|qwen3coderq6|qwen3coderq6k) echo "qwen3coderq6k" ;;
-    qwen3coder:q5|qwen3coderq5|qwen3coderq5km) echo "qwen3coderq5km" ;;
     qwen36u27b|qwen36u27bq5kp) echo "qwen36u27bq5kp" ;;
     qwen36u35b|qwen36u35b:q4kp|qwen36u35bq4kp) echo "qwen36u35bq4kp" ;;
     qwen36u35b:q5kp|qwen36u35bq5kp) echo "qwen36u35bq5kp" ;;
@@ -72,9 +69,6 @@ SAMPLE=(--temp 0.6 --top-p 0.95 --top-k 20)
 MODE="$(normalize_mode "$MODE" || true)"
 
 case "$MODE" in
-  qwen3coderq8)   start_model "Qwen3-Coder 30B-A3B Instruct Q8_0" "Qwen3-Coder-30B-A3B-Instruct-Q8_0.gguf"                65536  20480 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen3coderq6k)  start_model "Qwen3-Coder 30B-A3B Instruct Q6_K" "Qwen3-Coder-30B-A3B-Instruct-Q6_K.gguf"                65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen3coderq5km) start_model "Qwen3-Coder 30B-A3B Instruct Q5_K_M" "Qwen3-Coder-30B-A3B-Instruct-Q5_K_M.gguf"             65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u27bq5kp) start_model "Qwen3.6 27B Uncensored Q5_K_P" "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"    65536  24576 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u35bq4kp) start_model "Qwen3.6 35B-A3B Uncensored Q4_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" 65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u35bq5kp) start_model "Qwen3.6 35B-A3B Uncensored Q5_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" 65536  20480 "${YARN[@]}" "${SAMPLE[@]}" ;;
