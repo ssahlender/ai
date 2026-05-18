@@ -28,6 +28,33 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `setup-opencode-i9.sh` | Auto-generate OpenCode provider config from start script |
 | `tune-i9.sh` | OS-level tuning for inference (cpu governor, THP, NUMA) |
 
+The OpenCode setup scripts write the `ik-llama` provider, per-model
+`limit.context` values parsed from the matching `start-*.sh`, a conservative
+OpenCode `limit.output` of 8192 tokens, and:
+
+```json
+"compaction": {
+  "auto": true,
+  "prune": true,
+  "reserved": 10000
+}
+```
+
+This keeps OpenCode's context accounting aligned with the running
+llama-server and avoids "context shift is disabled" failures near the end of
+the context window. If you start llama-server with `IK_LLAMA_CTX_SIZE=32768`,
+rerun setup with the same override so OpenCode sees the actual active context
+window and starts compacting early enough:
+
+```bash
+IK_LLAMA_CTX_SIZE=32768 ./setup-opencode-i9.sh
+IK_LLAMA_CTX_SIZE=32768 ./start-i9.sh qwen36u35bq5kp
+```
+
+Use `OPENCODE_OUTPUT_LIMIT=<tokens>` only to change OpenCode's reserved output
+budget for context accounting. Use `OPENCODE_COMPACTION_RESERVED=<tokens>` only
+when testing a different compaction buffer.
+
 ### Quick start — ProBook
 
 ```bash
