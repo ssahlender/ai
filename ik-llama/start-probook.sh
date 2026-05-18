@@ -24,6 +24,8 @@ win_path() { wslpath -w "$1"; }
 
 start_model() {
   local name="$1" model="$2" ctx="${3:-32768}" cram="${4:-16384}"; shift 4
+  ctx="${IK_LLAMA_CTX_SIZE:-$ctx}"
+  cram="${IK_LLAMA_CRAM_MB:-$cram}"
   echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB)..."
   "$SERVER" \
     -m "$(win_path "$MODELS_DIR/$model")" \
