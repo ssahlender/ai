@@ -8,7 +8,7 @@ Scripts for running local AI tools across multiple machines.
 |---|---|
 | `ik-llama/` | CPU-only LLM inference with ik_llama.cpp — models, server, OpenCode config (ProBook, i9) |
 | `ollama/` | GPU-accelerated Ollama inference for Apple Silicon (MacBook Air M4) |
-| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, nvm, hf, RTK, context-mode, claude-mem) |
+| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, nvm, hf, RTK, context-mode, claude-mem, Graphify) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
 ---
@@ -27,7 +27,7 @@ Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.s
 ./update-all.sh
 ```
 
-Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `hermes-update.sh` → `rtk-update.sh` → `context-mode-update.sh` → `claude-mem-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`. Each `*-update.sh` upgrades only if already installed and skips otherwise — run `*-install.sh` for new tools.
+Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `hermes-update.sh` → `rtk-update.sh` → `context-mode-update.sh` → `claude-mem-update.sh` → `graphify-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`. Each `*-update.sh` upgrades only if already installed and skips otherwise — run `*-install.sh` for new tools.
 
 ---
 
@@ -197,6 +197,39 @@ To force the upstream Codex/OpenCode installer again:
 ```bash
 CLAUDE_MEM_FORCE_INSTALL=1 ./claude-mem-install.sh
 ```
+
+---
+
+### Graphify
+
+| Script | What it does |
+|---|---|
+| `graphify-install.sh` | Installs the official PyPI package `graphifyy[openai,ollama,sql,pdf,office]` with `uv tool install`, falling back to `pipx`; then registers Claude Code, Codex, and OpenCode |
+| `graphify-update.sh` | Upgrades Graphify with the same default extras when managed by `uv tool` or `pipx`, then refreshes integrations |
+| `graphify-init.sh` | Re-registers Claude Code, Codex, and OpenCode integrations and enables Codex `multi_agent = true` |
+
+Graphify's package name is `graphifyy` but the CLI is `graphify`. The default
+extras are `openai,ollama,sql,pdf,office`, so the preferred installer is
+`uv tool install 'graphifyy[openai,ollama,sql,pdf,office]'` on both Linux and
+macOS. Override with `GRAPHIFY_EXTRAS=...`; use `GRAPHIFY_EXTRAS=` for the base
+package only. On macOS, install `uv` with Homebrew (`brew install uv`) if it is
+missing; the install script will also do this when Homebrew is available.
+`pipx install 'graphifyy[...]'` is kept as a fallback for Linux systems that
+already use pipx.
+
+After install/update, restart Claude Code, Codex, and OpenCode sessions. Use it
+inside a project with:
+
+```bash
+/graphify .
+```
+
+Codex uses `$graphify` instead of `/graphify`.
+
+Graphify overlaps partly with context/memory tooling, but it is more of a
+project knowledge-graph generator than a background memory worker. Keep OpenCode
+local-speed testing in mind before enabling extra graph/query instructions in
+large local-model sessions.
 
 ---
 
