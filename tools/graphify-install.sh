@@ -11,6 +11,10 @@ if [ -n "$GRAPHIFY_EXTRAS" ]; then
 else
   GRAPHIFY_SPEC="graphifyy"
 fi
+UV_CERT_ARGS=()
+if [ -n "$IS_I9" ]; then
+  UV_CERT_ARGS+=(--system-certs)
+fi
 
 find_uv() {
   if command -v uv >/dev/null 2>&1; then
@@ -50,7 +54,7 @@ ensure_uv_or_pipx() {
 ensure_uv_or_pipx
 
 if UV_BIN="$(find_uv)"; then
-  "$UV_BIN" tool install --upgrade "$GRAPHIFY_SPEC"
+  "$UV_BIN" tool install "${UV_CERT_ARGS[@]}" --upgrade "$GRAPHIFY_SPEC"
 elif command -v pipx >/dev/null 2>&1; then
   pipx install "$GRAPHIFY_SPEC"
 fi
