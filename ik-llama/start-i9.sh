@@ -62,8 +62,8 @@ start_model() {
 
 # Qwen3 recommended YaRN params (beta-fast/slow from Qwen3 technical report)
 YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
-# Qwen3 recommended sampling params (thinking mode, from Qwen3 technical report)
-SAMPLE=(--temp 0.6 --top-p 0.95 --top-k 20)
+# Stricter sampling for OpenCode tool-call JSON reliability.
+SAMPLE=(--temp "${IK_LLAMA_TEMP:-0.2}" --top-p "${IK_LLAMA_TOP_P:-0.8}" --top-k "${IK_LLAMA_TOP_K:-20}")
 
 #                                                                                             ctx     cram  extra
 MODE="$(normalize_mode "$MODE" || true)"
@@ -72,7 +72,7 @@ case "$MODE" in
   qwen36u27bq5kp) start_model "Qwen3.6 27B Uncensored Q5_K_P" "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"    65536  24576 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u35bq4kp) start_model "Qwen3.6 35B-A3B Uncensored Q4_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" 65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u35bq5kp) start_model "Qwen3.6 35B-A3B Uncensored Q5_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" 65536  20480 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen36u35bq6kp) start_model "Qwen3.6 35B-A3B Uncensored Q6_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf" 65536  20480 "${YARN[@]}" "${SAMPLE[@]}" ;;
+  qwen36u35bq6kp) start_model "Qwen3.6 35B-A3B Uncensored Q6_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf" 131072 24576 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u35bq8kp) start_model "Qwen3.6 35B-A3B Uncensored Q8_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q8_K_P.gguf" 32768  12288 "${YARN[@]}" "${SAMPLE[@]}" ;;
   gemma4q5km)     start_model "Gemma4 26B-A4B Q5_K_M"     "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf"                           131072 32768 ;;
   supergemma4q4km) start_model "SuperGemma4 26B Uncensored Q4_K_M" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"       131072 32768 ;;
