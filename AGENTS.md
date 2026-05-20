@@ -29,3 +29,14 @@ See [`ollama/`](ollama/) for Mac setup:
 No special agent config needed — scripts are self-contained bash. Run directly or via `update-all.sh`.
 
 On the i9, scripts use the `_brew-i9.sh` helper which runs brew via `sudo -n -u brewuser` with the full absolute path. Other machines run brew directly.
+
+## Large Generated Files
+
+Do not write large generated artifacts such as draw.io XML, SVG, lock files, or
+large JSON blobs as one inline tool-call string. Local OpenCode/Qwen tool calls
+can fail with JSON parse errors when a large payload contains quoting,
+newlines, or truncated strings.
+
+For generated artifacts, create a small generator script or structured source
+file, run it to write the artifact, and validate the result. If literal content
+is unavoidable, write it in smaller chunks and verify the final file.
