@@ -18,6 +18,18 @@ The ProBook script auto-detects the Windows host IP from the WSL2 default gatewa
 
 Model shortnames are derived from the `start-*.sh` case statements. Run the setup script to see available shortnames — they're printed after install. No static config file to maintain.
 
+### Large tool writes
+
+With local ik_llama.cpp/OpenCode, avoid generating large files directly inside
+one write/edit tool call. This is especially important for draw.io XML, SVG, and
+large JSON, where malformed escaping or truncation can produce errors like
+`JSON Parse error: unterminated string`.
+
+Instead, create a compact generator script or structured source file, run it to
+write the large artifact, then validate the output. For draw.io, generate the
+`.drawio` XML from data in a script rather than inlining the full XML payload in
+the tool call.
+
 ## Claude Code
 
 Set these environment variables before launching `claude`:
