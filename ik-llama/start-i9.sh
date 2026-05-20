@@ -72,7 +72,7 @@ case "$MODE" in
   qwen36u27bq5kp) start_model "Qwen3.6 27B Uncensored Q5_K_P" "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"    65536  24576 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u35bq4kp) start_model "Qwen3.6 35B-A3B Uncensored Q4_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" 65536  16384 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u35bq5kp) start_model "Qwen3.6 35B-A3B Uncensored Q5_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" 65536  20480 "${YARN[@]}" "${SAMPLE[@]}" ;;
-  qwen36u35bq6kp) start_model "Qwen3.6 35B-A3B Uncensored Q6_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf" 65536  20480 "${YARN[@]}" "${SAMPLE[@]}" ;;
+  qwen36u35bq6kp) start_model "Qwen3.6 35B-A3B Uncensored Q6_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf" 131072  65536 "${YARN[@]}" "${SAMPLE[@]}" ;;
   qwen36u35bq8kp) start_model "Qwen3.6 35B-A3B Uncensored Q8_K_P" "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q8_K_P.gguf" 32768  12288 "${YARN[@]}" "${SAMPLE[@]}" ;;
   gemma4q5km)     start_model "Gemma4 26B-A4B Q5_K_M"     "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf"                           131072 32768 ;;
   supergemma4q4km) start_model "SuperGemma4 26B Uncensored Q4_K_M" "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"       131072 32768 ;;
