@@ -169,6 +169,7 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | `--host 0.0.0.0` | — | Listen on all interfaces (required for WSL2) |
 | `--jinja` | — | Enable Jinja templates (required for tool calling) |
 | `-rea off` | off | Disable thinking/reasoning mode |
+| `--temp` / `--top-p` / `--top-k` | 0.2 / 0.8 / 20 | Conservative i9 Qwen sampling for OpenCode tool-call JSON reliability. Override: `IK_LLAMA_TEMP`, `IK_LLAMA_TOP_P`, `IK_LLAMA_TOP_K` |
 | `-v` | — | Verbose output (shows tok/s, timing) |
 | `--mlock` | — | Lock model in RAM (i9 only, prevents swapping) |
 
@@ -266,6 +267,18 @@ The active benchmark set is `qwen36u35bq4kp`, `qwen36u35bq5kp`, `qwen36u35bq6kp`
 The `all` and `qwen36` benchmark groups use only the active model list. `qwen36` runs the full Qwen3.6 comparison.
 
 For OpenCode, keep `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default. The new Qwen3.6 Q5/Q6/Q8 results confirmed that `8/32` loses a lot of prompt throughput without meaningful generation gain. `6/24` can be useful only when prompt ingestion dominates and generation speed matters less.
+
+For 128K OpenCode sessions on the i9 with `qwen36u35bq6kp`, start with:
+
+```bash
+./start-i9.sh qwen36u35bq6kp
+OPENCODE_COMPACTION_RESERVED=24000 ./setup-opencode-i9.sh
+```
+
+Raise `IK_LLAMA_CRAM_MB` to `28672` only if RAM stays comfortable. Avoid
+`32768` with Q6 unless you have verified there is no swap pressure: the Q6 model
+plus a 32 GB KV cap leaves too little headroom on a 64 GB machine with
+`--mlock`.
 
 If OpenCode shows "Preparing write" while CPU usage stays low, suspect OpenCode-side
 helpers before changing CPU threads. Disable OpenCode MCP/plugins for an A/B test:
