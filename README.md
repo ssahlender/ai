@@ -215,7 +215,8 @@ macOS. Override with `GRAPHIFY_EXTRAS=...`; use `GRAPHIFY_EXTRAS=` for the base
 package only. On macOS, install `uv` with Homebrew (`brew install uv`) if it is
 missing; the install script will also do this when Homebrew is available.
 `pipx install 'graphifyy[...]'` is kept as a fallback for Linux systems that
-already use pipx.
+already use pipx. On the i9/proxy environment, the scripts pass
+`--system-certs` to `uv tool install` so corporate CA certificates are honored.
 
 After install/update, restart Claude Code, Codex, and OpenCode sessions. Use it
 inside a project with:

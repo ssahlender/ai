@@ -2,6 +2,9 @@
 # Updates Graphify if it is installed, then refreshes agent integrations.
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+
 if ! command -v graphify >/dev/null 2>&1; then
   echo "graphify not installed — skipping"
   exit 0
@@ -12,6 +15,10 @@ if [ -n "$GRAPHIFY_EXTRAS" ]; then
   GRAPHIFY_SPEC="graphifyy[$GRAPHIFY_EXTRAS]"
 else
   GRAPHIFY_SPEC="graphifyy"
+fi
+UV_CERT_ARGS=()
+if [ -n "$IS_I9" ]; then
+  UV_CERT_ARGS+=(--system-certs)
 fi
 
 find_uv() {
@@ -35,7 +42,7 @@ find_uv() {
 }
 
 if UV_BIN="$(find_uv)" && "$UV_BIN" tool list 2>/dev/null | grep -q '^graphifyy '; then
-  "$UV_BIN" tool install --upgrade "$GRAPHIFY_SPEC"
+  "$UV_BIN" tool install "${UV_CERT_ARGS[@]}" --upgrade "$GRAPHIFY_SPEC"
 elif command -v pipx >/dev/null 2>&1 && pipx list 2>/dev/null | grep -q 'package graphifyy '; then
   pipx upgrade graphifyy
   if [ -n "$GRAPHIFY_EXTRAS" ]; then
