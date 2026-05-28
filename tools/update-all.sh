@@ -11,16 +11,28 @@ run() {
   "$@"
 }
 
-run ./nvm-update.sh
-run ./claude-update.sh
-run ./opencode-update.sh
-run ./codex-update.sh
-run ./hf-update.sh
-run ./hermes-update.sh
-run ./rtk-update.sh
-run ./context-mode-update.sh
-run ./claude-mem-update.sh
-run ./graphify-update.sh
+UPDATE_TOOLS=(
+  nvm
+  claude
+  opencode
+  codex
+  hf
+  hermes
+  rtk
+  context-mode
+  claude-mem
+  graphify
+  pi
+)
+
+for tool in "${UPDATE_TOOLS[@]}"; do
+  script="./${tool}-update.sh"
+  if [ -x "$script" ]; then
+    run "$script"
+  else
+    echo "$script missing — skipping"
+  fi
+done
 
 # Ollama is only present on machines that use it (Mac, etc.)
 if command -v ollama >/dev/null 2>&1; then

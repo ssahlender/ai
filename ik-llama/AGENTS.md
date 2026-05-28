@@ -4,7 +4,7 @@ How to wire OpenCode and Claude Code to the local ik_llama.cpp server.
 
 ## OpenCode
 
-Run the setup script for your machine — it parses the start script for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included.
+Run the setup script for your machine — it parses the start script for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. OpenCode config is written only when `opencode` is installed.
 
 ```bash
 # ProBook (WSL2)
@@ -17,6 +17,12 @@ Run the setup script for your machine — it parses the start script for model m
 The ProBook script auto-detects the Windows host IP from the WSL2 default gateway. The generated config uses `http://<host-ip>:8080/v1` (ProBook) or `http://localhost:9080/v1` (i9).
 
 Model shortnames are derived from the `start-*.sh` case statements. Run the setup script to see available shortnames — they're printed after install. No static config file to maintain.
+
+## Pi
+
+The same setup scripts also write `~/.pi/agent/models.json` when `pi` is
+installed. The Pi provider key is `ik-llama`; model IDs match the start-script
+shortnames such as `qwen36u35bq6kp`.
 
 ### Large tool writes
 
