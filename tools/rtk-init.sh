@@ -29,3 +29,4 @@ RTK="$(find_rtk)" || {
 "$RTK" init -g
 "$RTK" init -g --codex
 "$RTK" init -g --opencode
+"$RTK" init -g --agent pi

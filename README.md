@@ -130,8 +130,8 @@ The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `h
 | Script | What it does |
 |---|---|
 | `rtk-install.sh` | `$BREW install rtk`, then initializes Claude Code, Codex, and OpenCode integrations |
-| `rtk-update.sh` | `$BREW upgrade rtk`, then refreshes Claude Code, Codex, and OpenCode integrations (skips if not installed) |
-| `rtk-init.sh` | Runs `rtk init -g`, `rtk init -g --codex`, and `rtk init -g --opencode` |
+| `rtk-update.sh` | `$BREW upgrade rtk`, then refreshes Claude Code, Codex, OpenCode, and Pi integrations (skips if not installed) |
+| `rtk-init.sh` | Runs `rtk init -g`, `rtk init -g --codex`, `rtk init -g --opencode`, and `rtk init -g --agent pi` |
 
 RTK compresses command output before it reaches coding agents. After install/update, restart the affected agent sessions so hooks/plugins are loaded.
 
