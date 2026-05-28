@@ -24,13 +24,14 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `start-i9.sh <mode>` | Start llama-server on i9 |
 | `bench-i9.sh <mode>` | Benchmark i9 CPU thread settings with llama-bench |
 | `bench-probook.sh <mode>` | Benchmark ProBook CPU thread settings with Windows llama-bench.exe |
-| `setup-opencode-probook.sh` | Auto-generate OpenCode provider config from start script |
-| `setup-opencode-i9.sh` | Auto-generate OpenCode provider config from start script |
+| `setup-opencode-probook.sh` | Auto-generate OpenCode/Pi provider config from start script |
+| `setup-opencode-i9.sh` | Auto-generate OpenCode/Pi provider config from start script |
 | `tune-i9.sh` | OS-level tuning for inference (cpu governor, THP, NUMA) |
 
-The OpenCode setup scripts write the `ik-llama` provider, per-model
-`limit.context` values parsed from the matching `start-*.sh`, a conservative
-OpenCode `limit.output` of 8192 tokens, and:
+The setup scripts write the `ik-llama` provider for OpenCode when `opencode` is
+installed and for Pi when `pi` is installed. Per-model context values are parsed
+from the matching `start-*.sh`. OpenCode gets a conservative `limit.output` of
+8192 tokens and:
 
 ```json
 "compaction": {
@@ -54,6 +55,9 @@ IK_LLAMA_CTX_SIZE=32768 ./start-i9.sh qwen36u35bq5kp
 Use `OPENCODE_OUTPUT_LIMIT=<tokens>` only to change OpenCode's reserved output
 budget for context accounting. Use `OPENCODE_COMPACTION_RESERVED=<tokens>` only
 when testing a different compaction buffer.
+
+Pi config is written to `~/.pi/agent/models.json` with `api:
+"openai-completions"`, `contextWindow`, and `maxTokens` for each local model.
 
 ### Quick start — ProBook
 

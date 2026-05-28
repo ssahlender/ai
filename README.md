@@ -8,7 +8,7 @@ Scripts for running local AI tools across multiple machines.
 |---|---|
 | `ik-llama/` | CPU-only LLM inference with ik_llama.cpp — models, server, OpenCode config (ProBook, i9) |
 | `ollama/` | GPU-accelerated Ollama inference for Apple Silicon (MacBook Air M4) |
-| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, nvm, hf, RTK, context-mode, claude-mem, Graphify) |
+| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
 ---
@@ -27,7 +27,12 @@ Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.s
 ./update-all.sh
 ```
 
-Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `codex-update.sh` → `hf-update.sh` → `hermes-update.sh` → `rtk-update.sh` → `context-mode-update.sh` → `claude-mem-update.sh` → `graphify-update.sh` → `ollama-update.sh` → `ollama-models-update.sh` (ollama only runs if installed) → `brew upgrade` (all packages) → `brew cleanup --prune=all`. Each `*-update.sh` upgrades only if already installed and skips otherwise — run `*-install.sh` for new tools.
+Order is defined by the `UPDATE_TOOLS` array in `update-all.sh`:
+`nvm` → `claude` → `opencode` → `codex` → `hf` → `hermes` → `rtk` →
+`context-mode` → `claude-mem` → `graphify` → `pi`. Ollama is updated
+afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
+run last. Each `*-update.sh` upgrades only if already installed and skips
+otherwise — run `*-install.sh` for new tools.
 
 ---
 
@@ -55,6 +60,29 @@ Order: `nvm-update.sh` → `claude-update.sh` → `opencode-update.sh` → `code
 |---|---|
 | `codex-install.sh` | `$BREW install --cask codex` |
 | `codex-update.sh` | `$BREW upgrade --cask codex` (skips if not installed) |
+
+---
+
+### Pi Coding Agent
+
+| Script | What it does |
+|---|---|
+| `pi-install.sh` | `$BREW install pi-coding-agent`, then installs Pi packages |
+| `pi-update.sh` | `$BREW upgrade pi-coding-agent`, then refreshes Pi packages (skips if not installed) |
+| `pi-init.sh` | Installs Pi-native packages: `context-mode`, `@sherif-fanous/pi-rtk`, and `@gaodes/pi-graphify` |
+
+Pi itself is installed via Homebrew. Pi extensions/skills are installed with
+Pi's own package manager:
+
+```bash
+pi install npm:context-mode
+pi install npm:@sherif-fanous/pi-rtk
+pi install npm:@gaodes/pi-graphify
+```
+
+`claude-mem` is intentionally not installed for Pi; there is no clear maintained
+Pi package for it in this stack, and it would overlap with context/memory
+extensions.
 
 ---
 
