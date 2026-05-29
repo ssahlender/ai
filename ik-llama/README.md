@@ -24,8 +24,8 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `start-i9.sh <mode>` | Start llama-server on i9 |
 | `bench-i9.sh <mode>` | Benchmark i9 CPU thread settings with llama-bench |
 | `bench-probook.sh <mode>` | Benchmark ProBook CPU thread settings with Windows llama-bench.exe |
-| `setup-opencode-probook.sh` | Auto-generate OpenCode/Pi provider config from start script |
-| `setup-opencode-i9.sh` | Auto-generate OpenCode/Pi provider config from start script |
+| `setup-agents-probook.sh` | Auto-generate OpenCode/Pi provider config from start script |
+| `setup-agents-i9.sh` | Auto-generate OpenCode/Pi provider config from start script |
 | `tune-i9.sh` | OS-level tuning for inference (cpu governor, THP, NUMA) |
 
 The setup scripts write the `ik-llama` provider for OpenCode when `opencode` is
@@ -48,7 +48,7 @@ rerun setup with the same override so OpenCode sees the actual active context
 window and starts compacting early enough:
 
 ```bash
-IK_LLAMA_CTX_SIZE=32768 ./setup-opencode-i9.sh
+IK_LLAMA_CTX_SIZE=32768 ./setup-agents-i9.sh
 IK_LLAMA_CTX_SIZE=32768 ./start-i9.sh qwen36u35bq5kp
 ```
 
@@ -64,7 +64,7 @@ Pi config is written to `~/.pi/agent/models.json` with `api:
 ```bash
 ./update-probook.sh
 ./download-models-probook.sh
-./setup-opencode-probook.sh
+./setup-agents-probook.sh
 ./start-probook.sh qwen36u35b   # or: gemma qwen3coder glm47flash
 ```
 
@@ -82,7 +82,7 @@ BENCH_THREADS="8 12 16" BENCH_THREADS_BATCH="8 12 16" ./bench-probook.sh qwen36u
 sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update-i9.sh
 ./download-models-i9.sh
-./setup-opencode-i9.sh
+./setup-agents-i9.sh
 ./start-i9.sh qwen36u35bq5kp   # or: qwen36u35bq6kp qwen36u35bq8kp qwen36u35bq4kp qwen36u27bq5kp gemma4q5km supergemma4q4km glm47flashq5km
 ./cleanup-models-i9.sh     # dry-run obsolete GGUF cleanup
 ```
@@ -276,7 +276,7 @@ For 128K OpenCode sessions on the i9 with `qwen36u35bq6kp`, start with:
 
 ```bash
 ./start-i9.sh qwen36u35bq6kp
-OPENCODE_COMPACTION_RESERVED=24000 ./setup-opencode-i9.sh
+OPENCODE_COMPACTION_RESERVED=24000 ./setup-agents-i9.sh
 ```
 
 Raise `IK_LLAMA_CRAM_MB` to `28672` only if RAM stays comfortable. Avoid
