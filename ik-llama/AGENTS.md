@@ -18,9 +18,6 @@ The ProBook script auto-detects the Windows host IP from the WSL2 default gatewa
 
 Model shortnames are derived from the `start-*.sh` case statements. Run the setup script to see available shortnames — they're printed after install. No static config file to maintain.
 
-The old `setup-opencode-*.sh` names are compatibility wrappers around
-`setup-agents-*.sh`.
-
 ## Pi
 
 The same setup scripts also write `~/.pi/agent/models.json` when `pi` is
