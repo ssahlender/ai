@@ -81,8 +81,10 @@ pi install npm:@gaodes/pi-graphify
 ```
 
 On the i9/proxy environment, `pi-init.sh` runs these installs with
-`NODE_OPTIONS=--use-openssl-ca` so npm/Node uses the system CA store for
-corporate certificates.
+`NODE_OPTIONS=--use-openssl-ca`, `NODE_EXTRA_CA_CERTS`, and `NPM_CONFIG_CAFILE`
+pointing at `/etc/ssl/certs/ca-certificates.crt` so npm/Node uses the system CA
+store for corporate certificates. Override with `SYSTEM_CA_FILE=/path/to/ca.crt`
+if the proxy CA bundle lives elsewhere.
 
 `claude-mem` is intentionally not installed for Pi; there is no clear maintained
 Pi package for it in this stack, and it would overlap with context/memory
