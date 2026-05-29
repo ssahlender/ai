@@ -2,6 +2,9 @@
 # Installs/refreshes Pi-native packages used in this stack.
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+
 if ! command -v pi >/dev/null 2>&1; then
   echo "pi not found. Run ./pi-install.sh first."
   exit 1
@@ -15,7 +18,11 @@ PI_PACKAGES=(
 
 for package in "${PI_PACKAGES[@]}"; do
   echo "Installing Pi package: $package"
-  pi install "npm:$package"
+  if [ -n "$IS_I9" ]; then
+    env NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--use-openssl-ca" pi install "npm:$package"
+  else
+    pi install "npm:$package"
+  fi
 done
 
 echo "Pi packages installed. Restart Pi sessions to load changes."
