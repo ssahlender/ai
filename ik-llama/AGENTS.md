@@ -8,15 +8,18 @@ Run the setup script for your machine — it parses the start script for model m
 
 ```bash
 # ProBook (WSL2)
-./setup-opencode-probook.sh
+./setup-agents-probook.sh
 
 # i9
-./setup-opencode-i9.sh
+./setup-agents-i9.sh
 ```
 
 The ProBook script auto-detects the Windows host IP from the WSL2 default gateway. The generated config uses `http://<host-ip>:8080/v1` (ProBook) or `http://localhost:9080/v1` (i9).
 
 Model shortnames are derived from the `start-*.sh` case statements. Run the setup script to see available shortnames — they're printed after install. No static config file to maintain.
+
+The old `setup-opencode-*.sh` names are compatibility wrappers around
+`setup-agents-*.sh`.
 
 ## Pi
 
