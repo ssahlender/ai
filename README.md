@@ -99,7 +99,11 @@ Skipped entirely on i9 — work provides its own Node stack.
 | Script | What it does |
 |---|---|
 | `nvm-install.sh` | Installs nvm via brew, adds shell config block, installs LTS Node |
-| `nvm-update.sh` | `brew upgrade nvm`, reinstalls LTS migrating global packages, `npm update -g` |
+| `nvm-update.sh` | `brew upgrade nvm`, reinstalls LTS migrating global packages, `npm update -g`, removes old Node versions |
+
+`nvm-update.sh` keeps the active/default Node version and removes older
+installed versions after the update succeeds. Set `NVM_KEEP_OLD_VERSIONS=1` to
+keep one extra newest version for rollback.
 
 Shell config detection: zsh → `~/.zshrc`, bash+macOS → `~/.bash_profile`, bash+Linux → `~/.bashrc`.
 
