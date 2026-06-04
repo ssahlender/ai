@@ -18,8 +18,8 @@ IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
 MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
 BENCH="$IK_LLAMA_DIR/build/bin/llama-bench"
 MODE="${1:-qwen36u35bq5kp}"
-MODES=(qwen36u35bq4kp qwen36u35bq5kp qwen36u35bq6kp qwen36u35bq8kp qwen36u27bq5kp gemma4q5km supergemma4q4km glm47flashq5km)
-QWEN36_MODES=(qwen36u35bq4kp qwen36u35bq5kp qwen36u35bq6kp qwen36u35bq8kp qwen36u27bq5kp)
+MODES=(qwen36u35bq6kp qwen36u27bq5kp qwopus35bq5km qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km)
+QWEN36_MODES=(qwen36u35bq6kp qwen36u27bq5kp qwopus35bq5km qwopus35bq6k)
 
 THREADS="${BENCH_THREADS:-6 8}"
 THREADS_BATCH="${BENCH_THREADS_BATCH:-24 32}"
@@ -30,16 +30,15 @@ OUT_DIR="${BENCH_OUT_DIR:-$PWD/bench-results}"
 
 usage() {
   echo "Usage: $0 [preset|preset:quant|all|qwen36]" >&2
-  echo "Presets: qwen36u35bq4kp, qwen36u35bq5kp, qwen36u35bq6kp, qwen36u35bq8kp, qwen36u27bq5kp, gemma4q5km, supergemma4q4km, glm47flashq5km" >&2
+  echo "Presets: qwen36u35bq6kp, qwen36u27bq5kp, qwopus35bq5km, qwopus35bq6k, gemma4q5km, supergemma4q4km, glm47flashq5km" >&2
 }
 
 normalize_mode() {
   case "$1" in
     qwen36u27b|qwen36u27b:q5kp|qwen36u27bq5kp) echo "qwen36u27bq5kp" ;;
-    qwen36u35b|qwen36u35b:q4kp|qwen36u35bq4kp) echo "qwen36u35bq4kp" ;;
-    qwen36u35b:q5kp|qwen36u35bq5kp) echo "qwen36u35bq5kp" ;;
-    qwen36u35b:q6kp|qwen36u35bq6kp) echo "qwen36u35bq6kp" ;;
-    qwen36u35b:q8kp|qwen36u35bq8kp) echo "qwen36u35bq8kp" ;;
+    qwen36u35b|qwen36u35b:q6kp|qwen36u35bq6kp) echo "qwen36u35bq6kp" ;;
+    qwopus35b|qwopus35b:q5km|qwopus35bq5km) echo "qwopus35bq5km" ;;
+    qwopus35b:q6k|qwopus35bq6k) echo "qwopus35bq6k" ;;
     gemma4|gemma4:q5km|gemma4q5km) echo "gemma4q5km" ;;
     supergemma4|supergemma4:q4km|supergemma4q4km) echo "supergemma4q4km" ;;
     glm47flash|glm47flash:q5km|glm47flashq5km) echo "glm47flashq5km" ;;
@@ -50,10 +49,9 @@ normalize_mode() {
 model_for_mode() {
   case "$(normalize_mode "$1")" in
     qwen36u27bq5kp)   echo "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" ;;
-    qwen36u35bq4kp)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf" ;;
-    qwen36u35bq5kp)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" ;;
     qwen36u35bq6kp)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf" ;;
-    qwen36u35bq8kp)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q8_K_P.gguf" ;;
+    qwopus35bq5km)    echo "Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf" ;;
+    qwopus35bq6k)     echo "Qwopus3.6-35B-A3B-v1-Q6_K.gguf" ;;
     gemma4q5km)       echo "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf" ;;
     supergemma4q4km)  echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
     glm47flashq5km)   echo "zai-org_GLM-4.7-Flash-Q5_K_M.gguf" ;;

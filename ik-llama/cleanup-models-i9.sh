@@ -22,7 +22,9 @@ case "${1:-}" in
 esac
 
 obsolete_models=(
-  "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf"
+  "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf"
+  "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf"
+  "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q8_K_P.gguf"
   "Qwen3-32B-Q5_K_M.gguf"
   "Qwen3-32B-Q4_K_M.gguf"
   "Qwen3-14B-Q5_K_M.gguf"

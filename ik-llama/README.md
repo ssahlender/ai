@@ -83,7 +83,7 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update-i9.sh
 ./download-models-i9.sh
 ./setup-agents-i9.sh
-./start-i9.sh qwen36u35bq5kp   # or: qwen36u35bq6kp qwen36u35bq8kp qwen36u35bq4kp qwen36u27bq5kp gemma4q5km supergemma4q4km glm47flashq5km
+./start-i9.sh qwopus35bq5km   # or: qwen36u35bq6kp qwen36u27bq5kp qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km
 ./cleanup-models-i9.sh     # dry-run obsolete GGUF cleanup
 ```
 
@@ -121,25 +121,24 @@ Summarize benchmark CSVs:
 
 ### ProBook (32 GB RAM)
 
-| Mode | Model | Size | Context | Notes |
-|---|---|---|---|---|
-| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 32 K | 35B MoE, 3B active |
-| `gemma` | Gemma4-26B-A4B IQ4\_NL | ~13 GB | 64 K | 26B MoE, 4B active |
-| `qwen3coder` | Qwen3-Coder-30B-A3B Q3\_K\_M | ~14 GB | 64 K | 30B MoE, 3B active |
-| `glm47flash` | GLM-4.7-Flash Q4\_K\_M | ~17 GB | 32 K | 30B MoE, 3B active, DeepSeek-V2 MLA |
+| Mode | Model | Size | Context | Vision | Notes |
+|---|---|---|---|---|---|---|
+| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 32 K | yes | 35B MoE, 3B active |
+| `gemma` | Gemma4-26B-A4B IQ4\_NL | ~13 GB | 64 K | yes | 26B MoE, 4B active |
+| `qwen3coder` | Qwen3-Coder-30B-A3B Q3\_K\_M | ~14 GB | 64 K | no | 30B MoE, 3B active |
+| `glm47flash` | GLM-4.7-Flash Q4\_K\_M | ~17 GB | 32 K | no | 30B MoE, 3B active, DeepSeek-V2 MLA |
 
 ### i9 (64 GB RAM)
 
-| Mode | Model | Size | Context | Notes |
-|---|---|---|---|---|
-| `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P | ~20 GB | 64 K | 27B dense — all params active |
-| `qwen36u35bq4kp` | Qwen3.6-35B-A3B-Uncensored Q4\_K\_P | ~21 GB | 64 K | 35B MoE, 3B active |
-| `qwen36u35bq5kp` | Qwen3.6-35B-A3B-Uncensored Q5\_K\_P | ~28 GB | 64 K | Next likely quality/speed default |
-| `qwen36u35bq6kp` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 64 K | Main quality candidate |
-| `qwen36u35bq8kp` | Qwen3.6-35B-A3B-Uncensored Q8\_K\_P | ~44 GB | 32 K default | Quality ceiling; memory-tight on 64 GB |
-| `gemma4q5km` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | 26B MoE, 4B active |
-| `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | Uncensored Gemma4 fine-tune |
-| `glm47flashq5km` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | 30B MoE, 3B active, coding-focused |
+| Mode | Model | Size | Context | Vision | Notes |
+|---|---|---|---|---|---|---|
+| `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P | ~20 GB | 64 K | yes | 27B dense — all params active |
+| `qwen36u35bq6kp` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline |
+| `qwopus35bq5km` | Qwopus3.6-35B-A3B Q5\_K\_M | ~25 GB | 128 K | yes | Reasoning-enhanced, tool-calling, vision |
+| `qwopus35bq6k` | Qwopus3.6-35B-A3B Q6\_K | ~29 GB | 128 K | yes | Qwopus quality candidate |
+| `gemma4q5km` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | yes | 26B MoE, 4B active |
+| `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored Gemma4 fine-tune, text-only |
+| `glm47flashq5km` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | no | 30B MoE, 3B active, coding-focused |
 
 GLM-4.7-Flash uses the DeepSeek-V2 MLA attention architecture and remains a useful comparison model, but measured slower than the Qwen MoE models on this i9. It scores ~59% on SWE-Bench Verified.
 
@@ -176,6 +175,7 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | `--temp` / `--top-p` / `--top-k` | 0.2 / 0.8 / 20 | Conservative i9 Qwen sampling for OpenCode tool-call JSON reliability. Override: `IK_LLAMA_TEMP`, `IK_LLAMA_TOP_P`, `IK_LLAMA_TOP_K` |
 | `-v` | — | Verbose output (shows tok/s, timing) |
 | `--mlock` | — | Lock model in RAM (i9 only, prevents swapping) |
+| `--mmproj <file>` | — | Multimodal projector GGUF for vision (Qwen3.6, Qwopus3.6, Gemma4) |
 
 ### Qwen3 YaRN (context extension)
 
@@ -214,20 +214,18 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 ### i9-13900 (Raptor Lake, AVX2)
 
-- `qwen36u35bq4kp`: ~126.4 prompt tok/s, ~27.2 gen tok/s at `8/24`; fastest retained Qwen3.6 35B-A3B option.
-- `qwen36u35bq5kp`: ~126.2 prompt tok/s, ~24.7 gen tok/s at `8/24`; best higher-quant daily candidate if quality improves over Q4.
-- `qwen36u35bq6kp`: ~122.8 prompt tok/s, ~22.6 gen tok/s at `8/24`; quality candidate, but slower than Q5.
-- `qwen36u35bq8kp`: ~113.4 prompt tok/s, ~17.4 gen tok/s at `8/24`; quality ceiling only, not the default.
+- `qwen36u35bq6kp`: ~122.8 prompt tok/s, ~22.6 gen tok/s at `8/24`; sole retained Qwen3.6 35B-A3B HauhauCS quant (Q4/Q5/Q8 replaced by Qwopus).
 - `qwen3coderq5km`: ~110.6 prompt tok/s, ~29.8 gen tok/s at `8/24`; best generation row was ~30.0 gen tok/s at `8/32`, but prompt ingestion dropped to ~90.7 tok/s.
 - `qwen3coderq6k`: ~102.1 prompt tok/s, ~25.6 gen tok/s at `8/24`.
 - `qwen3coderq8`: ~105.8 prompt tok/s, ~20.7 gen tok/s at `8/24`.
 - 32B dense candidates were only ~13.5–14.2 prompt tok/s and ~3.0–3.6 gen tok/s.
+- Qwopus Q5_K_M / Q6_K: not yet benchmarked on this i9 (same `qwen35moe` arch — expect similar throughput to HauhauCS Qwen3.6-35B-A3B).
 
 ### i9 speed notes
 
-The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27bq5kp` is the retained dense quality option, but it is not interactive. Qwen3-Coder A3B failed manual quality even at Q8, so the next responsive-quality track is Qwen3.6 35B-A3B with higher HauhauCS K_P quants. Speed benchmarks do not decide the default by themselves; manual code quality does.
+The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27bq5kp` is the retained dense quality option, but it is not interactive. Qwen3.6-35B-A3B Q4/Q5/Q8 HauhauCS quants are replaced by Qwopus3.6-35B-A3B Q5_K_M and Q6_K. Qwen3-Coder A3B failed manual quality even at Q8.
 
-- Test `qwen36u35bq5kp` first for responsiveness/quality. Keep `qwen36u35bq6kp` and `qwen36u35bq8kp` only if manual quality clearly beats Q5. Use Q8 at 32K first because it is memory-tight and much slower.
+- Test `qwopus35bq5km` first for daily use. Keep `qwopus35bq6k` and `qwen36u35bq6kp` for quality checks.
 - Keep context as low as the task allows; 64K/128K context improves long sessions but slows prompt processing and grows KV memory.
 - Use `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default i9 startup point.
 - Avoid `IK_LLAMA_THREADS=10` and `12`; benchmarks were consistently worse than `6` and `8`.
@@ -240,11 +238,8 @@ The completed i9 `llama-bench` runs point to `8/24` as the best default thread s
 Best observed rows:
 
 | Use | Mode | Threads | Prompt tok/s | Gen tok/s | Notes |
-|---|---|---:|---:|---:|---|
-| Fast retained Qwen3.6 MoE | `qwen36u35bq4kp` | 8/24 | ~126.4 | ~27.2 | Fastest retained 35B-A3B option; baseline to beat on quality |
-| Higher-quant Qwen3.6 candidate | `qwen36u35bq5kp` | 8/24 | ~126.2 | ~24.7 | Best current daily candidate if manual quality beats Q4 |
-| Higher-quant Qwen3.6 quality check | `qwen36u35bq6kp` | 8/24 | ~122.8 | ~22.6 | Slower than Q5; keep only if quality is noticeably better |
-| Qwen3.6 quality ceiling | `qwen36u35bq8kp` | 8/24 | ~113.4 | ~17.4 | Too slow for default; useful only as a quality reference |
+|---|---|---|---:|---:|---:|---|
+| Qwen3.6 MoE quality baseline | `qwen36u35bq6kp` | 8/24 | ~122.8 | ~22.6 | Sole retained HauhauCS Qwen3.6 35B quant |
 | Rejected coder Q8 | `qwen3coderq8` | 8/24 | ~105.8 | ~20.7 | Manual quality failed despite highest tested quant |
 | Rejected coder Q6 | `qwen3coderq6k` | 8/24 | ~102.1 | ~25.6 | Manual quality did not justify keeping it |
 | Rejected coder Q5 | `qwen3coderq5km` | 8/24 | ~110.6 | ~29.8 | Responsive, but manual quality failed |
@@ -260,13 +255,12 @@ Rejected fast-tier candidates:
 
 - `qwen3fast:q5` and `qwen3fast:q4` were much slower than the MoE models.
 - `qwen38b:q5` and `qwen38b:q4` were faster than `qwen3fast`, but still not competitive with Qwen3-Coder MoE.
-- `qwen36u35b:iq4nl` did not beat `qwen36u35b:q4kp`.
 - `qwen332b:q4/q5` and `qwen25coder32b:q4/q5` were all around 3–3.6 gen tok/s.
 - `qwen3coderq3` through `qwen3coderq8` were responsive enough, but not useful in manual coding tests.
 
-The benchmark script accepts explicit quantized presets like `qwen36u35b:q5kp`, `qwen36u35b:q6kp`, and `qwen36u35b:q8kp`, but the canonical script/OpenCode names include the quantization suffix.
+The benchmark script accepts explicit quantized presets like `qwopus35b:q5km`, but the canonical script/OpenCode names include the quantization suffix.
 
-The active benchmark set is `qwen36u35bq4kp`, `qwen36u35bq5kp`, `qwen36u35bq6kp`, `qwen36u35bq8kp`, `qwen36u27bq5kp`, `gemma4q5km`, `supergemma4q4km`, and `glm47flashq5km`.
+The active benchmark set is `qwen36u35bq6kp`, `qwen36u27bq5kp`, `qwopus35bq5km`, `qwopus35bq6k`, `gemma4q5km`, `supergemma4q4km`, and `glm47flashq5km`.
 
 The `all` and `qwen36` benchmark groups use only the active model list. `qwen36` runs the full Qwen3.6 comparison.
 
@@ -319,3 +313,4 @@ The cleanup list includes the rejected Qwen3-Coder Q3/Q4/Q5/Q6/Q8 files.
 7. **`-rea off`** — disables thinking mode; cuts response time 50–80% for coding tasks
 8. **MoE active-parameter ceiling** — 3B active params is the real intelligence limit regardless of quantization level; for more intelligence use a dense model like `qwen36u27bq5kp`
 9. **GLM-4.7-Flash is not faster than Qwen3-Coder on this i9** — despite MLA, measured throughput was lower than the Qwen MoE models
+10. **Vision requires mmproj** — Qwen3.6, Qwopus3.6, and Gemma4 models support image input when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. SuperGemma4 and GLM-4.7-Flash are text-only.
