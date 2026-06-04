@@ -4,19 +4,22 @@ How to wire OpenCode and Claude Code to the local ik_llama.cpp server.
 
 ## OpenCode
 
-Run the setup script for your machine — it parses the start script for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. OpenCode config is written only when `opencode` is installed.
+Run the setup script for your machine — it parses `start.sh` for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. Vision models automatically get `modalities` for image input. OpenCode config is written only when `opencode` is installed.
 
 ```bash
 # ProBook (WSL2)
-./setup-agents-probook.sh
+./setup-agents.sh probook
 
 # i9
-./setup-agents-i9.sh
+./setup-agents.sh i9
+
+# MacBook Air
+./setup-agents.sh macbook-air
 ```
 
-The ProBook script auto-detects the Windows host IP from the WSL2 default gateway. The generated config uses `http://<host-ip>:8080/v1` (ProBook) or `http://localhost:9080/v1` (i9).
+The ProBook script auto-detects the Windows host IP from the WSL2 default gateway. The generated config uses `http://<host-ip>:8080/v1` (ProBook) or `http://localhost:9080/v1` (i9/Mac).
 
-Model shortnames are derived from the `start-*.sh` case statements. Run the setup script to see available shortnames — they're printed after install. No static config file to maintain.
+Model shortnames are derived from `start.sh` case entries. Run `setup-agents.sh` to see available shortnames — they're printed after install. No static config file to maintain.
 
 ## Pi
 
