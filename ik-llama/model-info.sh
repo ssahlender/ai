@@ -1,13 +1,35 @@
 #!/usr/bin/env bash
+# Shows on-disk GGUF models vs expected entries from start.sh.
+# Usage: ./model-info.sh [i9|probook|macbook-air]
 set -euo pipefail
 
-MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
+MACHINE="${1:-}"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-START_SCRIPT="$SCRIPT_DIR/start-i9.sh"
+START_SCRIPT="$SCRIPT_DIR/start.sh"
 
 if [ ! -f "$START_SCRIPT" ]; then
-  echo "Missing $START_SCRIPT. Run from ik-llama/ directory." >&2
+  echo "Missing $START_SCRIPT" >&2
   exit 1
+fi
+
+# Default models dir based on machine arg, or try to auto-detect
+if [ -n "$MACHINE" ]; then
+  case "$MACHINE" in
+    i9) MODELS_DIR="${MODELS_DIR:-/data/llm/models}" ;;
+    probook) MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}" ;;
+    macbook-air) MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}" ;;
+    *) echo "Usage: $0 [i9|probook|macbook-air]" >&2; exit 1 ;;
+  esac
+else
+  # Auto-detect: try paths
+  for d in /data/llm/models /mnt/c/data/llm/models "$HOME/.local/share/llama.cpp/models"; do
+    if [ -d "$d" ] && ls "$d"/*.gguf >/dev/null 2>&1; then
+      MODELS_DIR="$d"
+      break
+    fi
+  done
+  MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
 fi
 
 b2h() {
@@ -19,48 +41,64 @@ b2h() {
   fi
 }
 
-echo "Scanning $MODELS_DIR ..."
+echo "Models dir: $MODELS_DIR"
 echo
 
-# ── On-disk GGUF listing ──────────────────────────────────────────
-ON_DISK=()
+# ── On-disk GGUF listing ───────────────────────────────────────────
 echo "=== GGUF files on disk ==="
+found_gguf=0
 while IFS= read -r -d '' f; do
   name="$(basename "$f")"
   size="$(stat --format=%s "$f" 2>/dev/null || echo 0)"
-  hsize="$(b2h "$size")"
-  printf "  %-70s %s\n" "$name" "$hsize"
-  ON_DISK+=("$name")
+  printf "  %-70s %s\n" "$name" "$(b2h "$size")"
+  found_gguf=1
 done < <(find "$MODELS_DIR" -maxdepth 1 -name '*.gguf' -not -name 'mmproj*' -print0 2>/dev/null | sort -z)
-
+[ "$found_gguf" -eq 0 ] && echo "  (none)"
 echo
 
-# ── On-disk mmproj listing ────────────────────────────────────────
+# ── On-disk mmproj listing ─────────────────────────────────────────
 echo "=== mmproj files on disk ==="
-mmproj_found=0
+found_mm=0
 while IFS= read -r -d '' f; do
   name="$(basename "$f")"
   size="$(stat --format=%s "$f" 2>/dev/null || echo 0)"
-  hsize="$(b2h "$size")"
-  printf "  %-70s %s\n" "$name" "$hsize"
-  mmproj_found=1
+  printf "  %-70s %s\n" "$name" "$(b2h "$size")"
+  found_mm=1
 done < <(find "$MODELS_DIR" -maxdepth 1 -name 'mmproj*' -print0 2>/dev/null | sort -z)
-
-if [ "$mmproj_found" -eq 0 ]; then
-  echo "  (none)"
-fi
-
+[ "$found_mm" -eq 0 ] && echo "  (none)"
 echo
 
-# ── Parse start-i9.sh for expected model entries ──────────────────
+# ── Parse start.sh for model entries ───────────────────────────────
 echo "=== Start-script model entries ==="
 
-# Extract lines matching: shortname) start_model "Name" "file.gguf" ctx ...
-# Format: shortname→file.gguf→ctx→mmprojfile(optional)
-ENTRIES=$(grep -E '^\s+[a-z0-9]+\).*start_model.*\.gguf' "$START_SCRIPT" 2>/dev/null || true)
+if [ -z "$MACHINE" ]; then
+  echo "  No machine specified. Run: $0 <i9|probook|macbook-air>"
+  echo
+  echo "=== Stale snapshots (.part files) ==="
+  stale=0
+  while IFS= read -r -d '' f; do
+    printf "  %s\n" "$(basename "$f")"
+    stale=1
+  done < <(find "$MODELS_DIR" -maxdepth 1 -name '*.gguf.part' -print0 2>/dev/null | sort -z)
+  [ "$stale" -eq 0 ] && echo "  (none)"
+  exit 0
+fi
+
+# Extract entries from the machine case block in start.sh
+# Format: "shortname|desc|filename.gguf|ctx|cram|flags"
+ENTRIES=$(awk -v m="$MACHINE" '
+  $0 ~ "^[[:space:]]*" m "\\)[[:space:]]*$" { in_block=1; next }
+  in_block && /^[[:space:]]*;;/ { exit }
+  in_block && /\".*[.]gguf\|/ {
+    if (match($0, /"[^"]+[.]gguf\|[0-9]+\|[0-9]+[^"]*"/)) {
+      entry = substr($0, RSTART+1, RLENGTH-2)
+      print entry
+    }
+  }
+' "$START_SCRIPT")
 
 if [ -z "$ENTRIES" ]; then
-  echo "  No model entries found in $START_SCRIPT"
+  echo "  No model entries found for machine '$MACHINE'"
   exit 0
 fi
 
@@ -68,81 +106,70 @@ configured=0
 missing=0
 
 while IFS= read -r line; do
-  shortname=$(echo "$line" | sed -n 's/^\s*\([a-z0-9][a-z0-9]*\))\s.*/\1/p')
-  [ -z "$shortname" ] && continue
-
-  gguf=$(echo "$line" | sed -n 's/.*start_model\s*"[^"]*"\s*"\([^"]*\)"\s.*/\1/p')
-  [ -z "$gguf" ] && continue
-
+  IFS='|' read -r sn desc fn ctx cram rest <<< "$line"
+  [ -z "$sn" ] && continue
   configured=$((configured + 1))
 
-  ctx=$(echo "$line" | sed -n 's/.*\.gguf"[[:space:]]*\([0-9]\{1,\}\).*/\1/p')
-  ctx="${ctx:-?}"
-
-  mmproj=""
-  if echo "$line" | grep -q -- '--mmproj'; then
-    mmproj=$(echo "$line" | sed -n 's/.*--mmproj.*"\([^"]*\)".*/\1/p')
-    mmproj=$(basename "$mmproj")
+  # Vision detection: extra fields after cram may contain mmproj-*.gguf
+  is_vision=0
+  mmproj_file=""
+  if echo "$rest" | grep -q 'mmproj-'; then
+    is_vision=1
+    for f in $(echo "$rest" | tr '|' ' '); do
+      case "$f" in
+        mmproj-*) mmproj_file="$f" ;;
+      esac
+    done
   fi
 
   # Check disk
-  gguf_exists=0
-  gguf_size=0
-  gguf_hsize=""
-  if [ -f "$MODELS_DIR/$gguf" ]; then
-    gguf_exists=1
-    gguf_size=$(stat --format=%s "$MODELS_DIR/$gguf" 2>/dev/null || echo 0)
-    gguf_hsize=$(b2h "$gguf_size")
+  gguf_ok=0; gguf_size=0
+  if [ -f "$MODELS_DIR/$fn" ]; then
+    gguf_ok=1
+    gguf_size=$(stat --format=%s "$MODELS_DIR/$fn" 2>/dev/null || echo 0)
   fi
 
-  mmproj_exists=0
-  mmproj_hsize=""
-  if [ -n "$mmproj" ] && [ -f "$MODELS_DIR/$mmproj" ]; then
-    mmproj_exists=1
-    mmproj_size=$(stat --format=%s "$MODELS_DIR/$mmproj" 2>/dev/null || echo 0)
-    mmproj_hsize=$(b2h "$mmproj_size")
+  mmproj_ok=0; mmproj_size=0
+  if [ "$is_vision" -eq 1 ] && [ -n "$mmproj_file" ] && [ -f "$MODELS_DIR/$mmproj_file" ]; then
+    mmproj_ok=1
+    mmproj_size=$(stat --format=%s "$MODELS_DIR/$mmproj_file" 2>/dev/null || echo 0)
   fi
 
-  if [ "$gguf_exists" -eq 0 ]; then
-    status_icon="MISSING"
-  elif [ -n "$mmproj" ] && [ "$mmproj_exists" -eq 0 ]; then
-    status_icon="NO MMPROJ"
+  # Status
+  if [ "$gguf_ok" -eq 0 ]; then
+    status="MISSING"
+  elif [ "$is_vision" -eq 1 ] && [ "$mmproj_ok" -eq 0 ]; then
+    status="NO MMPROJ"
   else
-    status_icon="OK     "
+    status="OK"
   fi
+  [ "$status" != "OK" ] && missing=$((missing + 1))
 
-  [ "$status_icon" != "OK     " ] && missing=$((missing + 1))
+  ctx_human="$((ctx / 1024))K"
+  gguf_hsize="$(b2h "$gguf_size")"
+  printf "  %-20s %-65s %5s  %-6s %s\n" "$sn" "$fn" "$gguf_hsize" "$ctx_human" "$status"
 
-  ctx_human="?"
-  if [ "$ctx" -eq "$ctx" ] 2>/dev/null && [ "$ctx" -gt 0 ] 2>/dev/null; then
-    ctx_human="$((ctx / 1024))K"
-  fi
-
-  printf "  %-20s %-65s %5s  %-6s %s\n" "$shortname" "$gguf" "$gguf_hsize" "$ctx_human" "$status_icon"
-
-  if [ -n "$mmproj" ]; then
-    if [ "$mmproj_exists" -eq 1 ]; then
-      printf "    └─ mmproj: %-62s %5s  [on disk]\n" "$mmproj" "$mmproj_hsize"
+  if [ "$is_vision" -eq 1 ] && [ -n "$mmproj_file" ]; then
+    if [ "$mmproj_ok" -eq 1 ]; then
+      mmproj_hsize="$(b2h "$mmproj_size")"
+      printf "    └─ mmproj: %-62s %5s  [on disk]\n" "$mmproj_file" "$mmproj_hsize"
     else
-      printf "    └─ mmproj: %-62s   MISSING\n" "$mmproj"
+      printf "    └─ mmproj: %-62s   MISSING\n" "$mmproj_file"
     fi
   fi
 done <<< "$ENTRIES"
 
 echo
 echo "=== Stale snapshots (.part files) ==="
-stale_found=0
+stale=0
 while IFS= read -r -d '' f; do
-  name="$(basename "$f")"
-  printf "  %s\n" "$name"
-  stale_found=1
+  printf "  %s\n" "$(basename "$f")"
+  stale=1
 done < <(find "$MODELS_DIR" -maxdepth 1 -name '*.gguf.part' -print0 2>/dev/null | sort -z)
-if [ "$stale_found" -eq 0 ]; then
-  echo "  (none)"
-fi
+[ "$stale" -eq 0 ] && echo "  (none)"
 echo
 
 echo "=== Summary ==="
 printf "  Configured:      %d\n" "$configured"
 printf "  Missing/incomplete: %d\n" "$missing"
-echo "  Run: ./cleanup-models-i9.sh --apply   to remove obsolete files"
+echo "  Run: ./cleanup-models.sh $MACHINE --apply   to remove obsolete files"
