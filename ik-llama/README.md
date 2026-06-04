@@ -45,8 +45,8 @@ rerun setup with the same override so OpenCode sees the actual active context
 window and starts compacting early enough:
 
 ```bash
-IK_LLAMA_CTX_SIZE=32768 ./setup-agents-i9.sh
-IK_LLAMA_CTX_SIZE=32768 ./start-i9.sh qwen36u35bq5kp
+IK_LLAMA_CTX_SIZE=32768 ./setup-agents.sh i9
+IK_LLAMA_CTX_SIZE=32768 ./start.sh i9 qwopus35bq5km
 ```
 
 Use `OPENCODE_OUTPUT_LIMIT=<tokens>` only to change OpenCode's reserved output
@@ -102,7 +102,7 @@ For OpenCode edit loops where "Preparing write" feels slow, first try the same c
 model with a smaller active context:
 
 ```bash
-IK_LLAMA_CTX_SIZE=32768 ./start-i9.sh qwen36u35bq5kp
+IK_LLAMA_CTX_SIZE=32768 ./start.sh i9 qwopus35bq5km
 ```
 
 Use the normal 64K default again when the session really needs the extra context.
@@ -147,9 +147,9 @@ Summarize benchmark CSVs:
 Quick start:
 ```bash
 brew install llama.cpp                      # prerequisite
-./download-models-macbook-air.sh             # pull GGUFs + mmproj
-./setup-agents-macbook-air.sh                # wire OpenCode + Pi
-./start-macbook-air.sh qwen36u27b            # daily driver: 27B dense, 32K ctx
+./download-models.sh macbook-air             # pull GGUFs + mmproj
+./setup-agents.sh macbook-air                # wire OpenCode + Pi
+./start.sh macbook-air qwen36u27b            # daily driver: 27B dense, 32K ctx
 ```
 
 The 27B dense IQ4\_XS is the smarter pick — all 27B params active vs 3B MoE for the 35B, and still fits at 32K context on 24 GB unified memory. Same HF repos and mmproj files as i9, just different quants (IQ4\_XS/IQ4\_NL for Mac vs K\_P for i9).
@@ -295,8 +295,8 @@ For OpenCode, keep `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the d
 For 128K OpenCode sessions on the i9 with `qwen36u35bq6kp`, start with:
 
 ```bash
-./start-i9.sh qwen36u35bq6kp
-OPENCODE_COMPACTION_RESERVED=24000 ./setup-agents-i9.sh
+./start.sh i9 qwen36u35bq6kp
+OPENCODE_COMPACTION_RESERVED=24000 ./setup-agents.sh i9
 ```
 
 Raise `IK_LLAMA_CRAM_MB` to `28672` only if RAM stays comfortable. Avoid
