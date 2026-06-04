@@ -88,16 +88,21 @@ download_if_present "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"
 
 # --- Qwen3.6 ---
 download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive      Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf
-download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_P.gguf
-download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf
+download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive      mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf
 download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf
-download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q8_K_P.gguf
+download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
 
 # --- Gemma 4 ---
 download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                         gemma-4-26B-A4B-it-UD-Q5_K_M.gguf
+download_if_missing unsloth/gemma-4-26B-A4B-it-GGUF                         mmproj-F16.gguf
 download_if_missing Jiunsong/supergemma4-26b-uncensored-gguf-v2              supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
 
 # --- GLM-4.7-Flash (30B MoE, ~3B active, DeepSeek2 arch, coding-focused) ---
 download_if_missing bartowski/zai-org_GLM-4.7-Flash-GGUF                    zai-org_GLM-4.7-Flash-Q5_K_M.gguf
+
+# --- Qwopus3.6-35B-A3B (vision, reasoning-enhanced HauhauCS fine-tune) ---
+download_if_missing Jackrong/Qwopus3.6-35B-A3B-v1-GGUF                      Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf
+download_if_missing Jackrong/Qwopus3.6-35B-A3B-v1-GGUF                      Qwopus3.6-35B-A3B-v1-Q6_K.gguf
+download_if_missing Jackrong/Qwopus3.6-35B-A3B-v1-GGUF                      mmproj-F32.gguf
 
 echo "All models ready in $MODELS_DIR"
