@@ -17,12 +17,10 @@ See [`ik-llama/AGENTS.md`](ik-llama/AGENTS.md) for full setup:
 
 ### Apple Silicon (MacBook Air M4)
 
-See [`ollama/`](ollama/) for Mac setup:
-
-- Ollama + Metal GPU acceleration
-- `download-models-mac.sh` — pulls models for 24 GB
-- `setup-opencode-mac.sh` — auto-generates OpenCode provider config from `ollama list`
-- No Claude Code env vars needed (use OpenCode with ollama provider)
+See [`ik-llama/`](ik-llama/) for unified setup:
+- `download-models.sh macbook-air` — pulls GGUFs + mmproj from HF (same repos as i9)
+- `setup-agents.sh macbook-air` — auto-generates OpenCode/Pi config
+- `start.sh macbook-air` — Metal GPU via brew's llama.cpp, same flags + vision as i9
 
 ## tools/ scripts
 

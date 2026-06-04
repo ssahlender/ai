@@ -15,22 +15,19 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 
 | Script | Purpose |
 |---|---|
-| `update-probook.sh` | Download/update ik_llama.cpp Windows binary |
-| `update-i9.sh` | Download/update ik_llama.cpp Linux binary |
-| `download-models-probook.sh` | Download GGUF models to `/mnt/c/data/llm/models` |
-| `download-models-i9.sh` | Download GGUF models to `/data/llm/models` |
-| `cleanup-models-i9.sh` | Remove rejected/obsolete i9 GGUF files (dry-run by default) |
-| `start-probook.sh <mode>` | Start llama-server on ProBook (runs from WSL2) |
-| `start-i9.sh <mode>` | Start llama-server on i9 |
-| `bench-i9.sh <mode>` | Benchmark i9 CPU thread settings with llama-bench |
-| `bench-probook.sh <mode>` | Benchmark ProBook CPU thread settings with Windows llama-bench.exe |
-| `setup-agents-probook.sh` | Auto-generate OpenCode/Pi provider config from start script |
-| `setup-agents-i9.sh` | Auto-generate OpenCode/Pi provider config from start script |
+| `update.sh <machine>` | Download/update ik_llama.cpp (Linux/Windows) or brew upgrade llama.cpp (Mac) |
+| `download-models.sh <machine>` | Download GGUF + mmproj files for i9/probook/macbook-air |
+| `start.sh <machine> <mode>` | Start llama-server on any machine |
+| `setup-agents.sh <machine>` | Auto-generate OpenCode/Pi provider config (parses start.sh) |
+| `bench.sh <machine> <mode>` | Benchmark CPU thread settings with llama-bench (i9/probook) |
+| `model-info.sh` | Show on-disk models, file sizes, mmproj status |
+| `cleanup-models.sh i9` | Remove rejected/obsolete i9 GGUF files (dry-run by default) |
 | `tune-i9.sh` | OS-level tuning for inference (cpu governor, THP, NUMA) |
 
-The setup scripts write the `ik-llama` provider for OpenCode when `opencode` is
+`setup-agents.sh` writes the `ik-llama` provider for OpenCode when `opencode` is
 installed and for Pi when `pi` is installed. Per-model context values are parsed
-from the matching `start-*.sh`. OpenCode gets a conservative `limit.output` of
+from `start.sh`. Vision models get `modalities: {input: [text, image], output: [text]}`.
+OpenCode gets a conservative `limit.output` of
 8192 tokens and:
 
 ```json
@@ -62,32 +59,44 @@ Pi config is written to `~/.pi/agent/models.json` with `api:
 ### Quick start — ProBook
 
 ```bash
-./update-probook.sh
-./download-models-probook.sh
-./setup-agents-probook.sh
-./start-probook.sh qwen36u35b   # or: gemma qwen3coder glm47flash
+./update.sh probook
+./download-models.sh probook
+./setup-agents.sh probook
+./start.sh probook qwen36u35b   # or: gemma qwen3coder glm47flash
 ```
 
 Benchmark thread settings:
 
 ```bash
-./bench-probook.sh qwen36u35b
-./bench-probook.sh all
-BENCH_THREADS="8 12 16" BENCH_THREADS_BATCH="8 12 16" ./bench-probook.sh qwen36u35b
+./bench.sh probook qwen36u35b
+./bench.sh probook all
+BENCH_THREADS="8 12 16" BENCH_THREADS_BATCH="8 12 16" ./bench.sh probook qwen36u35b
 ```
 
 ### Quick start — i9
 
 ```bash
 sudo ./tune-i9.sh       # OS tuning (once per boot)
-./update-i9.sh
-./download-models-i9.sh
-./setup-agents-i9.sh
-./start-i9.sh qwopus35bq5km   # or: qwen36u35bq6kp qwen36u27bq5kp qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km
-./cleanup-models-i9.sh     # dry-run obsolete GGUF cleanup
+./update.sh i9
+./download-models.sh i9
+./setup-agents.sh i9
+./start.sh i9 qwopus35bq5km   # or: qwen36u35bq6kp qwen36u27bq5kp qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km
+./cleanup-models.sh i9     # dry-run obsolete GGUF cleanup
 ```
 
 All i9 start modes default to `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24`. Override these only for explicit benchmark tests.
+
+### Quick start — MacBook Air M4
+
+```bash
+brew install llama.cpp             # prerequisite (once)
+./download-models.sh macbook-air
+./setup-agents.sh macbook-air
+./start.sh macbook-air qwen36u27b  # daily: 27B dense IQ4_XS, 32K ctx
+./start.sh macbook-air qwen36u35b  # fallback: 35B MoE IQ4_NL, 16K ctx
+```
+
+All Mac modes use Metal GPU (`-ngl 99`) with 4 threads. Same HF repos and mmproj as i9.
 
 For OpenCode edit loops where "Preparing write" feels slow, first try the same coder
 model with a smaller active context:
@@ -101,10 +110,10 @@ Use the normal 64K default again when the session really needs the extra context
 Benchmark thread settings:
 
 ```bash
-./bench-i9.sh qwen36u35bq5kp
-./bench-i9.sh all
-./bench-i9.sh qwen36
-BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench-i9.sh qwen36u35bq5kp
+./bench.sh i9 qwopus35bq5km
+./bench.sh i9 all
+./bench.sh i9 qwen36
+BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench.sh i9 qwopus35bq5km
 ```
 
 To compare results, start with the generated `*-summary.tsv`, then inspect the referenced CSV files. Look for the highest prompt processing throughput (`pp`/prompt tok/s) that does not hurt generation throughput (`tg`/generation tok/s). For OpenCode, prefer the best overall balance over the absolute highest prompt-only score.
@@ -127,6 +136,23 @@ Summarize benchmark CSVs:
 | `gemma` | Gemma4-26B-A4B IQ4\_NL | ~13 GB | 64 K | yes | 26B MoE, 4B active |
 | `qwen3coder` | Qwen3-Coder-30B-A3B Q3\_K\_M | ~14 GB | 64 K | no | 30B MoE, 3B active |
 | `glm47flash` | GLM-4.7-Flash Q4\_K\_M | ~17 GB | 32 K | no | 30B MoE, 3B active, DeepSeek-V2 MLA |
+
+### MacBook Air M4 (24 GB, Metal GPU)
+
+| Mode | Model | Size | Context | Vision | Notes |
+|---|---|---|---|---|---|
+| `qwen36u27b` | Qwen3.6-27B-Uncensored IQ4\_XS | ~15 GB | 32 K | yes | 27B dense — all params active, daily driver |
+| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 16 K | yes | 35B MoE, 3B active — speed fallback |
+
+Quick start:
+```bash
+brew install llama.cpp                      # prerequisite
+./download-models-macbook-air.sh             # pull GGUFs + mmproj
+./setup-agents-macbook-air.sh                # wire OpenCode + Pi
+./start-macbook-air.sh qwen36u27b            # daily driver: 27B dense, 32K ctx
+```
+
+The 27B dense IQ4\_XS is the smarter pick — all 27B params active vs 3B MoE for the 35B, and still fits at 32K context on 24 GB unified memory. Same HF repos and mmproj files as i9, just different quants (IQ4\_XS/IQ4\_NL for Mac vs K\_P for i9).
 
 ### i9 (64 GB RAM)
 
@@ -296,8 +322,8 @@ CONTEXT_MODE_ENABLE_OPENCODE=1 ../tools/context-mode-init.sh
 To free disk space after benchmarking rejected candidates:
 
 ```bash
-./cleanup-models-i9.sh
-./cleanup-models-i9.sh --apply
+./cleanup-models.sh i9
+./cleanup-models.sh i9 --apply
 ```
 
 The cleanup list includes the rejected Qwen3-Coder Q3/Q4/Q5/Q6/Q8 files.

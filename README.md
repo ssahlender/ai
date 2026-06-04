@@ -6,8 +6,7 @@ Scripts for running local AI tools across multiple machines.
 
 | Path | Contents |
 |---|---|
-| `ik-llama/` | CPU-only LLM inference with ik_llama.cpp — models, server, OpenCode config (ProBook, i9) |
-| `ollama/` | GPU-accelerated Ollama inference for Apple Silicon (MacBook Air M4) |
+| `ik-llama/` | LLM inference with ik_llama.cpp / llama.cpp — models, server, OpenCode config (ProBook, i9, MacBook Air) |
 | `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
@@ -301,26 +300,11 @@ docker compose up -d
 
 ## ik-llama/
 
-CPU-only local LLM inference using [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) on two machines (HP ProBook + i9-13900). Models: Qwen3.6, Qwopus3.6, Gemma4, GLM-4.7-Flash. Vision via mmproj on Qwen/Qwopus/Gemma models.
+CPU-only local LLM inference using [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) on HP ProBook (WSL2) and i9-13900 (Debian), plus Metal GPU on MacBook Air M4 via [llama.cpp](https://github.com/ggerganov/llama.cpp). Models: Qwen3.6, Qwopus3.6, Gemma4, GLM-4.7-Flash. Vision via mmproj on Qwen/Qwopus/Gemma models.
 
 See [`ik-llama/README.md`](ik-llama/README.md) for full details: hardware, models, flags, benchmark scripts, performance, and lessons learned.
 
 Generated benchmark output goes into `bench-results/` and is intentionally ignored by git. Python bytecode caches such as `__pycache__/` and `*.pyc` are also ignored.
 
 ---
-
-## ollama/
-
-GPU-accelerated local inference using Ollama on Apple Silicon (MacBook Air M4, 24 GB). Uses Metal GPU offload. Auto-discovers installed models for OpenCode config.
-See [`ollama/README.md`](ollama/README.md) for speed guidance and Ollama vs direct llama.cpp notes.
-
-```bash
-./tools/ollama-install.sh               # install Ollama binary
-./ollama/download-models-mac.sh         # pull models (GGUF + Ollama tags)
-./ollama/setup-opencode-mac.sh          # auto-generates provider config from ollama list
-```
-
-Models for 24 GB:
-- `qwen36-27b-iq4nl` — Qwen3.6 27B dense IQ4_NL (~14 GB), best quality coding model
-- `qwen3:14b` — Qwen3 14B dense (~9 GB), solid fallback
 - `gemma3:12b` — Gemma3 12B dense (~8 GB), fast alternative
