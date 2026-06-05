@@ -45,7 +45,7 @@ Use `claude-providers.sh` to pick local or remote models interactively, or
 launch directly:
 
 ```bash
-# Interactive picker (local + OpenRouter + NVIDIA + OpenCode Go)
+# Interactive picker (local + OpenRouter + NVIDIA + OpenCode Go + Proxy)
 ./claude-providers.sh
 
 # Direct launch (skip picker)
@@ -53,6 +53,7 @@ launch directly:
 ./claude-providers.sh openrouter anthropic/claude-sonnet-4
 ./claude-providers.sh nvidia nvidia/llama-4-maverick
 ./claude-providers.sh opencode-go qwen3.7-max
+./claude-providers.sh opencode-proxy deepseek-v4-pro
 ```
 
 The script sources `~/.secrets` for API keys. Create the file (chmod 600) with:
@@ -63,6 +64,27 @@ export OPENROUTER_API_KEY=sk-or-v1-xxxxx
 export NVIDIA_API_KEY=nvapi-xxxxx
 export OPENCODE_GO_API_KEY=oc-xxxxx
 ```
+
+`opencode-proxy` auto-starts `ocg-proxy.py` (port 4099) which translates
+Anthropic Messages → OpenAI Chat Completions. This unlocks OpenCode Go's
+OpenAI-only models (DeepSeek, Kimi, GLM) for use with Claude Code.
+
+You can also start the proxy standalone and leave it running:
+
+```bash
+# Start proxy (keep it running in background)
+export OCG_PROXY_API_KEY=$OPENCODE_GO_API_KEY
+./ocg-proxy.py &
+
+# Then any Claude Code session points at it:
+ANTHROPIC_BASE_URL=http://localhost:4099 \
+ANTHROPIC_CUSTOM_MODEL_OPTION=deepseek-v4-pro \
+ANTHROPIC_API_KEY=dummy \
+claude --bare --model deepseek-v4-pro
+```
+
+Supports `OCG_PROXY_PORT`, `OCG_PROXY_MODELS` (comma-separated), and
+`SSL_CERT_FILE` (matches `update.sh`/`download-models.sh` pattern).
 
 For local models, Claude Code points at the ik_llama.cpp server on port 9080.
 The script auto-detects WSL2 and uses the Windows host IP when needed (llama-server
