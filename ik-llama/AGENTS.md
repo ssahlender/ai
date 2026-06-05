@@ -41,8 +41,8 @@ the tool call.
 
 ## Claude Code
 
-Use `claude-providers.sh` to pick local or remote models interactively, or
-launch directly:
+Use `claude-providers.sh` to pick local or remote models interactively. Type
+numbers to select — no typing model names:
 
 ```bash
 # Interactive picker (local + OpenRouter + NVIDIA + OpenCode Go + Proxy)
@@ -56,7 +56,12 @@ launch directly:
 ./claude-providers.sh opencode-proxy deepseek-v4-pro
 ```
 
-The script sources `~/.secrets` for API keys. Create the file (chmod 600) with:
+The script sources `~/.secrets` for API keys. Copy the template and
+fill in your keys:
+
+```bash
+cp .secrets.example ~/.secrets && chmod 600 ~/.secrets
+```
 
 ```bash
 # ~/.secrets
@@ -64,6 +69,8 @@ export OPENROUTER_API_KEY=sk-or-v1-xxxxx
 export NVIDIA_API_KEY=nvapi-xxxxx
 export OPENCODE_GO_API_KEY=oc-xxxxx
 ```
+
+### Proxy (ocg-proxy.py)
 
 `opencode-proxy` auto-starts `ocg-proxy.py` (port 4099) which translates
 Anthropic Messages → OpenAI Chat Completions. This unlocks OpenCode Go's
@@ -86,12 +93,16 @@ claude --bare --model deepseek-v4-pro
 Supports `OCG_PROXY_PORT`, `OCG_PROXY_MODELS` (comma-separated), and
 `SSL_CERT_FILE` (matches `update.sh`/`download-models.sh` pattern).
 
+### Local models
+
 For local models, Claude Code points at the ik_llama.cpp server on port 9080.
 The script auto-detects WSL2 and uses the Windows host IP when needed (llama-server
 runs as a Windows `.exe` on ProBook). On native Linux/macOS it uses `localhost`.
 Ensure a model is loaded first: `./start.sh <machine> <mode>`.
 
-The script uses `--bare` mode by default to bypass claude.ai OAuth and let
+### Bare mode
+
+Both scripts use `--bare` mode by default to bypass claude.ai OAuth and let
 `ANTHROPIC_API_KEY` take over. `--bare` disables hooks and CLAUDE.md auto-
 discovery. If you prefer full features, run `claude /logout` first, then set
 `CLAUDE_PROVIDERS_NO_BARE=1` to skip bare mode.
@@ -109,7 +120,7 @@ export ANTHROPIC_DEFAULT_HAIKU_MODEL=<gguf-stem>
 claude --bare --model <gguf-stem>                  # --bare required if signed into claude.ai
 
 # OpenRouter
-export ANTHROPIC_BASE_URL=https://openrouter.ai/api/anthropic
+export ANTHROPIC_BASE_URL=https://openrouter.ai/api
 export ANTHROPIC_API_KEY=$OPENROUTER_API_KEY
 export ANTHROPIC_CUSTOM_MODEL_OPTION=anthropic/claude-sonnet-4
 export ANTHROPIC_DEFAULT_SONNET_MODEL=anthropic/claude-sonnet-4

@@ -19,7 +19,8 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `download-models.sh <machine>` | Download GGUF + mmproj files for i9/probook/macbook-air |
 | `start.sh <machine> <mode>` | Start llama-server on any machine |
 | `setup-agents.sh <machine>` | Auto-generate OpenCode/Pi provider config (parses start.sh) |
-| `claude-providers.sh [provider] [model]` | Pick & launch Claude Code with local or remote models (auto-detects WSL) |
+| `claude-providers.sh [provider] [model]` | Interactive picker & launch Claude Code with local or remote models |
+| `.secrets.example` | Template for `~/.secrets` (copy, chmod 600, fill in keys) |
 | `ocg-proxy.py` | Anthropic ↔ OpenAI proxy for OpenCode Go (DeepSeek/Kimi/GLM + Claude Code) |
 | `bench.sh <machine> <mode>` | Benchmark CPU thread settings with llama-bench (i9/probook) |
 | `model-info.sh` | Show on-disk models, file sizes, mmproj status |

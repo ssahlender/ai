@@ -4,10 +4,12 @@
 #   Direct:       ./claude-providers.sh <provider> [model]
 #
 # Providers:
-#   local        Local ik_llama.cpp server (auto-detects port)
-#   openrouter   OpenRouter proxy (200+ models, Anthropic format)
-#   nvidia       NVIDIA NIM (may not support Anthropic format natively)
-#   opencode-go  OpenCode Go subscription (MiniMax/Qwen only, Anthropic format)
+#   local          Local ik_llama.cpp server (auto-detects port)
+#   openrouter     OpenRouter proxy (200+ models, Anthropic format)
+#   nvidia         NVIDIA NIM free models via local proxy (Anthropic→OpenAI bridge)
+#   nvidia-proxy   Same as nvidia, explicit
+#   opencode-go    OpenCode Go subscription (MiniMax/Qwen only, Anthropic format)
+#   opencode-proxy OpenCode Go OpenAI-only models via local proxy (DeepSeek/Kimi/GLM)
 #
 # Sources ~/.secrets for API keys (OPENROUTER_API_KEY, NVIDIA_API_KEY, OPENCODE_GO_API_KEY).
 set -euo pipefail
@@ -71,7 +73,7 @@ detect_local() {
   else
     host="127.0.0.1"
   fi
-  model=$(curl -sf "http://${host}:9080/v1/models" 2>/dev/null | \
+  model=$(curl -sf --max-time 3 --connect-timeout 2 "http://${host}:9080/v1/models" 2>/dev/null | \
           python3 -c "
 import sys, json, os
 d = json.load(sys.stdin)
@@ -100,19 +102,24 @@ llama_host() {
 # ── openrouter models ─────────────────────────────────────────────────
 
 OR_MODELS=(
-  "anthropic/claude-sonnet-4:Claude Sonnet 4"
-  "anthropic/claude-opus-4:Claude Opus 4"
+  "openrouter/free:Free Router (auto-picks free model)"
   "google/gemini-2.5-pro:Gemini 2.5 Pro"
   "deepseek/deepseek-v4-pro:DeepSeek V4 Pro"
   "qwen/qwen3.6-plus:Qwen3.6 Plus"
   "moonshotai/kimi-k2.6:Kimi K2.6"
+  "moonshotai/kimi-k2.6:free:Kimi K2.6 (free)"
+  "nvidia/nemotron-3-ultra-550b-a55b:free:Nemotron 3 Ultra 550B (free)"
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free:Nemotron 3 Nano Omni (free)"
+  "anthropic/claude-sonnet-4:Claude Sonnet 4"
+  "anthropic/claude-opus-4:Claude Opus 4"
 )
 
-# ── nvidia models ─────────────────────────────────────────────────────
+# ── nvidia models (NVIDIA NIM — Anthropic format may not work) ──────
 
 NV_MODELS=(
   "nvidia/nemotron-3-super-120b-a12b:Nemotron 3 Super 120B"
   "nvidia/llama-4-maverick:Llama-4 Maverick"
+  "nvidia/nemotron-3-ultra-550b-a55b:Nemotron 3 Ultra 550B"
 )
 
 # ── opencode-go models (Anthropic Messages API only) ─────────────────
@@ -134,24 +141,55 @@ OCG_PROXY_MODELS=(
   "glm-4.7:GLM-4.7"
 )
 
-# ── interactive picker ────────────────────────────────────────────────
+# ── nvidia-proxy models (routes through ocg-proxy.py, port 4098) ─────
 
-# Start ocg-proxy.py if not already running
-start_ocg_proxy() {
-  fuser -k 4099/tcp 2>/dev/null || true
-  sleep 1
+NV_PROXY_MODELS=(
+  "nvidia/nemotron-3-ultra-550b-a55b:Nemotron 3 Ultra 550B"
+  "nvidia/nemotron-3-super-120b-a12b:Nemotron 3 Super 120B"
+  "nvidia/nemotron-3-nano-30b-a3b:Nemotron 3 Nano 30B"
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:Nemotron 3 Nano Omni Reasoning"
+  "nvidia/nemotron-nano-9b-v2:Nemotron Nano 9B V2"
+  "nvidia/llama-3.3-nemotron-super-49b-v1:Llama 3.3 Nemotron Super 49B"
+  "nvidia/llama-3.1-nemotron-ultra-253b-v1:Llama 3.1 Nemotron Ultra 253B"
+)
+
+# ── proxy start (generic, param: port upstream_url api_key label) ─────
+
+start_proxy() {
+  local port="$1" upstream_url="$2" api_key="$3" label="$4" logfile="$5" models="$6"
+  if curl -sf --max-time 2 "http://localhost:${port}/health" >/dev/null 2>&1; then
+    return 0
+  fi
+  fuser -k "${port}/tcp" 2>/dev/null || true
+  sleep 0.5
   local script_dir
   script_dir="$(cd "$(dirname "$0")" && pwd)"
-  OCG_PROXY_API_KEY="${OPENCODE_GO_API_KEY:-}" \
+  OCG_PROXY_PORT="$port" \
+  OCG_PROXY_UPSTREAM_URL="$upstream_url" \
+  OCG_PROXY_API_KEY="$api_key" \
+  OCG_PROXY_MODELS="$models" \
     SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}" \
     REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}" \
-    python3 "$script_dir/ocg-proxy.py" >/tmp/ocg-proxy.log 2>&1 &
-  sleep 1
-  if ! curl -sf http://localhost:4099/health >/dev/null 2>&1; then
-    red "Failed to start ocg-proxy.py. Check OCG_PROXY_API_KEY."
-    exit 1
-  fi
-  echo "Started ocg-proxy on port 4099"
+    python3 "$script_dir/ocg-proxy.py" >"$logfile" 2>&1 &
+  for i in {1..10}; do
+    sleep 0.5
+    if curl -sf --max-time 2 "http://localhost:${port}/health" >/dev/null 2>&1; then
+      echo "Started ${label} proxy on port ${port}"
+      return 0
+    fi
+  done
+  red "Failed to start proxy. Check ${logfile}"
+  exit 1
+}
+
+start_ocg_proxy() {
+  start_proxy 4099 "https://opencode.ai/zen/go/v1" "${OPENCODE_GO_API_KEY:-}" "ocg" "/tmp/ocg-proxy.log" \
+    "deepseek-v4-pro,kimi-k2.6,glm-4.7"
+}
+
+start_nv_proxy() {
+  start_proxy 4098 "https://integrate.api.nvidia.com/v1" "${NVIDIA_API_KEY:-}" "nvidia" "/tmp/nv-proxy.log" \
+    "nvidia/nemotron-3-ultra-550b-a55b,nvidia/nemotron-3-super-120b-a12b,nvidia/nemotron-3-nano-30b-a3b,nvidia/nemotron-3-nano-omni-30b-a3b-reasoning,nvidia/nemotron-nano-9b-v2,nvidia/llama-3.3-nemotron-super-49b-v1,nvidia/llama-3.1-nemotron-ultra-253b-v1"
 }
 
 picker() {
@@ -186,21 +224,13 @@ picker() {
   fi
   echo "  2) OpenRouter      ${meta}"
 
-  # NVIDIA
-  if [ -n "$nv_key" ]; then
-    meta="(key: ...${nv_key: -12})"
-  else
-    meta="(no key — set NVIDIA_API_KEY in ~/.secrets)"
-  fi
-  echo "  3) NVIDIA NIM      ${meta}  [Anthropic format may not work]"
-
   # OpenCode Go
   if [ -n "$ocg_key" ]; then
     meta="(key: ...${ocg_key: -12})"
   else
     meta="(no key — set OPENCODE_GO_API_KEY in ~/.secrets)"
   fi
-  echo "  4) OpenCode Go     ${meta}  [MiniMax/Qwen only]"
+  echo "  3) OpenCode Go     ${meta}  [MiniMax/Qwen only]"
 
   # OpenCode Proxy (DeepSeek/Kimi/GLM via ocg-proxy.py)
   if [ -n "$ocg_key" ]; then
@@ -208,7 +238,15 @@ picker() {
   else
     meta="(no key — set OPENCODE_GO_API_KEY in ~/.secrets)"
   fi
-  echo "  5) OpenCode Proxy  ${meta}  [DeepSeek/Kimi/GLM via local proxy]"
+  echo "  4) OpenCode Proxy  ${meta}  [DeepSeek/Kimi/GLM via local proxy]"
+
+  # NVIDIA Proxy (NVIDIA NIM free models via ocg-proxy.py)
+  if [ -n "$nv_key" ]; then
+    meta="(key: ...${nv_key: -12})"
+  else
+    meta="(no key — set NVIDIA_API_KEY in ~/.secrets)"
+  fi
+  echo "  5) NVIDIA Proxy    ${meta}  [Nemotron/Llama free via local proxy]"
 
   echo
   read -rp "Choice [1-5]: " choice
@@ -216,10 +254,10 @@ picker() {
 
   case "${choice:-}" in
     1) pick_local ;;
-     2) pick_remote "openrouter" "${or_key:-}" "https://openrouter.ai/api/anthropic" OR_MODELS ;;
-     3) pick_remote "nvidia" "${nv_key:-}" "https://integrate.api.nvidia.com" NV_MODELS ;;
-     4) pick_remote "opencode-go" "${ocg_key:-}" "https://opencode.ai/zen/go" OCG_MODELS ;;
-    5) pick_opencode_proxy ;;
+    2) pick_remote "openrouter" "${or_key:-}" "https://openrouter.ai/api" OR_MODELS ;;
+    3) pick_remote "opencode-go" "${ocg_key:-}" "https://opencode.ai/zen/go" OCG_MODELS ;;
+    4) pick_opencode_proxy ;;
+    5) pick_nvidia_proxy ;;
     *) echo "Invalid choice."; exit 1 ;;
   esac
 }
@@ -253,7 +291,7 @@ pick_remote() {
   local idx=1
   local entries=()
   for m in "${models[@]}"; do
-    local id="${m%%:*}"
+    local id="${m%:*}"
     local name="${m##*:}"
     echo "  $idx) $name"
     dim  "      $id"
@@ -295,6 +333,17 @@ pick_opencode_proxy() {
   pick_remote "opencode-proxy" "dummy" "http://localhost:4099" OCG_PROXY_MODELS
 }
 
+pick_nvidia_proxy() {
+  local key="${NVIDIA_API_KEY:-}"
+  if [ -z "$key" ]; then
+    red "No API key for NVIDIA."
+    red "Set NVIDIA_API_KEY in ~/.secrets"
+    exit 1
+  fi
+  start_nv_proxy
+  pick_remote "nvidia-proxy" "dummy" "http://localhost:4098" NV_PROXY_MODELS
+}
+
 # ── direct launch (skip picker) ──────────────────────────────────────
 
 direct() {
@@ -319,13 +368,17 @@ direct() {
       ;;
     openrouter)
       api_key="${OPENROUTER_API_KEY:-}"
-      [ -z "$model" ] && { pick_remote "openrouter" "$api_key" "https://openrouter.ai/api/anthropic" OR_MODELS; return; }
-      base_url="https://openrouter.ai/api/anthropic"
+      [ -z "$model" ] && { pick_remote "openrouter" "$api_key" "https://openrouter.ai/api" OR_MODELS; return; }
+      base_url="https://openrouter.ai/api"
       ;;
     nvidia)
+      # Route through proxy — NVIDIA NIM is OpenAI-only
       api_key="${NVIDIA_API_KEY:-}"
-      [ -z "$model" ] && { pick_remote "nvidia" "$api_key" "https://integrate.api.nvidia.com" NV_MODELS; return; }
-      base_url="https://integrate.api.nvidia.com"
+      [ -z "$api_key" ] && { red "Set NVIDIA_API_KEY in ~/.secrets"; exit 1; }
+      start_nv_proxy
+      [ -z "$model" ] && model="nvidia/nemotron-3-ultra-550b-a55b"
+      base_url="http://localhost:4098"
+      api_key="dummy"
       ;;
     opencode-go)
       api_key="${OPENCODE_GO_API_KEY:-}"
@@ -339,9 +392,16 @@ direct() {
       base_url="http://localhost:4099"
       api_key="dummy"
       ;;
+    nvidia-proxy)
+      api_key="${NVIDIA_API_KEY:-}"
+      start_nv_proxy
+      [ -z "$model" ] && { pick_remote "nvidia-proxy" "dummy" "http://localhost:4098" NV_PROXY_MODELS; return; }
+      base_url="http://localhost:4098"
+      api_key="dummy"
+      ;;
     *)
       echo "Unknown provider: $provider" >&2
-      echo "Providers: local, openrouter, nvidia, opencode-go, opencode-proxy" >&2
+      echo "Providers: local, openrouter, nvidia, opencode-go, opencode-proxy, nvidia-proxy" >&2
       exit 1
       ;;
   esac
