@@ -17,7 +17,7 @@ Run the setup script for your machine — it parses `start.sh` for model mapping
 ./setup-agents.sh macbook-air
 ```
 
-The ProBook script auto-detects the Windows host IP from the WSL2 default gateway. The generated config uses `http://<host-ip>:8080/v1` (ProBook) or `http://localhost:9080/v1` (i9/Mac).
+The ProBook script auto-detects the Windows host IP from the WSL2 default gateway. The generated config uses `http://<host-ip>:9080/v1` (all machines).
 
 Model shortnames are derived from `start.sh` case entries. Run `setup-agents.sh` to see available shortnames — they're printed after install. No static config file to maintain.
 
@@ -41,18 +41,63 @@ the tool call.
 
 ## Claude Code
 
-Set these environment variables before launching `claude`:
+Use `claude-providers.sh` to pick local or remote models interactively, or
+launch directly:
 
 ```bash
-# ProBook (WSL2) — adjust IP if needed
-export ANTHROPIC_BASE_URL=http://$(ip route show default | awk '{print $3; exit}'):8080/v1
+# Interactive picker (local + OpenRouter + NVIDIA + OpenCode Go)
+./claude-providers.sh
+
+# Direct launch (skip picker)
+./claude-providers.sh local                      # auto-detects running model
+./claude-providers.sh openrouter anthropic/claude-sonnet-4
+./claude-providers.sh nvidia nvidia/llama-4-maverick
+./claude-providers.sh opencode-go qwen3.7-max
+```
+
+The script sources `~/.secrets` for API keys. Create the file (chmod 600) with:
+
+```bash
+# ~/.secrets
+export OPENROUTER_API_KEY=sk-or-v1-xxxxx
+export NVIDIA_API_KEY=nvapi-xxxxx
+export OPENCODE_GO_API_KEY=oc-xxxxx
+```
+
+For local models, Claude Code points at the ik_llama.cpp server on port 9080.
+Ensure a model is loaded first: `./start.sh <machine> <mode>`.
+
+### Manual env vars (without the picker)
+
+```bash
+# Local
+export ANTHROPIC_BASE_URL=http://$(ip route show default | awk '{print $3; exit}'):9080/v1
 export ANTHROPIC_API_KEY=dummy
-export ANTHROPIC_DEFAULT_SONNET_MODEL=<model-name>
-export ANTHROPIC_DEFAULT_HAIKU_MODEL=<model-name>
+export ANTHROPIC_DEFAULT_SONNET_MODEL=<gguf-stem>
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=<gguf-stem>
+
+# OpenRouter
+export ANTHROPIC_BASE_URL=https://openrouter.ai/api/anthropic/v1
+export ANTHROPIC_API_KEY=$OPENROUTER_API_KEY
+export ANTHROPIC_DEFAULT_SONNET_MODEL=anthropic/claude-sonnet-4
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=anthropic/claude-sonnet-4
+
+# OpenCode Go (MiniMax/Qwen models only — Anthropic Messages API)
+export ANTHROPIC_BASE_URL=https://opencode.ai/zen/go/v1
+export ANTHROPIC_API_KEY=$OPENCODE_GO_API_KEY
+export ANTHROPIC_DEFAULT_SONNET_MODEL=qwen3.7-max
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=qwen3.7-plus
+
+# NVIDIA NIM (Anthropic format may not work — route through OpenRouter if needed)
+export ANTHROPIC_BASE_URL=https://integrate.api.nvidia.com/v1
+export ANTHROPIC_API_KEY=$NVIDIA_API_KEY
+export ANTHROPIC_DEFAULT_SONNET_MODEL=nvidia/llama-4-maverick
+export ANTHROPIC_DEFAULT_HAIKU_MODEL=nvidia/llama-4-maverick
+
 claude
 ```
 
-Use the full GGUF stem as the model name, e.g. `Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P`.
+Use the full GGUF stem as the model name for local, e.g. `Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P`.
 
 ### Disable KV cache attribution header
 
