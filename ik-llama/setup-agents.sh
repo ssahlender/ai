@@ -26,7 +26,7 @@ case "$MACHINE" in
     WSL_HOST_IP=$(ip route show default | awk '{print $3; exit}')
     [ -n "$WSL_HOST_IP" ] || { echo "Could not detect Windows host IP." >&2; exit 1; }
     echo "Windows host IP: $WSL_HOST_IP"
-    BASE_URL="http://$WSL_HOST_IP:8080/v1"
+    BASE_URL="http://$WSL_HOST_IP:9080/v1"
     ;;
   macbook-air)
     MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"

@@ -34,7 +34,7 @@ case "$MACHINE" in
     IK_LLAMA_DIR="${IK_LLAMA_DIR:-/mnt/c/data/llm/ik_llama}"
     SERVER="$IK_LLAMA_DIR/llama-server.exe"
     MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}"
-    PORT="${IK_LLAMA_PORT:-8080}"
+    PORT="${IK_LLAMA_PORT:-9080}"
     NGL=0; THREADS=16; THREADS_BATCH=8
     MLOCK=
     PGREP_NAME="llama-server.exe"
