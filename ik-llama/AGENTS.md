@@ -65,39 +65,58 @@ export OPENCODE_GO_API_KEY=oc-xxxxx
 ```
 
 For local models, Claude Code points at the ik_llama.cpp server on port 9080.
+The script auto-detects WSL2 and uses the Windows host IP when needed (llama-server
+runs as a Windows `.exe` on ProBook). On native Linux/macOS it uses `localhost`.
 Ensure a model is loaded first: `./start.sh <machine> <mode>`.
+
+The script uses `--bare` mode by default to bypass claude.ai OAuth and let
+`ANTHROPIC_API_KEY` take over. `--bare` disables hooks and CLAUDE.md auto-
+discovery. If you prefer full features, run `claude /logout` first, then set
+`CLAUDE_PROVIDERS_NO_BARE=1` to skip bare mode.
 
 ### Manual env vars (without the picker)
 
 ```bash
-# Local
-export ANTHROPIC_BASE_URL=http://$(ip route show default | awk '{print $3; exit}'):9080/v1
+# Local (auto-detect WSL vs native)
+export ANTHROPIC_BASE_URL=http://$(ip route show default | awk '{print $3; exit}'):9080  # WSL2
+export ANTHROPIC_BASE_URL=http://localhost:9080                                            # native
 export ANTHROPIC_API_KEY=dummy
+export ANTHROPIC_CUSTOM_MODEL_OPTION=<gguf-stem>   # e.g. Qwopus3.6-35B-A3B-v1-Q6_K
 export ANTHROPIC_DEFAULT_SONNET_MODEL=<gguf-stem>
 export ANTHROPIC_DEFAULT_HAIKU_MODEL=<gguf-stem>
+claude --bare --model <gguf-stem>                  # --bare required if signed into claude.ai
 
 # OpenRouter
-export ANTHROPIC_BASE_URL=https://openrouter.ai/api/anthropic/v1
+export ANTHROPIC_BASE_URL=https://openrouter.ai/api/anthropic
 export ANTHROPIC_API_KEY=$OPENROUTER_API_KEY
+export ANTHROPIC_CUSTOM_MODEL_OPTION=anthropic/claude-sonnet-4
 export ANTHROPIC_DEFAULT_SONNET_MODEL=anthropic/claude-sonnet-4
 export ANTHROPIC_DEFAULT_HAIKU_MODEL=anthropic/claude-sonnet-4
+claude --bare --model anthropic/claude-sonnet-4
 
 # OpenCode Go (MiniMax/Qwen models only — Anthropic Messages API)
-export ANTHROPIC_BASE_URL=https://opencode.ai/zen/go/v1
+export ANTHROPIC_BASE_URL=https://opencode.ai/zen/go
 export ANTHROPIC_API_KEY=$OPENCODE_GO_API_KEY
+export ANTHROPIC_CUSTOM_MODEL_OPTION=qwen3.7-max
 export ANTHROPIC_DEFAULT_SONNET_MODEL=qwen3.7-max
 export ANTHROPIC_DEFAULT_HAIKU_MODEL=qwen3.7-plus
+claude --bare --model qwen3.7-max
 
 # NVIDIA NIM (Anthropic format may not work — route through OpenRouter if needed)
-export ANTHROPIC_BASE_URL=https://integrate.api.nvidia.com/v1
+export ANTHROPIC_BASE_URL=https://integrate.api.nvidia.com
 export ANTHROPIC_API_KEY=$NVIDIA_API_KEY
+export ANTHROPIC_CUSTOM_MODEL_OPTION=nvidia/llama-4-maverick
 export ANTHROPIC_DEFAULT_SONNET_MODEL=nvidia/llama-4-maverick
 export ANTHROPIC_DEFAULT_HAIKU_MODEL=nvidia/llama-4-maverick
-
-claude
+claude --bare --model nvidia/llama-4-maverick
 ```
 
-Use the full GGUF stem as the model name for local, e.g. `Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P`.
+Use the full GGUF stem as the model name for local, e.g. `Qwopus3.6-35B-A3B-v1-Q6_K`.
+
+<Note>
+  Don't include `/v1` in `ANTHROPIC_BASE_URL`. Claude Code appends `/v1/messages`
+  to the value. Adding `/v1` doubles the path to `/v1/v1/messages` → 404.
+</Note>
 
 ### Disable KV cache attribution header
 
