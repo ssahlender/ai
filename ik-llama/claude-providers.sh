@@ -26,8 +26,8 @@ green() { printf '\033[32m%s\033[0m\n' "$*"; }
 
 launch() {
   local base_url="$1" api_key="$2" sonnet="$3" haiku="$4" label="$5"
-
-  # --bare bypasses claude.ai OAuth so ANTHROPIC_API_KEY takes effect.
+  local tip_provider="${label%%:*}" tip_model="${label#*:}"
+  shift 5  # consume our 5 args — leftover $@ goes to claude
   # Set CLAUDE_PROVIDERS_NO_BARE=1 if you logged out of claude.ai first
   # and want full hooks/CLAUDE.md.
   local bare_flag="--bare"
@@ -48,7 +48,7 @@ launch() {
   dim "  URL    = $base_url"
   echo
   dim "Tip: skip the picker next time with:"
-  dim "  ./claude-providers.sh ${5%%:*} ${5#*:}"
+  dim "  ./claude-providers.sh $tip_provider $tip_model"
   echo
   # shellcheck disable=SC2086
   ANTHROPIC_BASE_URL="$base_url" \
@@ -56,7 +56,7 @@ launch() {
   ANTHROPIC_CUSTOM_MODEL_OPTION="$sonnet" \
   ANTHROPIC_DEFAULT_SONNET_MODEL="$sonnet" \
   ANTHROPIC_DEFAULT_HAIKU_MODEL="$haiku" \
-  exec claude $bare_flag "$@"
+  exec claude $bare_flag --model "$sonnet" "$@"
 }
 
 # ── local model detection ────────────────────────────────────────────
@@ -126,7 +126,33 @@ OCG_MODELS=(
   "minimax-m2.5:MiniMax M2.5"
 )
 
+# ── opencode-proxy models (routes through ocg-proxy.py, port 4099) ──
+
+OCG_PROXY_MODELS=(
+  "deepseek-v4-pro:DeepSeek V4 Pro"
+  "kimi-k2.6:Kimi K2.6"
+  "glm-4.7:GLM-4.7"
+)
+
 # ── interactive picker ────────────────────────────────────────────────
+
+# Start ocg-proxy.py if not already running
+start_ocg_proxy() {
+  fuser -k 4099/tcp 2>/dev/null || true
+  sleep 1
+  local script_dir
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
+  OCG_PROXY_API_KEY="${OPENCODE_GO_API_KEY:-}" \
+    SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}" \
+    REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}" \
+    python3 "$script_dir/ocg-proxy.py" >/tmp/ocg-proxy.log 2>&1 &
+  sleep 1
+  if ! curl -sf http://localhost:4099/health >/dev/null 2>&1; then
+    red "Failed to start ocg-proxy.py. Check OCG_PROXY_API_KEY."
+    exit 1
+  fi
+  echo "Started ocg-proxy on port 4099"
+}
 
 picker() {
   local_model=$(detect_local)
@@ -176,15 +202,24 @@ picker() {
   fi
   echo "  4) OpenCode Go     ${meta}  [MiniMax/Qwen only]"
 
+  # OpenCode Proxy (DeepSeek/Kimi/GLM via ocg-proxy.py)
+  if [ -n "$ocg_key" ]; then
+    meta="(key: ...${ocg_key: -12})"
+  else
+    meta="(no key — set OPENCODE_GO_API_KEY in ~/.secrets)"
+  fi
+  echo "  5) OpenCode Proxy  ${meta}  [DeepSeek/Kimi/GLM via local proxy]"
+
   echo
-  read -rp "Choice [1-4]: " choice
+  read -rp "Choice [1-5]: " choice
   echo
 
   case "${choice:-}" in
     1) pick_local ;;
-     2) pick_remote "openrouter" "${or_key:-}" "https://openrouter.ai/api/anthropic" OR_MODELS[@] ;;
-     3) pick_remote "nvidia" "${nv_key:-}" "https://integrate.api.nvidia.com" NV_MODELS[@] ;;
-     4) pick_remote "opencode-go" "${ocg_key:-}" "https://opencode.ai/zen/go" OCG_MODELS[@] ;;
+     2) pick_remote "openrouter" "${or_key:-}" "https://openrouter.ai/api/anthropic" OR_MODELS ;;
+     3) pick_remote "nvidia" "${nv_key:-}" "https://integrate.api.nvidia.com" NV_MODELS ;;
+     4) pick_remote "opencode-go" "${ocg_key:-}" "https://opencode.ai/zen/go" OCG_MODELS ;;
+    5) pick_opencode_proxy ;;
     *) echo "Invalid choice."; exit 1 ;;
   esac
 }
@@ -203,7 +238,9 @@ pick_local() {
 
 pick_remote() {
   local provider="$1" key="$2" base_url="$3"
-  local -n models="$4"
+  local arrname="$4"
+  local -a models=()
+  eval "models=(\"\${${arrname}[@]}\")"
 
   if [ -z "$key" ]; then
     red "No API key for $provider."
@@ -247,11 +284,23 @@ pick_remote() {
     "$provider:$model_id"
 }
 
+pick_opencode_proxy() {
+  local key="${OPENCODE_GO_API_KEY:-}"
+  if [ -z "$key" ]; then
+    red "No API key for OpenCode Go."
+    red "Set OPENCODE_GO_API_KEY in ~/.secrets"
+    exit 1
+  fi
+  start_ocg_proxy
+  pick_remote "opencode-proxy" "dummy" "http://localhost:4099" OCG_PROXY_MODELS
+}
+
 # ── direct launch (skip picker) ──────────────────────────────────────
 
 direct() {
   local provider="$1" model="${2:-}"
   local base_url api_key
+  shift 2 2>/dev/null || true  # consume provider + model, rest go to claude
 
   case "$provider" in
     local)
@@ -270,28 +319,35 @@ direct() {
       ;;
     openrouter)
       api_key="${OPENROUTER_API_KEY:-}"
-      [ -z "$model" ] && { pick_remote "openrouter" "$api_key" "https://openrouter.ai/api/anthropic" OR_MODELS[@]; return; }
+      [ -z "$model" ] && { pick_remote "openrouter" "$api_key" "https://openrouter.ai/api/anthropic" OR_MODELS; return; }
       base_url="https://openrouter.ai/api/anthropic"
       ;;
     nvidia)
       api_key="${NVIDIA_API_KEY:-}"
-      [ -z "$model" ] && { pick_remote "nvidia" "$api_key" "https://integrate.api.nvidia.com" NV_MODELS[@]; return; }
+      [ -z "$model" ] && { pick_remote "nvidia" "$api_key" "https://integrate.api.nvidia.com" NV_MODELS; return; }
       base_url="https://integrate.api.nvidia.com"
       ;;
     opencode-go)
       api_key="${OPENCODE_GO_API_KEY:-}"
-      [ -z "$model" ] && { pick_remote "opencode-go" "$api_key" "https://opencode.ai/zen/go" OCG_MODELS[@]; return; }
+      [ -z "$model" ] && { pick_remote "opencode-go" "$api_key" "https://opencode.ai/zen/go" OCG_MODELS; return; }
       base_url="https://opencode.ai/zen/go"
+      ;;
+    opencode-proxy)
+      api_key="${OPENCODE_GO_API_KEY:-}"
+      start_ocg_proxy
+      [ -z "$model" ] && { pick_remote "opencode-proxy" "dummy" "http://localhost:4099" OCG_PROXY_MODELS; return; }
+      base_url="http://localhost:4099"
+      api_key="dummy"
       ;;
     *)
       echo "Unknown provider: $provider" >&2
-      echo "Providers: local, openrouter, nvidia, opencode-go" >&2
+      echo "Providers: local, openrouter, nvidia, opencode-go, opencode-proxy" >&2
       exit 1
       ;;
   esac
 
   [ -z "$api_key" ] && { red "No API key for $provider. Set in ~/.secrets"; exit 1; }
-  launch "$base_url" "$api_key" "$model" "$model" "$provider:$model"
+  launch "$base_url" "$api_key" "$model" "$model" "$provider:$model" "$@"
 }
 
 # ── main ──────────────────────────────────────────────────────────────
