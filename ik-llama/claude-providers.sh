@@ -17,6 +17,8 @@ SECRETS="$HOME/.secrets"
 
 # ── helpers ──────────────────────────────────────────────────────────
 
+is_wsl() { grep -qi microsoft /proc/version 2>/dev/null; }
+
 bold()  { printf '\033[1m%s\033[0m\n' "$*"; }
 dim()   { printf '\033[2m%s\033[0m\n' "$*"; }
 red()   { printf '\033[31m%s\033[0m\n' "$*"; }
@@ -24,6 +26,21 @@ green() { printf '\033[32m%s\033[0m\n' "$*"; }
 
 launch() {
   local base_url="$1" api_key="$2" sonnet="$3" haiku="$4" label="$5"
+
+  # --bare bypasses claude.ai OAuth so ANTHROPIC_API_KEY takes effect.
+  # Set CLAUDE_PROVIDERS_NO_BARE=1 if you logged out of claude.ai first
+  # and want full hooks/CLAUDE.md.
+  local bare_flag="--bare"
+  if [ "${CLAUDE_PROVIDERS_NO_BARE:-}" = "1" ]; then
+    bare_flag=""
+    # warn if still signed in (will hijack the request to claude.ai)
+    if [ -f "$HOME/.claude/.credentials.json" ] && grep -q '"claudeAiOauth"' "$HOME/.claude/.credentials.json" 2>/dev/null; then
+      red "claude.ai login detected — requests may route to claude.ai instead of $base_url."
+      red "Either:  claude /logout   or   remove CLAUDE_PROVIDERS_NO_BARE=1"
+      exit 1
+    fi
+  fi
+
   echo
   bold "Launching Claude Code: $label"
   dim "  SONNET = $sonnet"
@@ -36,22 +53,48 @@ launch() {
   # shellcheck disable=SC2086
   ANTHROPIC_BASE_URL="$base_url" \
   ANTHROPIC_API_KEY="$api_key" \
+  ANTHROPIC_CUSTOM_MODEL_OPTION="$sonnet" \
   ANTHROPIC_DEFAULT_SONNET_MODEL="$sonnet" \
   ANTHROPIC_DEFAULT_HAIKU_MODEL="$haiku" \
-  exec claude "$@"
+  exec claude $bare_flag "$@"
 }
 
 # ── local model detection ────────────────────────────────────────────
 
 detect_local() {
-  local model
-  model=$(curl -sf "http://localhost:9080/v1/models" 2>/dev/null | \
-          python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data'][0]['id'])" 2>/dev/null || true)
+  local model host
+  # WSL2: server runs on Windows host, reachable via default gateway IP
+  # Native: server runs on localhost
+  if is_wsl; then
+    host=$(ip route show default | awk '{print $3; exit}')
+    [ -n "$host" ] || host="127.0.0.1"
+  else
+    host="127.0.0.1"
+  fi
+  model=$(curl -sf "http://${host}:9080/v1/models" 2>/dev/null | \
+          python3 -c "
+import sys, json, os
+d = json.load(sys.stdin)
+full = d['data'][0]['id']
+# strip path prefix and .gguf suffix to get the model stem
+name = os.path.basename(full)
+if name.endswith('.gguf'):
+    name = name[:-5]
+print(name)
+" 2>/dev/null || true)
   if [ -n "$model" ]; then
     echo "$model"
     return
   fi
   echo ""
+}
+
+llama_host() {
+  if is_wsl; then
+    ip route show default | awk '{print $3; exit}'
+  else
+    echo "127.0.0.1"
+  fi
 }
 
 # ── openrouter models ─────────────────────────────────────────────────
@@ -86,10 +129,7 @@ OCG_MODELS=(
 # ── interactive picker ────────────────────────────────────────────────
 
 picker() {
-  local choice
-  local docker_host_ip
   local_model=$(detect_local)
-  docker_host_ip=$(ip route show default 2>/dev/null | awk '{print $3; exit}' || echo "127.0.0.1")
 
   echo
   bold "=== Claude Code — Provider Picker ==="
@@ -142,9 +182,9 @@ picker() {
 
   case "${choice:-}" in
     1) pick_local ;;
-    2) pick_remote "openrouter" "${or_key:-}" "https://openrouter.ai/api/anthropic/v1" OR_MODELS[@] ;;
-    3) pick_remote "nvidia" "${nv_key:-}" "https://integrate.api.nvidia.com/v1" NV_MODELS[@] ;;
-    4) pick_remote "opencode-go" "${ocg_key:-}" "https://opencode.ai/zen/go/v1" OCG_MODELS[@] ;;
+     2) pick_remote "openrouter" "${or_key:-}" "https://openrouter.ai/api/anthropic" OR_MODELS[@] ;;
+     3) pick_remote "nvidia" "${nv_key:-}" "https://integrate.api.nvidia.com" NV_MODELS[@] ;;
+     4) pick_remote "opencode-go" "${ocg_key:-}" "https://opencode.ai/zen/go" OCG_MODELS[@] ;;
     *) echo "Invalid choice."; exit 1 ;;
   esac
 }
@@ -155,8 +195,9 @@ pick_local() {
     echo "Start one first:  ./start.sh <i9|probook|macbook-air> <mode>"
     exit 1
   fi
-  docker_host_ip=$(ip route show default 2>/dev/null | awk '{print $3; exit}' || echo "127.0.0.1")
-  launch "http://${docker_host_ip}:9080/v1" "dummy" "$local_model" "$local_model" \
+  local host
+  host=$(llama_host)
+  launch "http://${host}:9080" "dummy" "$local_model" "$local_model" \
     "local:$local_model"
 }
 
@@ -210,12 +251,11 @@ pick_remote() {
 
 direct() {
   local provider="$1" model="${2:-}"
-  local base_url api_key docker_host_ip
+  local base_url api_key
 
   case "$provider" in
     local)
       local_model=$(detect_local)
-      docker_host_ip=$(ip route show default 2>/dev/null | awk '{print $3; exit}' || echo "127.0.0.1")
       if [ -z "$model" ]; then
         model="$local_model"
       fi
@@ -225,23 +265,23 @@ direct() {
         echo "Start server first: ./start.sh <machine> <mode>"
         exit 1
       fi
-      base_url="http://${docker_host_ip}:9080/v1"
+      base_url="http://$(llama_host):9080"
       api_key="dummy"
       ;;
     openrouter)
       api_key="${OPENROUTER_API_KEY:-}"
-      [ -z "$model" ] && { pick_remote "openrouter" "$api_key" "https://openrouter.ai/api/anthropic/v1" OR_MODELS[@]; return; }
-      base_url="https://openrouter.ai/api/anthropic/v1"
+      [ -z "$model" ] && { pick_remote "openrouter" "$api_key" "https://openrouter.ai/api/anthropic" OR_MODELS[@]; return; }
+      base_url="https://openrouter.ai/api/anthropic"
       ;;
     nvidia)
       api_key="${NVIDIA_API_KEY:-}"
-      [ -z "$model" ] && { pick_remote "nvidia" "$api_key" "https://integrate.api.nvidia.com/v1" NV_MODELS[@]; return; }
-      base_url="https://integrate.api.nvidia.com/v1"
+      [ -z "$model" ] && { pick_remote "nvidia" "$api_key" "https://integrate.api.nvidia.com" NV_MODELS[@]; return; }
+      base_url="https://integrate.api.nvidia.com"
       ;;
     opencode-go)
       api_key="${OPENCODE_GO_API_KEY:-}"
-      [ -z "$model" ] && { pick_remote "opencode-go" "$api_key" "https://opencode.ai/zen/go/v1" OCG_MODELS[@]; return; }
-      base_url="https://opencode.ai/zen/go/v1"
+      [ -z "$model" ] && { pick_remote "opencode-go" "$api_key" "https://opencode.ai/zen/go" OCG_MODELS[@]; return; }
+      base_url="https://opencode.ai/zen/go"
       ;;
     *)
       echo "Unknown provider: $provider" >&2
