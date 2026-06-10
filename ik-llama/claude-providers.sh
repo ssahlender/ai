@@ -112,6 +112,7 @@ OR_MODELS=(
   "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free:Nemotron 3 Nano Omni (free)"
   "anthropic/claude-sonnet-4:Claude Sonnet 4"
   "anthropic/claude-opus-4:Claude Opus 4"
+  "openrouter/owl-alpha:OWL Alpha"
 )
 
 # ── nvidia models (NVIDIA NIM — Anthropic format may not work) ──────
