@@ -343,3 +343,26 @@ The cleanup list includes the rejected Qwen3-Coder Q3/Q4/Q5/Q6/Q8 files.
 8. **MoE active-parameter ceiling** — 3B active params is the real intelligence limit regardless of quantization level; for more intelligence use a dense model like `qwen36u27bq5kp`
 9. **GLM-4.7-Flash is not faster than Qwen3-Coder on this i9** — despite MLA, measured throughput was lower than the Qwen MoE models
 10. **Vision requires mmproj** — Qwen3.6, Qwopus3.6, and Gemma4 models support image input when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. SuperGemma4 and GLM-4.7-Flash are text-only.
+
+## Debian 12 / GLIBC 2.36 compatibility
+
+Homebrew binary bottles are built on Ubuntu 24.04 (GLIBC 2.38). They won't run
+on Debian 12 (GLIBC 2.36). Affected: node, pi, and any brew formula that ships
+a compiled binary.
+
+**Symptoms:**
+```
+/home/linuxbrew/.linuxbrew/opt/node/bin/node: /lib/x86_64-linux-gnu/libm.so.6:
+version `GLIBC_2.38' not found
+```
+
+**Fix — wrapper script (no root, no npm):**
+`pi-install.sh` auto-detects the glibc issue and creates `~/.local/bin/pi`
+— a wrapper that runs pi's JS via the system node, bypassing brew's broken
+node. Brew still manages pi upgrades; the wrapper auto-picks the latest version.
+
+For other brew formulae with the same issue, either build from source
+(`brew install --build-from-source <formula>`) or install via the system package
+manager instead of brew.
+
+Ubuntu 24.04 and macOS are unaffected — brew bottles work natively.
