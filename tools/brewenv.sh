@@ -7,6 +7,7 @@
 #
 # Usage:
 #   brewenv.sh                    # sync all tools from conf to ~/brewenv/
+#   brewenv.sh --prune            # also remove links not covered by conf
 #   brewenv.sh --add <pattern>    # append pattern to conf, link immediately
 #   brewenv.sh --list             # show patterns in conf
 #   brewenv.sh --check            # show which conf entries have no brew binary
@@ -24,12 +25,14 @@ CONF="${SCRIPT_DIR}/brewenv-tools.conf"
 ADD_PATTERN=""
 LIST_ONLY=false
 CHECK_ONLY=false
+PRUNE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --add)    ADD_PATTERN="$2"; shift 2 ;;
     --list)   LIST_ONLY=true; shift ;;
     --check)  CHECK_ONLY=true; shift ;;
+    --prune)  PRUNE=true; shift ;;
     --conf)   CONF="$2"; shift 2 ;;
     -h|--help)
       sed -n '2,/^set /p' "${BASH_SOURCE[0]}" | grep '^#' | sed 's/^# \?//'
@@ -102,8 +105,39 @@ while IFS= read -r pattern || [[ -n "$pattern" ]]; do
   fi
 done < "$CONF"
 
+# --prune: remove links in ~/brewenv/ that point into BREW_BIN but aren't in conf
+pruned=0
+if $PRUNE; then
+  # collect all names covered by conf patterns
+  declare -A covered
+  while IFS= read -r pattern || [[ -n "$pattern" ]]; do
+    [[ "$pattern" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${pattern// }" ]] && continue
+    if [[ "$pattern" == *\** ]] || [[ "$pattern" == *\?* ]]; then
+      for src in "$BREW_BIN"/$pattern; do
+        [ -e "$src" ] && covered["$(basename "$src")"]=1
+      done
+    else
+      covered["$pattern"]=1
+    fi
+  done < "$CONF"
+
+  for link in "$BREWENV_DIR"/*; do
+    [ -L "$link" ] || continue
+    target="$(readlink "$link")"
+    # only touch links that point into the brew bin dir
+    [[ "$target" == "$BREW_BIN"/* ]] || continue
+    name="$(basename "$link")"
+    if [[ -z "${covered[$name]+x}" ]]; then
+      rm "$link"
+      echo "  pruned: $name"
+      (( pruned++ )) || true
+    fi
+  done
+fi
+
 echo ""
-echo "Done: $linked new link(s), $skipped already current, $missing pattern(s) not found in brew."
+echo "Done: $linked new link(s), $skipped already current, $missing pattern(s) not found in brew${PRUNE:+", $pruned pruned"}."
 if [ "$missing" -gt 0 ]; then
   echo "       Install missing tools with: sudo -n -u brewuser $BREW_BIN/brew install <tool>"
 fi
