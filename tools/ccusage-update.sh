@@ -6,10 +6,14 @@ source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
 # shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_npm-wrapper.sh"
 
-if ! command -v npm >/dev/null 2>&1; then
-  echo "npm not found. Install Node/npm first, for example with ./nvm-install.sh."
-  exit 1
+if ! command -v ccusage >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/ccusage" ]; then
+  echo "ccusage not installed — skipping"
+  exit 0
 fi
 
-_npm_install_g context-mode
-"$(dirname "${BASH_SOURCE[0]}")/context-mode-init.sh"
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm not found — skipping ccusage update"
+  exit 0
+fi
+
+_npm_update_g ccusage

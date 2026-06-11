@@ -9,9 +9,10 @@ source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/_brew-wrapper.sh"
 
 NEEDS_NPM=false
-if command -v node &>/dev/null; then
-  node -e '0' 2>/dev/null || NEEDS_NPM=true
-else
+BREW_NODE_LINUX="/home/linuxbrew/.linuxbrew/opt/node/bin/node"
+if [ -x "$BREW_NODE_LINUX" ] && ! "$BREW_NODE_LINUX" -e '0' &>/dev/null; then
+  NEEDS_NPM=true
+elif ! command -v node &>/dev/null; then
   NEEDS_NPM=true
 fi
 

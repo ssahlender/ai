@@ -24,6 +24,8 @@ UPDATE_TOOLS=(
   claude-mem
   graphify
   pi
+  repomix
+  ccusage
 )
 
 for tool in "${UPDATE_TOOLS[@]}"; do
