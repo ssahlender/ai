@@ -7,7 +7,7 @@ Scripts for running local AI tools across multiple machines.
 | Path | Contents |
 |---|---|
 | `ik-llama/` | LLM inference with ik_llama.cpp / llama.cpp — models, server, OpenCode config (ProBook, i9, MacBook Air) |
-| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify) |
+| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Antigravity, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
 ---
@@ -27,7 +27,7 @@ Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.s
 ```
 
 Order is defined by the `UPDATE_TOOLS` array in `update-all.sh`:
-`nvm` → `claude` → `opencode` → `codex` → `hf` → `hermes` → `rtk` →
+`nvm` → `claude` → `opencode` → `codex` → `antigravity` → `hf` → `hermes` → `rtk` →
 `context-mode` → `claude-mem` → `graphify` → `pi`. Ollama is updated
 afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
 run last. Each `*-update.sh` upgrades only if already installed and skips
@@ -59,6 +59,22 @@ otherwise — run `*-install.sh` for new tools.
 |---|---|
 | `codex-install.sh` | `$BREW install --cask codex` |
 | `codex-update.sh` | `$BREW upgrade --cask codex` (skips if not installed) |
+
+---
+
+### Antigravity CLI (Google)
+
+| Script | What it does |
+|---|---|
+| `antigravity-install.sh` | `curl -fsSL https://antigravity.google/cli/install.sh \| bash` |
+| `antigravity-update.sh` | Reports current version; the binary self-updates in the background. Refreshes shell integration. (skips if not installed) |
+
+Antigravity CLI is installed as a flat native binary at `~/.local/bin/agy`. It
+self-updates automatically during regular use, so `antigravity-update.sh` only
+re-applies shell integration and reports the current version. Override the install
+directory with `ANTIGRAVITY_INSTALL_DIR=/custom/path ./antigravity-install.sh`.
+
+Supported on Linux and macOS (amd64/arm64, glibc and musl).
 
 ---
 
