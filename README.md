@@ -18,7 +18,66 @@ Install and update scripts for AI coding tools. Core CLIs are installed via Home
 
 ### Machine detection
 
-Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.sh`). On i9, brew runs via `sudo -n -u brewuser`. On all other machines, brew runs directly. To enable on i9: add the brew binary to sudoers with the `NOPASSWD` flag.
+Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.sh`). On i9, brew runs via `sudo -n -u brewuser`. On all other machines, brew runs directly.
+
+---
+
+### Corporate PC setup — Homebrew via sudo
+
+On the corporate Debian machines, regular users cannot install system packages. Homebrew runs as a shared `brewuser` account instead, and individual users access it via a passwordless `sudo` rule. The scripts in this repo detect this automatically; the steps below are the one-time setup per colleague.
+
+#### What IT sets up once (admin/root required)
+
+1. Create the `brewuser` system account and install Homebrew into `/home/linuxbrew/.linuxbrew/` as that user.
+2. Add a sudoers rule so your user (or a shared group) can run brew without a password:
+
+```
+# /etc/sudoers.d/brewuser  (or via visudo)
+%yourgroup ALL=(brewuser) NOPASSWD: /home/linuxbrew/.linuxbrew/bin/brew
+```
+
+Verify it works: `sudo -n -u brewuser /home/linuxbrew/.linuxbrew/bin/brew --version`
+
+#### What each colleague does once
+
+**1. Add `~/brewenv` and `~/.local/bin` to PATH** in `~/.bashrc` / `~/.zshrc`:
+
+```bash
+export PATH="$HOME/.local/bin:$HOME/brewenv:$PATH"
+```
+
+**2. Run `brewenv.sh`** to populate `~/brewenv/` with symlinks for whitelisted brew binaries:
+
+```bash
+~/bin/brewenv.sh
+```
+
+This creates `~/brewenv/<binary> → /home/linuxbrew/.linuxbrew/bin/<binary>` for each tool in its whitelist. Re-run after any `brew install` so the new binary appears in your PATH.
+
+If a tool you installed is missing from the whitelist, add it to the `TOPATHPATTERN` list in `brewenv.sh` and re-run. For tools that install to `~/.local/bin` (npm-based: ccusage, context-mode; uv-based: graphify) no symlink is needed — `~/.local/bin` in PATH is enough.
+
+**3. Run the install scripts** from this repo normally — they detect the proxy and use `sudo -n -u brewuser brew` automatically:
+
+```bash
+cd ~/git/ai-tools/tools
+./rtk-install.sh
+./claude-install.sh
+# etc.
+```
+
+#### Node-based tools on Debian 12 (GLIBC < 2.38)
+
+Brew's own Node bottle is built for Ubuntu 24.04 (GLIBC ≥ 2.38) and crashes on Debian 12. Tools that ship as Node packages via brew (repomix, pi) get a `~/.local/bin/<tool>` wrapper that runs the brew-cellar JS with the system Node instead. The install scripts detect this automatically and create the wrappers.
+
+#### npm prefix
+
+The system npm prefix may not be user-writable. npm-based tools (ccusage, context-mode) install to `~/.local` via `_npm-wrapper.sh` automatically — no manual configuration needed.
+
+#### Corporate CA / proxy TLS
+
+Scripts that download via curl or npm set `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, and `NPM_CONFIG_CAFILE` to `/etc/ssl/certs/ca-certificates.crt` on i9. Override the cert path with `SYSTEM_CA_FILE=/path/to/ca.crt` if your machine uses a different bundle.
+
+---
 
 ### update-all.sh
 
