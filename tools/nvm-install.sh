@@ -4,22 +4,16 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-wrapper.sh"
 
-# Skip on i9 — work provides its own Node stack
 if [ -n "$IS_I9" ]; then
   echo "Skipping on i9 — work provides its own Node stack."
   exit 0
 fi
 
-# Install nvm via brew
-if ! $BREW list --formula nvm &>/dev/null; then
-  echo "Installing nvm..."
-  $BREW install nvm
-else
-  echo "nvm is already installed."
-fi
+_brew_install nvm
 
-# Detect shell config file
 detect_shell_config() {
   case "${SHELL:-}" in
     */zsh)  echo "$HOME/.zshrc" ;;
@@ -51,7 +45,6 @@ EOF
   echo "Added NVM config to $SHELL_CONFIG"
 fi
 
-# Source nvm in this session and install LTS
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$(brew --prefix)/opt/nvm/nvm.sh" ] && . "$(brew --prefix)/opt/nvm/nvm.sh"

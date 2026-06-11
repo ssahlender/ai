@@ -3,9 +3,7 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-wrapper.sh"
 
-if $BREW list --formula opencode &>/dev/null; then
-  $BREW upgrade opencode
-else
-  echo "opencode not installed — skipping"
-fi
+_brew_upgrade opencode

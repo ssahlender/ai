@@ -3,9 +3,7 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-wrapper.sh"
 
-if $BREW list --formula hermes-agent &>/dev/null; then
-  $BREW upgrade hermes-agent
-else
-  echo "hermes-agent not installed — skipping"
-fi
+_brew_upgrade hermes-agent
