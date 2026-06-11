@@ -46,15 +46,31 @@ Verify it works: `sudo -n -u brewuser /home/linuxbrew/.linuxbrew/bin/brew --vers
 export PATH="$HOME/.local/bin:$HOME/brewenv:$PATH"
 ```
 
-**2. Run `brewenv.sh`** to populate `~/brewenv/` with symlinks for whitelisted brew binaries:
+**2. Run `tools/brewenv.sh`** from this repo to populate `~/brewenv/` with symlinks for whitelisted brew binaries:
 
 ```bash
-~/bin/brewenv.sh
+cd ~/git/ai-tools
+./tools/brewenv.sh
 ```
 
-This creates `~/brewenv/<binary> → /home/linuxbrew/.linuxbrew/bin/<binary>` for each tool in its whitelist. Re-run after any `brew install` so the new binary appears in your PATH.
+This creates `~/brewenv/<binary> → /home/linuxbrew/.linuxbrew/bin/<binary>` for each pattern in `tools/brewenv-tools.conf`. Re-run after any `brew install` so the new binary appears in your PATH.
 
-If a tool you installed is missing from the whitelist, add it to the `TOPATHPATTERN` list in `brewenv.sh` and re-run. For tools that install to `~/.local/bin` (npm-based: ccusage, context-mode; uv-based: graphify) no symlink is needed — `~/.local/bin` in PATH is enough.
+To add a new tool to the whitelist and link it in one step:
+
+```bash
+./tools/brewenv.sh --add <toolname>
+```
+
+This appends the pattern to `brewenv-tools.conf` (commit it so colleagues get it too) and creates the symlink immediately. Glob patterns work too: `./tools/brewenv.sh --add 'myapp*'`.
+
+Other commands:
+
+```bash
+./tools/brewenv.sh --list    # show all patterns in brewenv-tools.conf
+./tools/brewenv.sh --check   # show which patterns have no brew binary yet
+```
+
+For tools that install to `~/.local/bin` (npm-based: ccusage, context-mode; uv-based: graphify) no symlink is needed — `~/.local/bin` in PATH is enough.
 
 **3. Run the install scripts** from this repo normally — they detect the proxy and use `sudo -n -u brewuser brew` automatically:
 
