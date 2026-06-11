@@ -42,3 +42,5 @@ else
   echo "Neither brew nor npm found. Install one first." >&2
   exit 1
 fi
+
+"$(dirname "${BASH_SOURCE[0]}")/repomix-init.sh"

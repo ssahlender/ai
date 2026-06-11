@@ -28,4 +28,7 @@ elif command -v repomix >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
   _npm_update_g repomix
 else
   echo "repomix not installed — skipping"
+  exit 0
 fi
+
+"$(dirname "${BASH_SOURCE[0]}")/repomix-init.sh"
