@@ -4,42 +4,31 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-wrapper.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_uv-wrapper.sh"
 
 if ! command -v graphify >/dev/null 2>&1; then
   echo "graphify not installed — skipping"
   exit 0
 fi
 
-GRAPHIFY_EXTRAS="${GRAPHIFY_EXTRAS:-openai,ollama,sql,pdf,office}"
+# pdf extra blocked by corporate proxy CVE filter on i9 — omit by default
+if [ -n "${IS_I9:-}" ]; then
+  GRAPHIFY_EXTRAS="${GRAPHIFY_EXTRAS:-openai,ollama,sql,office}"
+else
+  GRAPHIFY_EXTRAS="${GRAPHIFY_EXTRAS:-openai,ollama,sql,pdf,office}"
+fi
 if [ -n "$GRAPHIFY_EXTRAS" ]; then
   GRAPHIFY_SPEC="graphifyy[$GRAPHIFY_EXTRAS]"
 else
   GRAPHIFY_SPEC="graphifyy"
 fi
 UV_CERT_ARGS=()
-if [ -n "$IS_I9" ]; then
+if [ -n "${IS_I9:-}" ]; then
   UV_CERT_ARGS+=(--system-certs)
 fi
-
-find_uv() {
-  if command -v uv >/dev/null 2>&1; then
-    command -v uv
-    return 0
-  fi
-
-  for candidate in \
-    "$HOME/.local/bin/uv" \
-    /home/linuxbrew/.linuxbrew/bin/uv \
-    /opt/homebrew/bin/uv \
-    /usr/local/bin/uv; do
-    if [ -x "$candidate" ]; then
-      printf '%s\n' "$candidate"
-      return 0
-    fi
-  done
-
-  return 1
-}
 
 if UV_BIN="$(find_uv)" && "$UV_BIN" tool list 2>/dev/null | grep -q '^graphifyy '; then
   "$UV_BIN" tool install "${UV_CERT_ARGS[@]}" --upgrade "$GRAPHIFY_SPEC"

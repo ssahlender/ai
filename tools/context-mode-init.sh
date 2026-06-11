@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Include user-local bin in case npm installed there (e.g. on i9 with system npm)
+export PATH="$HOME/.local/bin:$PATH"
+
 if ! command -v context-mode >/dev/null 2>&1; then
   echo "context-mode is not installed. Run ./context-mode-install.sh first."
   exit 1

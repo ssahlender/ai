@@ -3,3 +3,4 @@
 bench-results/
 __pycache__/
 *.py[cod]
+*.opencode

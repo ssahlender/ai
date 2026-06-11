@@ -7,7 +7,7 @@ Scripts for running local AI tools across multiple machines.
 | Path | Contents |
 |---|---|
 | `ik-llama/` | LLM inference with ik_llama.cpp / llama.cpp — models, server, OpenCode config (ProBook, i9, MacBook Air) |
-| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Antigravity, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify) |
+| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Antigravity, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
 ---
@@ -28,7 +28,7 @@ Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.s
 
 Order is defined by the `UPDATE_TOOLS` array in `update-all.sh`:
 `nvm` → `claude` → `opencode` → `codex` → `antigravity` → `hf` → `hermes` → `rtk` →
-`context-mode` → `claude-mem` → `graphify` → `pi`. Ollama is updated
+`context-mode` → `claude-mem` → `graphify` → `pi` → `repomix` → `ccusage`. Ollama is updated
 afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
 run last. Each `*-update.sh` upgrades only if already installed and skips
 otherwise — run `*-install.sh` for new tools.
@@ -82,8 +82,8 @@ Supported on Linux and macOS (amd64/arm64, glibc and musl).
 
 | Script | What it does |
 |---|---|
-| `pi-install.sh` | `$BREW install pi-coding-agent`, then installs Pi packages |
-| `pi-update.sh` | `$BREW upgrade pi-coding-agent`, then refreshes Pi packages (skips if not installed) |
+| `pi-install.sh` | `$BREW install pi-coding-agent`; on Debian 12 (GLIBC < 2.38) creates a `~/.local/bin/pi` wrapper using system node (same pattern as `repomix-install.sh`); then installs Pi packages |
+| `pi-update.sh` | `$BREW upgrade pi-coding-agent`, then refreshes Pi packages (skips if not installed); wrapper auto-picks latest brew version via glob |
 | `pi-init.sh` | Installs Pi-native packages: `context-mode`, `@sherif-fanous/pi-rtk`, and `@gaodes/pi-graphify` |
 
 Pi itself is installed via Homebrew. Pi extensions/skills are installed with
@@ -166,14 +166,16 @@ RTK compresses command output before it reaches coding agents. After install/upd
 
 | Script | What it does |
 |---|---|
-| `context-mode-install.sh` | `npm install -g context-mode`, then configures Claude Code, Codex, and OpenCode |
-| `context-mode-update.sh` | `npm update -g context-mode`, then refreshes integrations (skips if not installed) |
+| `context-mode-install.sh` | `npm install -g context-mode` (falls back to `~/.local` on i9), then configures Claude Code, Codex, and OpenCode |
+| `context-mode-update.sh` | `npm update -g context-mode` (same prefix handling), then refreshes integrations (skips if not installed) |
 | `context-mode-init.sh` | Re-applies integrations without reinstalling the npm package |
 | `opencode-local-speed.sh` | Disables OpenCode-side helpers that can add latency around local model writes |
 
 Default integrations:
 - Codex: registers `context-mode` as a user MCP server.
 - OpenCode: skipped by default for local-model speed. Set `CONTEXT_MODE_ENABLE_OPENCODE=1` to write the `context-mode` local MCP entry into `~/.config/opencode/opencode.json`.
+
+On i9, the system npm prefix is not user-writable, so `context-mode` and other npm-based tools install to `~/.local/bin` via `_npm-wrapper.sh`. Ensure `~/.local/bin` is in `$PATH` in your shell config.
 
 Claude Code plugin installation is opt-in because it runs a background Bun plugin process. Enable it explicitly with:
 
@@ -271,6 +273,14 @@ missing; the install script will also do this when Homebrew is available.
 already use pipx. On the i9/proxy environment, the scripts pass
 `--system-certs` to `uv tool install` so corporate CA certificates are honored.
 
+On i9 (Debian 12 / GLIBC < 2.38/2.39), brew's `uv` bottle is incompatible.
+`graphify-install.sh` uses `_uv-wrapper.sh` which installs uv via the official
+astral.sh installer (`~/.local/bin/uv`, musl binary, glibc-independent) when
+`IS_I9` is set and no working uv is found. The corporate proxy CVE filter blocks
+`pypdf` (all versions), so the `pdf` extra is omitted by default on i9
+(`openai,ollama,sql,office`). Override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office`
+once the proxy allowlist is updated.
+
 After install/update, restart Claude Code, Codex, and OpenCode sessions. Use it
 inside a project with:
 
@@ -284,6 +294,38 @@ Graphify overlaps partly with context/memory tooling, but it is more of a
 project knowledge-graph generator than a background memory worker. Keep OpenCode
 local-speed testing in mind before enabling extra graph/query instructions in
 large local-model sessions.
+
+---
+
+### Repomix
+
+| Script | What it does |
+|---|---|
+| `repomix-install.sh` | `$BREW install repomix`; on Debian 12 (GLIBC < 2.38) creates a `~/.local/bin/repomix` wrapper using system node (same pattern as `pi-install.sh`); falls back to npm if brew is unavailable |
+| `repomix-update.sh` | `$BREW upgrade repomix` and refreshes the wrapper if present; npm fallback (skips if not installed) |
+
+Repomix packs an entire repo into a compact, AI-optimized single file (XML, Markdown, or plain text). Run it before a session to give any coding agent dense repo context without manually `cat`-ing files — saves tokens on initial context loading. Installed via brew on all machines; on i9 (Debian 12 / GLIBC 2.36) a `~/.local/bin/repomix` wrapper runs the brew-managed JS via system node, bypassing brew's incompatible Node bottle.
+
+```bash
+repomix            # pack current repo → repomix-output.xml
+repomix --style markdown
+```
+
+---
+
+### ccusage
+
+| Script | What it does |
+|---|---|
+| `ccusage-install.sh` | `npm install -g ccusage` |
+| `ccusage-update.sh` | `npm update -g ccusage` (skips if not installed) |
+
+Claude Code token usage analytics — per-project and per-day breakdowns, cost tracking. Complements `rtk gain` by showing the Claude-side view of what was sent/received. On i9 installs to `~/.local/bin` (ensure it is in `$PATH`); on home/Mac installs into the nvm bin normally.
+
+```bash
+ccusage            # today's usage summary
+ccusage --help
+```
 
 ---
 
