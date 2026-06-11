@@ -30,3 +30,8 @@ RTK="$(find_rtk)" || {
 "$RTK" init -g --codex
 "$RTK" init -g --opencode
 "$RTK" init -g --agent pi
+if command -v hermes >/dev/null 2>&1; then
+  "$RTK" init -g --agent hermes
+else
+  echo "hermes not found — skipping Hermes RTK init"
+fi

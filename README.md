@@ -154,9 +154,9 @@ The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `h
 
 | Script | What it does |
 |---|---|
-| `rtk-install.sh` | `$BREW install rtk`, then initializes Claude Code, Codex, and OpenCode integrations |
-| `rtk-update.sh` | `$BREW upgrade rtk`, then refreshes Claude Code, Codex, OpenCode, and Pi integrations (skips if not installed) |
-| `rtk-init.sh` | Runs `rtk init -g`, `rtk init -g --codex`, `rtk init -g --opencode`, and `rtk init -g --agent pi` |
+| `rtk-install.sh` | `$BREW install rtk`, then initializes Claude Code, Codex, OpenCode, and Hermes integrations |
+| `rtk-update.sh` | `$BREW upgrade rtk`, then refreshes Claude Code, Codex, OpenCode, Pi, and Hermes integrations (skips if not installed) |
+| `rtk-init.sh` | Runs `rtk init -g`, `rtk init -g --codex`, `rtk init -g --opencode`, `rtk init -g --agent pi`, and `rtk init -g --agent hermes` (skips agents not installed) |
 
 RTK compresses command output before it reaches coding agents. After install/update, restart the affected agent sessions so hooks/plugins are loaded.
 
@@ -166,9 +166,9 @@ RTK compresses command output before it reaches coding agents. After install/upd
 
 | Script | What it does |
 |---|---|
-| `context-mode-install.sh` | `npm install -g context-mode` (falls back to `~/.local` on i9), then configures Claude Code, Codex, and OpenCode |
+| `context-mode-install.sh` | `npm install -g context-mode` (falls back to `~/.local` on i9), then configures Claude Code, Codex, OpenCode, and Pi |
 | `context-mode-update.sh` | `npm update -g context-mode` (same prefix handling), then refreshes integrations (skips if not installed) |
-| `context-mode-init.sh` | Re-applies integrations without reinstalling the npm package |
+| `context-mode-init.sh` | Re-applies integrations without reinstalling the npm package; includes Pi via `_pi-wrapper.sh` |
 | `opencode-local-speed.sh` | Disables OpenCode-side helpers that can add latency around local model writes |
 
 Default integrations:
@@ -259,9 +259,9 @@ CLAUDE_MEM_FORCE_INSTALL=1 ./claude-mem-install.sh
 
 | Script | What it does |
 |---|---|
-| `graphify-install.sh` | Installs the official PyPI package `graphifyy[openai,ollama,sql,pdf,office]` with `uv tool install`, falling back to `pipx`; then registers Claude Code, Codex, and OpenCode |
+| `graphify-install.sh` | Installs the official PyPI package `graphifyy[openai,ollama,sql,pdf,office]` with `uv tool install`, falling back to `pipx`; then registers Claude Code, Codex, OpenCode, and Hermes |
 | `graphify-update.sh` | Upgrades Graphify with the same default extras when managed by `uv tool` or `pipx`, then refreshes integrations |
-| `graphify-init.sh` | Re-registers Claude Code, Codex, and OpenCode integrations and enables Codex `multi_agent = true` |
+| `graphify-init.sh` | Re-registers Claude Code, Codex, OpenCode, Hermes, and Pi integrations; enables Codex `multi_agent = true` |
 
 Graphify's package name is `graphifyy` but the CLI is `graphify`. The default
 extras are `openai,ollama,sql,pdf,office`, so the preferred installer is
@@ -281,7 +281,7 @@ astral.sh installer (`~/.local/bin/uv`, musl binary, glibc-independent) when
 (`openai,ollama,sql,office`). Override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office`
 once the proxy allowlist is updated.
 
-After install/update, restart Claude Code, Codex, and OpenCode sessions. Use it
+After install/update, restart Claude Code, Codex, OpenCode, and Hermes sessions. Use it
 inside a project with:
 
 ```bash
@@ -301,10 +301,12 @@ large local-model sessions.
 
 | Script | What it does |
 |---|---|
-| `repomix-install.sh` | `$BREW install repomix`; on Debian 12 (GLIBC < 2.38) creates a `~/.local/bin/repomix` wrapper using system node (same pattern as `pi-install.sh`); falls back to npm if brew is unavailable |
-| `repomix-update.sh` | `$BREW upgrade repomix` and refreshes the wrapper if present; npm fallback (skips if not installed) |
+| `repomix-install.sh` | `$BREW install repomix`; on Debian 12 (GLIBC < 2.38) creates a `~/.local/bin/repomix` wrapper using system node (same pattern as `pi-install.sh`); falls back to npm if brew is unavailable; then runs `repomix-init.sh` |
+| `repomix-update.sh` | `$BREW upgrade repomix`, refreshes the wrapper if present, then runs `repomix-init.sh`; npm fallback (skips if not installed) |
+| `repomix-init.sh` | Registers repomix MCP server (`repomix --mcp`) with Claude Code (`~/.claude/settings.json`), Codex, OpenCode, and Hermes (`~/.hermes/config.yaml`) |
+| `repomix-pack.sh` | Convenience wrapper: packs a directory to `/tmp/repomix-<name>.md`; usage: `repomix-pack.sh [dir] [--style markdown\|xml\|plain]` |
 
-Repomix packs an entire repo into a compact, AI-optimized single file (XML, Markdown, or plain text). Run it before a session to give any coding agent dense repo context without manually `cat`-ing files — saves tokens on initial context loading. Installed via brew on all machines; on i9 (Debian 12 / GLIBC 2.36) a `~/.local/bin/repomix` wrapper runs the brew-managed JS via system node, bypassing brew's incompatible Node bottle.
+Repomix packs an entire repo into a compact, AI-optimized single file. The MCP server (`repomix --mcp`) lets agents call repomix on demand inside a session. Registered with Claude Code, Codex, OpenCode, and Hermes (via `~/.hermes/config.yaml` `mcp_servers`; requires `pyyaml` in the system Python). On i9 (Debian 12 / GLIBC 2.36) a `~/.local/bin/repomix` wrapper runs the brew-managed JS via system node, bypassing brew's incompatible Node bottle. A `repomix.config.json` in the repo root sets markdown output and ignores `repomix-output.*` and `bench-results/` by default.
 
 ```bash
 repomix            # pack current repo → repomix-output.xml

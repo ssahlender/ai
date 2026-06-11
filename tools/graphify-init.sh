@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Registers Graphify with Claude Code, Codex, and OpenCode.
+# Registers Graphify with Claude Code, Codex, OpenCode, and Pi.
 set -euo pipefail
+
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_pi-wrapper.sh"
 
 if ! command -v graphify >/dev/null 2>&1; then
   echo "graphify is not installed. Run ./graphify-install.sh first."
@@ -62,4 +67,13 @@ PY
 echo "Registering Graphify for OpenCode..."
 graphify install --platform opencode
 
-echo "Graphify registered. Restart Claude Code, Codex, and OpenCode sessions to load the new instructions."
+echo "Registering Graphify for Hermes..."
+if command -v hermes >/dev/null 2>&1; then
+  graphify install --platform hermes
+else
+  echo "hermes not found — skipping"
+fi
+
+_pi_install_package @gaodes/pi-graphify
+
+echo "Graphify registered. Restart Claude Code, Codex, OpenCode, and Pi sessions to load the new instructions."

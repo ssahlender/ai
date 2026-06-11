@@ -1,0 +1,12 @@
+{
+  "output": {
+    "style": "markdown",
+    "filePath": "repomix-output.md"
+  },
+  "ignore": {
+    "customPatterns": [
+      "repomix-output.*",
+      "bench-results/"
+    ]
+  }
+}

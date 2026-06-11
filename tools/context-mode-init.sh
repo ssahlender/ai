@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_pi-wrapper.sh"
+
 # Include user-local bin in case npm installed there (e.g. on i9 with system npm)
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -73,3 +78,5 @@ PY
 else
   echo "python3 not found — skipping OpenCode context-mode config"
 fi
+
+_pi_install_package context-mode
