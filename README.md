@@ -49,7 +49,7 @@ export PATH="$HOME/.local/bin:$HOME/brewenv:$PATH"
 **2. Run `tools/brewenv.sh`** from this repo to populate `~/brewenv/` with symlinks for whitelisted brew binaries:
 
 ```bash
-cd ~/git/ai-tools
+cd <repo-dir>
 ./tools/brewenv.sh
 ```
 
@@ -76,7 +76,7 @@ Other commands:
 **Migrating from an existing brewenv script:** re-point `~/bin/brewenv.sh` at this repo's script, then run with `--prune` once to clean up orphans:
 
 ```bash
-ln -sf ~/git/ai-tools/tools/brewenv.sh ~/bin/brewenv.sh
+ln -sf <repo-dir>/tools/brewenv.sh ~/bin/brewenv.sh
 ~/bin/brewenv.sh --prune
 ```
 
@@ -87,7 +87,7 @@ For tools that install to `~/.local/bin` (npm-based: ccusage, context-mode; uv-b
 **3. Run the install scripts** from this repo normally — they detect the proxy and use `sudo -n -u brewuser brew` automatically:
 
 ```bash
-cd ~/git/ai-tools/tools
+cd <repo-dir>/tools
 ./rtk-install.sh
 ./claude-install.sh
 # etc.
