@@ -16,6 +16,7 @@ UPDATE_TOOLS=(
   claude
   opencode
   codex
+  antigravity
   hf
   hermes
   rtk
