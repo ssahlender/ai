@@ -30,9 +30,9 @@ for package in "${PI_PACKAGES[@]}"; do
       NODE_EXTRA_CA_CERTS="$SYSTEM_CA_FILE" \
       NPM_CONFIG_CAFILE="$SYSTEM_CA_FILE" \
       NPM_CONFIG_STRICT_SSL=true \
-      pi install "npm:$package"
+      pi install --approve "npm:$package"
   else
-    pi install "npm:$package"
+    pi install --approve "npm:$package"
   fi
 done
 
