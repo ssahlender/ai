@@ -4,6 +4,8 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-wrapper.sh"
 
 GRAPHIFY_EXTRAS="${GRAPHIFY_EXTRAS:-openai,ollama,sql,pdf,office}"
 if [ -n "$GRAPHIFY_EXTRAS" ]; then
@@ -43,7 +45,7 @@ ensure_uv_or_pipx() {
 
   if command -v brew >/dev/null 2>&1 || [ -n "$IS_I9" ]; then
     echo "uv/pipx not found; installing uv with Homebrew..."
-    $BREW install uv
+    _brew_install uv
     return 0
   fi
 

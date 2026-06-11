@@ -5,8 +5,9 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-wrapper.sh"
 
-# Detect if brew's node can actually run on this glibc
 NEEDS_NPM=false
 if command -v node &>/dev/null; then
   node -e '0' 2>/dev/null || NEEDS_NPM=true
@@ -18,7 +19,6 @@ if $NEEDS_NPM; then
   echo "brew node unsupported on this glibc — creating pi wrapper"
   mkdir -p "$HOME/.local/bin"
 
-  # Find the pi JS entrypoint from brew's cellar
   PI_DIR=$(ls -d /home/linuxbrew/.linuxbrew/Cellar/pi-coding-agent/*/libexec/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js 2>/dev/null | sort -V | tail -1)
   if [ -f "$PI_DIR" ]; then
     NODE_BIN=$(command -v node)
@@ -36,7 +36,7 @@ SCRIPTEOF
     exit 1
   fi
 else
-  $BREW install pi-coding-agent
+  _brew_install pi-coding-agent
 fi
 
 "$(dirname "${BASH_SOURCE[0]}")/pi-init.sh"
