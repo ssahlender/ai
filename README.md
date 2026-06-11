@@ -68,7 +68,19 @@ Other commands:
 ```bash
 ./tools/brewenv.sh --list    # show all patterns in brewenv-tools.conf
 ./tools/brewenv.sh --check   # show which patterns have no brew binary yet
+./tools/brewenv.sh --prune   # remove ~/brewenv/ links not covered by conf
 ```
+
+`--prune` only touches links that point into the brew bin dir, so manually created symlinks elsewhere in `~/brewenv/` are left alone.
+
+**Migrating from an existing brewenv script:** re-point `~/bin/brewenv.sh` at this repo's script, then run with `--prune` once to clean up orphans:
+
+```bash
+ln -sf ~/git/ai-tools/tools/brewenv.sh ~/bin/brewenv.sh
+~/bin/brewenv.sh --prune
+```
+
+After that, `~/bin/brewenv.sh` reads from `tools/brewenv-tools.conf` in this repo. Pull updates and re-run to stay in sync.
 
 For tools that install to `~/.local/bin` (npm-based: ccusage, context-mode; uv-based: graphify) no symlink is needed — `~/.local/bin` in PATH is enough.
 
@@ -87,7 +99,7 @@ Brew's own Node bottle is built for Ubuntu 24.04 (GLIBC ≥ 2.38) and crashes on
 
 #### npm prefix
 
-The system npm prefix may not be user-writable. npm-based tools (ccusage, context-mode) install to `~/.local` via `_npm-wrapper.sh` automatically — no manual configuration needed.
+The system npm prefix may not be user-writable. npm-based tools (ccusage, context-mode) fall back to installing into `~/.local` via `_npm-wrapper.sh` automatically — no manual configuration needed.
 
 #### Corporate CA / proxy TLS
 
