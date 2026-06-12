@@ -31,4 +31,4 @@ else
   exit 0
 fi
 
-"$(dirname "${BASH_SOURCE[0]}")/repomix-init.sh"
+"$(dirname "${BASH_SOURCE[0]}")/repomix-mcp-init.sh"

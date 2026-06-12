@@ -388,16 +388,19 @@ large local-model sessions.
 
 | Script | What it does |
 |---|---|
-| `repomix-install.sh` | `$BREW install repomix`; on Debian 12 (GLIBC < 2.38) creates a `~/.local/bin/repomix` wrapper using system node (same pattern as `pi-install.sh`); falls back to npm if brew is unavailable; then runs `repomix-init.sh` |
-| `repomix-update.sh` | `$BREW upgrade repomix`, refreshes the wrapper if present, then runs `repomix-init.sh`; npm fallback (skips if not installed) |
-| `repomix-init.sh` | Registers repomix MCP server (`repomix --mcp`) with Claude Code (`~/.claude/settings.json`), Codex, OpenCode, and Hermes (`~/.hermes/config.yaml`) |
-| `repomix-pack.sh` | Convenience wrapper: packs a directory to `/tmp/repomix-<name>.md`; git history included by default (`--no-logs` to disable, `--logs-count N` default 20); opt-in: `--diffs` (staged/unstaged), `--compress` (signatures only, no bodies), `--style markdown\|xml\|plain` |
+| `repomix-install.sh` | `$BREW install repomix`; on Debian 12 (GLIBC < 2.38) creates a `~/.local/bin/repomix` wrapper using system node (same pattern as `pi-install.sh`); falls back to npm if brew is unavailable; then runs `repomix-mcp-init.sh` |
+| `repomix-update.sh` | `$BREW upgrade repomix`, refreshes the wrapper if present, then runs `repomix-mcp-init.sh`; npm fallback (skips if not installed) |
+| `repomix-mcp-init.sh` | Clearly named entry point that registers `repomix --mcp` with Claude Code, Codex, OpenCode, and Hermes |
+| `repomix-init.sh` | Compatibility name for MCP registration; it does not initialize a repository |
+| `repomix-pack.sh` | Creates a commit-ready `repomix.config.json` when absent, adds generated output to `.gitignore`, and packs to `<repo>/repomix-output.md`; logs, diffs, and compression are opt-in |
 
-Repomix packs an entire repo into a compact, AI-optimized single file. The MCP server (`repomix --mcp`) lets agents call repomix on demand inside a session. Registered with Claude Code, Codex, OpenCode, and Hermes (via `~/.hermes/config.yaml` `mcp_servers`; requires `pyyaml` in the system Python). On i9 (Debian 12 / GLIBC 2.36) a `~/.local/bin/repomix` wrapper runs the brew-managed JS via system node, bypassing brew's incompatible Node bottle. A `repomix.config.json` in the repo root sets markdown output and ignores `repomix-output.*` and `bench-results/` by default.
+Repomix packs an entire repo into a compact, AI-optimized single file. The MCP server (`repomix --mcp`) lets agents call repomix on demand inside a session. Registered with Claude Code, Codex, OpenCode, and Hermes (via `~/.hermes/config.yaml` `mcp_servers`; requires `pyyaml` in the system Python). On i9 (Debian 12 / GLIBC 2.36) a `~/.local/bin/repomix` wrapper runs the brew-managed JS via system node, bypassing brew's incompatible Node bottle. The per-repository `repomix.config.json` and `.gitignore` rule should be committed; the generated `repomix-output.md` remains local.
 
 ```bash
-repomix            # pack current repo → repomix-output.xml
-repomix --style markdown
+tools/repomix-pack.sh ~/git/homeassistant --init-only
+tools/repomix-pack.sh ~/git/homeassistant
+tools/repomix-pack.sh . --logs --diffs
+tools/repomix-pack.sh . --compress
 ```
 
 ---
