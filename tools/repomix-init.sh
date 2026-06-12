@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Registers repomix MCP server with Claude Code, Codex, and OpenCode.
+# Registers the Repomix MCP server with local coding agents.
+#
+# This compatibility name does not initialize a repository. Use
+# repomix-mcp-init.sh for MCP setup or repomix-pack.sh --init-only for a repo.
 set -euo pipefail
 
 # Include user-local bin in case repomix is installed there (e.g. on i9)
