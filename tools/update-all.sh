@@ -3,6 +3,7 @@ set -euo pipefail
 
 # shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+export HOMEBREW_NO_ASK=1
 
 cd "$(dirname "$0")"
 
