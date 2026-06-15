@@ -15,13 +15,14 @@ export HOMEBREW_NO_ASK=1
 if [[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
   IS_I9=1
   BREW="sudo -n -u brewuser /home/linuxbrew/.linuxbrew/bin/brew"
-  # Persist HOMEBREW_NO_ASK for brewuser via Homebrew's own env config so it
-  # survives the sudo env-strip without needing to run `env` through sudo
-  # (which would require a separate sudoers entry).
+  # Persist HOMEBREW_NO_ASK for brewuser via Homebrew's own env config.
+  # sudo strips env vars and only /path/to/brew is in the NOPASSWD rule
+  # (env, tee, mkdir are not), so we use `brew sh` which runs a shell
+  # with the brew prefix in scope, allowing it to write to the prefix.
   _BREW_ENV_FILE="/home/linuxbrew/.linuxbrew/etc/homebrew/brew.env"
   if ! grep -q "HOMEBREW_NO_ASK" "$_BREW_ENV_FILE" 2>/dev/null; then
-    sudo -n -u brewuser mkdir -p "$(dirname "$_BREW_ENV_FILE")" 2>/dev/null || true
-    printf 'HOMEBREW_NO_ASK=1\n' | sudo -n -u brewuser tee -a "$_BREW_ENV_FILE" >/dev/null 2>/dev/null || true
+    printf 'mkdir -p "${HOMEBREW_PREFIX}/etc/homebrew" && printf "HOMEBREW_NO_ASK=1\\n" >> "${HOMEBREW_PREFIX}/etc/homebrew/brew.env"\n' \
+      | sudo -n -u brewuser /home/linuxbrew/.linuxbrew/bin/brew sh 2>/dev/null || true
   fi
   unset _BREW_ENV_FILE
 else
