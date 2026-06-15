@@ -17,7 +17,7 @@ case "$MACHINE" in
     NGL=0; MACHINE_PATH=
     THREADS_DEFAULT="${BENCH_THREADS:-6 8}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-24 32}"
     MODE="${MODE:-qwopus35bq5km}"
-    MODES=(qwen36u35bq6kp qwen36u27bq5kp qwopus35bq5km qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km)
+    MODES=(qwen36u35bq6kp qwen36u27bq5kp qwopus35bq5km qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km qwen3codernext)
     QWEN_MODES=(qwen36u35bq6kp qwen36u27bq5kp qwopus35bq5km qwopus35bq6k)
     normalize_mode() {
       case "$1" in
@@ -28,6 +28,7 @@ case "$MACHINE" in
         gemma4|gemma4:q5km|gemma4q5km) echo "gemma4q5km" ;;
         supergemma4|supergemma4:q4km|supergemma4q4km) echo "supergemma4q4km" ;;
         glm47flash|glm47flash:q5km|glm47flashq5km) echo "glm47flashq5km" ;;
+        qwen3codernext|qwcn|qwcn:q3km) echo "qwen3codernext" ;;
         *) return 1 ;;
       esac
     }
@@ -40,6 +41,7 @@ case "$MACHINE" in
         gemma4q5km)       echo "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf" ;;
         supergemma4q4km)  echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
         glm47flashq5km)   echo "zai-org_GLM-4.7-Flash-Q5_K_M.gguf" ;;
+        qwen3codernext)   echo "Qwen3-Coder-Next-UD-Q3_K_M.gguf" ;;
         *) return 1 ;;
       esac
     }
@@ -150,7 +152,7 @@ for run_mode in "${RUN_MODES[@]}"; do
       output="$OUT_DIR/${timestamp}-${run_mode}-t${threads}-tb${threads_batch}.csv"
       echo "==> threads=$threads threads_batch=$threads_batch"
 
-      args=(-m "$(model_path "$model")" -ngl "$NGL" -p "$PROMPT_TOKENS" -n "$GEN_TOKENS" -r "$REPETITIONS" -o csv)
+      args=(-m "$(model_path "$model_file")" -ngl "$NGL" -p "$PROMPT_TOKENS" -n "$GEN_TOKENS" -r "$REPETITIONS" -o csv)
 
       if [ "$threads_batch_flag" = "-tgb" ]; then
         args+=("-tgb" "${threads},${threads_batch}")

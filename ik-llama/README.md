@@ -83,7 +83,7 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update.sh i9
 ./download-models.sh i9
 ./setup-agents.sh i9
-./start.sh i9 qwopus35bq5km   # or: qwen36u35bq6kp qwen36u27bq5kp qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km
+./start.sh i9 qwopus35bq5km   # or: qwen36u35bq6kp qwen36u27bq5kp qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km qwen3codernext
 ./cleanup-models.sh i9     # dry-run obsolete GGUF cleanup
 ```
 
@@ -168,8 +168,11 @@ The 27B dense IQ4\_XS is the smarter pick — all 27B params active vs 3B MoE fo
 | `gemma4q5km` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | yes | 26B MoE, 4B active |
 | `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored Gemma4 fine-tune, text-only |
 | `glm47flashq5km` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | no | 30B MoE, 3B active, coding-focused |
+| `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 64 K | no | 80B MoE, 3B active, coder-focused — test candidate |
 
 GLM-4.7-Flash uses the DeepSeek-V2 MLA attention architecture and remains a useful comparison model, but measured slower than the Qwen MoE models on this i9. It scores ~59% on SWE-Bench Verified.
+
+Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~93 pp tok/s and ~16 tg tok/s at 8/24 — about 25% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Still interactive; quality check pending.
 
 ## Binaries
 
@@ -276,6 +279,7 @@ Best observed rows:
 | Rejected dense coder | `qwen25coder32bq4km`/`qwen25coder32bq5km` | 8/24 | ~14.1 | ~3.1–3.5 | Too slow for OpenCode daily use |
 | Rejected coder Q4 | `qwen3coderq4` | 8/24 | ~114 | ~33 | Responsive but failed manual quality |
 | Rejected coder Q3 | `qwen3coderq3` | 8/24 | ~112 | ~40.5 | Responsive but failed manual quality |
+| Coder-Next candidate | `qwen3codernext` | 8/24 | ~93 | ~16 | 80B total, 3B active; 25% slower than Qwopus; quality pending |
 | General fallback | `supergemma4q4km` | 8/24–8/32 | ~129 | ~23 | Decent non-Qwen fallback |
 | GLM fallback | `glm47flashq5km` | 8/24 | ~92 | ~21 | Slower than expected here |
 | Dense quality check | `qwen36u27bq5kp` | 8/24 | ~21 | ~3 | Quality-only, not interactive |
