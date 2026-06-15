@@ -10,6 +10,8 @@
 # Usage:
 #   source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
 
+export HOMEBREW_NO_ASK=1
+
 if [[ -n "${http_proxy:-}${HTTP_PROXY:-}${https_proxy:-}${HTTPS_PROXY:-}" ]]; then
   IS_I9=1
   BREW="sudo -n -u brewuser env HOMEBREW_NO_ASK=1 /home/linuxbrew/.linuxbrew/bin/brew"
