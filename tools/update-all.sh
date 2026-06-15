@@ -45,10 +45,10 @@ fi
 
 # Upgrade all brew packages (casks + formulas)
 if [ -n "$IS_I9" ] || command -v brew >/dev/null 2>&1; then
-  $BREW upgrade
+  $BREW upgrade || echo "brew upgrade failed (sudo timeout?) — skipping"
 fi
 
 # Clean up old brew versions to prevent disk bloat
 if [ -n "$IS_I9" ] || command -v brew >/dev/null 2>&1; then
-  $BREW cleanup --prune=all
+  $BREW cleanup --prune=all || echo "brew cleanup failed — skipping"
 fi
