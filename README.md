@@ -18,7 +18,18 @@ Install and update scripts for AI coding tools. Core CLIs are installed via Home
 
 ### Machine detection
 
-Scripts detect the i9 work PC via proxy environment variables (`tools/_brew-i9.sh`). On i9, brew runs via `sudo -n -u brewuser`. On all other machines, brew runs directly.
+`tools/_brew-i9.sh` is sourced by every brew-using script. It sets two variables:
+
+| Variable | i9 (proxy env set) | Home / Mac |
+|---|---|---|
+| `IS_I9` | `1` | `` (empty) |
+| `BREW` | `sudo -n -u brewuser /home/linuxbrew/.linuxbrew/bin/brew` | `brew` |
+
+Detection: if any of `http_proxy`, `HTTP_PROXY`, `https_proxy`, `HTTPS_PROXY` is set in the environment, the machine is treated as i9.
+
+`HOMEBREW_NO_ASK=1` is exported for the plain-brew case (home/Mac). For i9, sudo strips environment variables, so the first run of any brew script writes the setting to `/home/linuxbrew/.linuxbrew/etc/homebrew/brew.env` via `brew sh` (which runs a shell with the brew prefix in scope — the only way to write there without needing extra sudoers entries).
+
+**sudoers constraint**: the NOPASSWD rule covers only the brew binary itself. `sudo -E` (preserve env), `sudo env ...`, `sudo tee`, and `sudo mkdir` all require a password and will fail with `sudo: a password is required` when using `-n`. Do not add these to the `$BREW` variable.
 
 ---
 
@@ -95,15 +106,23 @@ cd <repo-dir>/tools
 
 #### Node-based tools on Debian 12 (GLIBC < 2.38)
 
-Brew's own Node bottle is built for Ubuntu 24.04 (GLIBC ≥ 2.38) and crashes on Debian 12. Tools that ship as Node packages via brew (repomix, pi) get a `~/.local/bin/<tool>` wrapper that runs the brew-cellar JS with the system Node instead. The install scripts detect this automatically and create the wrappers.
+Brew bottles for Node are built for Ubuntu 24.04 (GLIBC ≥ 2.38) and crash on Debian 12. Tools that ship as Node packages via brew (repomix, pi) get a `~/.local/bin/<tool>` wrapper that runs the brew-cellar JS with the system Node (`/data/bin/node`) instead. The install scripts create these wrappers automatically by testing `/home/linuxbrew/.linuxbrew/opt/node/bin/node` directly — not `command -v node`, which would find the system node and falsely pass the check.
+
+Update scripts detect brew-wrapper installs by grepping for `Cellar`/`linuxbrew` in `~/.local/bin/<tool>` and run `brew upgrade` + wrapper refresh instead of falling through to npm.
 
 #### npm prefix
 
-The system npm prefix may not be user-writable. npm-based tools (ccusage, context-mode) fall back to installing into `~/.local` via `_npm-wrapper.sh` automatically — no manual configuration needed.
+The system npm prefix (`/data/app/nodejs24`) is not user-writable. npm-based tools (ccusage, context-mode) fall back to installing into `~/.local` via `_npm-wrapper.sh` automatically (`npm install -g --prefix ~/.local` — the `-g` flag is required; without it npm treats the prefix as a project directory and removes other packages). No manual configuration needed.
+
+#### uv / graphify on i9
+
+Brew's `uv` bottle also requires GLIBC ≥ 2.38. `_uv-wrapper.sh` skips brew's uv on i9 and uses the official astral.sh installer (`~/.local/bin/uv`, musl binary, glibc-independent). The installer is called with `SSL_CERT_FILE` pointing at the system CA bundle for the corporate proxy.
 
 #### Corporate CA / proxy TLS
 
 Scripts that download via curl or npm set `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, and `NPM_CONFIG_CAFILE` to `/etc/ssl/certs/ca-certificates.crt` on i9. Override the cert path with `SYSTEM_CA_FILE=/path/to/ca.crt` if your machine uses a different bundle.
+
+The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` extra is omitted by default on i9 — override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office` once the allowlist is updated.
 
 ---
 
