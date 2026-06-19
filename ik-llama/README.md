@@ -190,8 +190,9 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | Flag | Value | Purpose |
 |---|---|---|
 | `-ngl 0` | 0 | CPU-only, disables GPU offload |
-| `--threads` | 8 | Generation threads (P-cores only). Override: `IK_LLAMA_THREADS` |
-| `--threads-batch` | 24 | Prompt processing threads. Override: `IK_LLAMA_THREADS_BATCH` |
+| `--threads` | machine default | Generation threads. Override: `IK_LLAMA_THREADS` |
+| `--threads-batch` | machine default | Prompt processing threads. Override: `IK_LLAMA_THREADS_BATCH` |
+| `--parallel` | 1 | Keep one full-context slot and preserve prompt-cache locality. Override: `IK_LLAMA_PARALLEL` |
 | `--ctx-size` | 32768–131072 | Context window |
 | `IK_LLAMA_CTX_SIZE` | env override | Override the per-model context size for fast OpenCode edit loops |
 | `IK_LLAMA_CRAM_MB` | env override | Override the per-model KV cache RAM limit |
@@ -347,6 +348,7 @@ The cleanup list includes the rejected Qwen3-Coder Q3/Q4/Q5/Q6/Q8 files.
 8. **MoE active-parameter ceiling** — 3B active params is the real intelligence limit regardless of quantization level; for more intelligence use a dense model like `qwen36u27bq5kp`
 9. **GLM-4.7-Flash is not faster than Qwen3-Coder on this i9** — despite MLA, measured throughput was lower than the Qwen MoE models
 10. **Vision requires mmproj** — Qwen3.6, Qwopus3.6, and Gemma4 models support image input when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. SuperGemma4 and GLM-4.7-Flash are text-only.
+11. **One server slot per active agent** — `--parallel 2` divides the configured context between slots, while unrelated sessions evict each other's cached prefixes. Keep the default `IK_LLAMA_PARALLEL=1`; use separate server instances when concurrent agents need full context and stable cache reuse.
 
 ## Debian 12 / GLIBC 2.36 compatibility
 
