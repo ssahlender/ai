@@ -36,7 +36,7 @@ case "$MACHINE" in
     SERVER="$IK_LLAMA_DIR/llama-server.exe"
     MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}"
     PORT="${IK_LLAMA_PORT:-9080}"
-    NGL=0; THREADS=16; THREADS_BATCH=8
+    NGL=0; THREADS="${IK_LLAMA_THREADS:-16}"; THREADS_BATCH="${IK_LLAMA_THREADS_BATCH:-8}"
     MLOCK=
     PGREP_NAME="llama-server.exe"
     WSL_PATH=1
@@ -60,7 +60,7 @@ case "$MACHINE" in
     [ -n "$SERVER" ] || { echo "llama-server not found. Install: brew install llama.cpp" >&2; exit 1; }
     MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
     PORT="${IK_LLAMA_PORT:-9080}"
-    NGL=99; THREADS="${IK_LLAMA_THREADS:-4}"; THREADS_BATCH="${IK_LLAMA_THREADS:-4}"
+    NGL=99; THREADS="${IK_LLAMA_THREADS:-4}"; THREADS_BATCH="${IK_LLAMA_THREADS_BATCH:-4}"
     MLOCK="--mlock"
     PGREP_NAME="llama-server"
     WSL_PATH=
@@ -73,6 +73,10 @@ case "$MACHINE" in
     ;;
   *) echo "Usage: $0 <i9|probook|macbook-air> <mode>" >&2; exit 1 ;;
 esac
+
+# Keep one full-context slot by default. Multiple unrelated agent sessions on
+# one slot pool invalidate each other's prompt cache and divide the context.
+PARALLEL="${IK_LLAMA_PARALLEL:-1}"
 
 # ── validate ───────────────────────────────────────────────────────
 if [ -z "$MODE" ]; then
@@ -104,12 +108,13 @@ start_model() {
   ctx="${IK_LLAMA_CTX_SIZE:-$ctx}"
   cram="${IK_LLAMA_CRAM_MB:-$cram}"
   local extra=("$@")
-  echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB, threads=${THREADS}/${THREADS_BATCH})..."
+  echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB, threads=${THREADS}/${THREADS_BATCH}, parallel=${PARALLEL})..."
   exec "$SERVER" \
     -m "$(model_path "$model")" \
     -ngl "$NGL" \
     --threads "$THREADS" \
     --threads-batch "$THREADS_BATCH" \
+    --parallel "$PARALLEL" \
     --ctx-size "$ctx" \
     -sps 0.5 \
     -cram "$cram" \
