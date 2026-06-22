@@ -19,7 +19,7 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `download-models.sh <machine>` | Download GGUF + mmproj files for i9/probook/macbook-air |
 | `start.sh <machine> <mode>` | Start llama-server on any machine |
 | `setup-agents.sh <machine>` | Auto-generate OpenCode/Pi provider config (parses start.sh) |
-| `claude-providers.sh [provider] [model]` | Interactive picker & launch Claude Code with local or remote models |
+| `claude-providers.sh [provider] [model]` | Interactive picker & launch Claude Code with local or remote models (shows live n_ctx from `/props`) |
 | `.secrets.example` | Template for `~/.secrets` (copy, chmod 600, fill in keys) |
 | `ocg-proxy.py` | Anthropic ↔ OpenAI proxy for OpenCode Go (DeepSeek/Kimi/GLM + Claude Code) |
 | `bench.sh <machine> <mode>` | Benchmark CPU thread settings with llama-bench (i9/probook) |
@@ -42,10 +42,9 @@ OpenCode gets a conservative `limit.output` of
 ```
 
 This keeps OpenCode's context accounting aligned with the running
-llama-server and avoids "context shift is disabled" failures near the end of
-the context window. If you start llama-server with `IK_LLAMA_CTX_SIZE=32768`,
-rerun setup with the same override so OpenCode sees the actual active context
-window and starts compacting early enough:
+llama-server and starts compacting before the context window fills. If you start
+llama-server with a non-default `IK_LLAMA_CTX_SIZE`, rerun setup with the same
+override so OpenCode uses the correct context window:
 
 ```bash
 IK_LLAMA_CTX_SIZE=32768 ./setup-agents.sh i9
@@ -209,14 +208,6 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | `-v` | — | Verbose output (shows tok/s, timing) |
 | `--mlock` | — | Lock model in RAM (i9 only, prevents swapping) |
 | `--mmproj <file>` | — | Multimodal projector GGUF for vision (Qwen3.6, Qwopus3.6, Gemma4) |
-
-### Qwen3 YaRN (context extension)
-
-```
---rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1
-```
-
-Applied to Qwen3-family models when using contexts beyond 32K.
 
 ### Qwen3 sampling
 
