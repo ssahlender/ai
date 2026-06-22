@@ -91,6 +91,22 @@ print(name)
   echo ""
 }
 
+detect_local_ctx() {
+  local host
+  if is_wsl; then
+    host=$(ip route show default | awk '{print $3; exit}')
+    [ -n "$host" ] || host="127.0.0.1"
+  else
+    host="127.0.0.1"
+  fi
+  curl -sf --max-time 3 --connect-timeout 2 "http://${host}:9080/props" 2>/dev/null | \
+    python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(d.get('default_generation_settings', {}).get('n_ctx', ''))
+" 2>/dev/null || true
+}
+
 llama_host() {
   if is_wsl; then
     ip route show default | awk '{print $3; exit}'
@@ -195,6 +211,7 @@ start_nv_proxy() {
 
 picker() {
   local_model=$(detect_local)
+  local_ctx=$(detect_local_ctx)
 
   echo
   bold "=== Claude Code — Provider Picker ==="
@@ -203,7 +220,9 @@ picker() {
   # Local
   echo "Local (ik_llama.cpp):"
   if [ -n "$local_model" ]; then
-    green "  1) $local_model  [running on port 9080]"
+    local ctx_info=""
+    [ -n "$local_ctx" ] && ctx_info="  ctx=${local_ctx}"
+    green "  1) $local_model  [port 9080${ctx_info}]"
   else
     dim  "  1) No local server detected. Start with:  ./start.sh <machine> <mode>"
   fi
@@ -269,8 +288,12 @@ pick_local() {
     echo "Start one first:  ./start.sh <i9|probook|macbook-air> <mode>"
     exit 1
   fi
-  local host
+  local host ctx
   host=$(llama_host)
+  ctx="${local_ctx:-$(detect_local_ctx)}"
+  if [ -n "$ctx" ]; then
+    dim "  Context size: ${ctx} tokens (from /props)"
+  fi
   launch "http://${host}:9080" "dummy" "$local_model" "$local_model" \
     "local:$local_model"
 }
@@ -355,6 +378,7 @@ direct() {
   case "$provider" in
     local)
       local_model=$(detect_local)
+      local_ctx=$(detect_local_ctx)
       if [ -z "$model" ]; then
         model="$local_model"
       fi
@@ -364,6 +388,7 @@ direct() {
         echo "Start server first: ./start.sh <machine> <mode>"
         exit 1
       fi
+      [ -n "$local_ctx" ] && dim "  Context size: ${local_ctx} tokens (from /props)"
       base_url="http://$(llama_host):9080"
       api_key="dummy"
       ;;

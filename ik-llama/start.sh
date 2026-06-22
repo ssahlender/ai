@@ -21,14 +21,14 @@ case "$MACHINE" in
     SAMPLE_BASE=(--temp "${IK_LLAMA_TEMP:-0.2}" --top-p "${IK_LLAMA_TOP_P:-0.8}" --top-k "${IK_LLAMA_TOP_K:-20}")
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
     MODES=(
-      "qwen36u27bq5kp|Qwen3.6 27B Uncensored Q5_K_P|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf|65536|24576|YARN|SAMPLE|mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "qwen36u35bq6kp|Qwen3.6 35B-A3B Uncensored Q6_K_P|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf|131072|24576|YARN|SAMPLE|mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "qwopus35bq5km|Qwopus3.6 35B-A3B Q5_K_M|Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf|131072|24576|YARN|SAMPLE|mmproj-F32.gguf"
-      "qwopus35bq6k|Qwopus3.6 35B-A3B Q6_K|Qwopus3.6-35B-A3B-v1-Q6_K.gguf|131072|24576|YARN|SAMPLE|mmproj-F32.gguf"
+      "qwen36u27bq5kp|Qwen3.6 27B Uncensored Q5_K_P|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf|65536|24576||SAMPLE|mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf"
+      "qwen36u35bq6kp|Qwen3.6 35B-A3B Uncensored Q6_K_P|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf|131072|24576||SAMPLE|mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
+      "qwopus35bq5km|Qwopus3.6 35B-A3B Q5_K_M|Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf|131072|24576||SAMPLE|mmproj-F32.gguf"
+      "qwopus35bq6k|Qwopus3.6 35B-A3B Q6_K|Qwopus3.6-35B-A3B-v1-Q6_K.gguf|131072|24576||SAMPLE|mmproj-F32.gguf"
       "gemma4q5km|Gemma4 26B-A4B Q5_K_M|gemma-4-26B-A4B-it-UD-Q5_K_M.gguf|131072|32768|||mmproj-F16.gguf"
       "supergemma4q4km|SuperGemma4 26B Uncensored Q4_K_M|supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf|131072|32768"
       "glm47flashq5km|GLM-4.7-Flash 30B Q5_K_M|zai-org_GLM-4.7-Flash-Q5_K_M.gguf|65536|16384|NOSAMPLE||"
-      "qwen3codernext|Qwen3-Coder-Next 80B-A3B UD-Q3_K_M|Qwen3-Coder-Next-UD-Q3_K_M.gguf|65536|16384|YARN|SAMPLE"
+      "qwen3codernext|Qwen3-Coder-Next 80B-A3B UD-Q3_K_M|Qwen3-Coder-Next-UD-Q3_K_M.gguf|65536|16384||SAMPLE"
     )
     ;;
   probook)
@@ -45,7 +45,7 @@ case "$MACHINE" in
     MODES=(
       "qwen36u35b|Qwen3.6 35B-A3B Uncensored|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf|32768|8192|NOSAMPLE|"
       "gemma|Gemma4 26B-A4B|gemma-4-26B-A4B-it-UD-IQ4_NL.gguf|65536|12288"
-      "qwen3coder|Qwen3-Coder 30B-A3B|Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf|65536|16384|YARN|SAMPLE"
+      "qwen3coder|Qwen3-Coder 30B-A3B|Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf|65536|16384||SAMPLE"
       "glm47flash|GLM-4.7-Flash 30B|zai-org_GLM-4.7-Flash-Q4_K_M.gguf|32768|8192|NOSAMPLE|"
     )
     ;;
@@ -67,8 +67,8 @@ case "$MACHINE" in
     SAMPLE_BASE=()
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
     MODES=(
-      "qwen36u27b|Qwen3.6 27B IQ4_XS|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf|32768|8192|YARN||mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "qwen36u35b|Qwen3.6 35B-A3B IQ4_NL|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf|16384|4096|YARN||mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
+      "qwen36u27b|Qwen3.6 27B IQ4_XS|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf|32768|8192|||mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf"
+      "qwen36u35b|Qwen3.6 35B-A3B IQ4_NL|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf|16384|4096|||mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
     )
     ;;
   *) echo "Usage: $0 <i9|probook|macbook-air> <mode>" >&2; exit 1 ;;
