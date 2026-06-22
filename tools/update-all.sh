@@ -26,6 +26,7 @@ UPDATE_TOOLS=(
   pi
   repomix
   ccusage
+  headroom
 )
 
 for tool in "${UPDATE_TOOLS[@]}"; do
