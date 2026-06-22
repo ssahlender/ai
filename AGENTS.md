@@ -28,6 +28,33 @@ No special agent config needed — scripts are self-contained bash. Run directly
 
 On the i9, scripts use the `_brew-i9.sh` helper which runs brew via `sudo -n -u brewuser` with the full absolute path. Other machines run brew directly.
 
+## Headroom — Context Compression (MCP + Proxy)
+
+Headroom compresses tool outputs, files, and text before they reach the LLM (40-90% savings).
+
+### MCP (universal — all agents)
+Add to agent MCP config:
+```json
+{"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve"]}}}
+```
+Tools: `mcp_headroom_headroom_compress`, `_retrieve`, `_stats`.
+
+Hermes: `mcp_servers.headroom` in `~/.hermes/config.yaml` (already configured).
+Claude Code: `headroom mcp install --agent claude` (already configured).
+
+### Proxy (transparent — Claude Code / Codex)
+```bash
+headroom proxy --port 8788          # already running as systemd service
+headroom wrap claude                # one-time setup
+headroom wrap codex                 # one-time setup
+```
+
+### ai-tools scripts
+- `tools/headroom-install.sh` — uv tool install headroom-ai[proxy]
+- `tools/headroom-update.sh` — uv tool upgrade (also in update-all.sh)
+- `tools/headroom-init.sh` — systemd service + wrapper scripts
+- `tools/headroom-mcp-init.sh` — MCP config for all agents
+
 ## Large Generated Files
 
 Do not write large generated artifacts such as draw.io XML, SVG, lock files, or

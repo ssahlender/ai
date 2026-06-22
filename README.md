@@ -7,14 +7,14 @@ Scripts for running local AI tools across multiple machines.
 | Path | Contents |
 |---|---|
 | `ik-llama/` | LLM inference with ik_llama.cpp / llama.cpp — models, server, OpenCode config (ProBook, i9, MacBook Air) |
-| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Antigravity, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage) |
+| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Antigravity, Pi, Headroom, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
 ---
 
 ## tools/
 
-Install and update scripts for AI coding tools. Core CLIs are installed via Homebrew where available; Node-based agent integrations use npm/npx. Run scripts individually or use `update-all.sh` to update everything at once.
+Install and update scripts for AI coding tools. Core CLIs are installed via Homebrew where available; Node-based agent integrations use npm/npx; Python tools use uv. Run scripts individually or use `update-all.sh` to update everything at once.
 
 ### Machine detection
 
