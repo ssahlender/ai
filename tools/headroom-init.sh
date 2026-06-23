@@ -5,6 +5,11 @@
 # - Enables and starts the proxy service
 set -euo pipefail
 
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_uv-wrapper.sh"
+
 HEADROOM_PORT="${HEADROOM_PORT:-8788}"
 HEADROOM_PROXY_URL="http://localhost:${HEADROOM_PORT}"
 WRAPPER_DIR="$HOME/.local/bin"
@@ -19,8 +24,8 @@ for candidate in "$HOME/.local/bin/headroom" "$HOME/.cargo/bin/headroom"; do
 done
 # fall back to uv tool dir
 if [ -z "$HEADROOM_BIN" ]; then
-  UV_DIR="$(uv tool dir 2>/dev/null || echo "$HOME/.local/share/uv/tools")"
-  HEADROOM_BIN="$UV_DIR/headroom/bin/headroom"
+  UV="$(find_uv 2>/dev/null)" || UV=""
+  [ -n "$UV" ] && HEADROOM_BIN="$("$UV" tool dir 2>/dev/null)/headroom/bin/headroom" || true
 fi
 
 if [ ! -x "$HEADROOM_BIN" ]; then
