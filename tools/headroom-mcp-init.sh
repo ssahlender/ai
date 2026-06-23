@@ -5,10 +5,27 @@
 # - Outputs config snippets for Codex / OpenCode / Pi
 set -euo pipefail
 
-HEADROOM_BIN="${HOME}/.local/bin/headroom"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/_uv-wrapper.sh"
+
 PROXY_URL="${HEADROOM_PROXY_URL:-http://localhost:8788}"
 
-if [ ! -x "$HEADROOM_BIN" ]; then
+# Find headroom binary
+HEADROOM_BIN=""
+for candidate in "$HOME/.local/bin/headroom" "$HOME/.cargo/bin/headroom"; do
+  if [ -x "$candidate" ]; then
+    HEADROOM_BIN="$candidate"
+    break
+  fi
+done
+if [ -z "$HEADROOM_BIN" ]; then
+  UV="$(find_uv 2>/dev/null)" || UV=""
+  [ -n "$UV" ] && HEADROOM_BIN="$("$UV" tool dir 2>/dev/null)/headroom/bin/headroom" || true
+fi
+
+if [ -z "$HEADROOM_BIN" ] || [ ! -x "$HEADROOM_BIN" ]; then
   echo "ERROR: headroom not found. Run headroom-install.sh first." >&2
   exit 1
 fi
@@ -71,7 +88,7 @@ fi
 # --- 2. Claude Code ---
 echo ""
 echo "[Claude Code] Installing MCP server..."
-$HEADROOM_BIN mcp install --agent claude --proxy-url "$PROXY_URL" 2>&1 || {
+"$HEADROOM_BIN" mcp install --agent claude --proxy-url "$PROXY_URL" 2>&1 || {
   echo "WARNING: headroom mcp install failed for Claude Code"
   echo "  Manual config: add to ~/.claude/mcp.json:"
   echo '  {"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve"]}}}'
