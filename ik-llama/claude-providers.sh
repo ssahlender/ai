@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # claude-providers.sh — Claude Code provider/model picker
-#   Interactive:  ./claude-providers.sh
-#   Direct:       ./claude-providers.sh <provider> [model]
+#   Interactive:  ./claude-providers.sh [-c] [-r <session-id>]
+#   Direct:       ./claude-providers.sh <provider> [model] [-c] [-r <session-id>]
 #
 # Providers:
 #   local          Local ik_llama.cpp server (auto-detects port)
@@ -11,11 +11,39 @@
 #   opencode-go    OpenCode Go subscription (MiniMax/Qwen only, Anthropic format)
 #   opencode-proxy OpenCode Go OpenAI-only models via local proxy (DeepSeek/Kimi/GLM)
 #
+# Session flags (work in both picker and direct mode):
+#   -c / --continue          Continue the most recent conversation
+#   -r / --resume <id>       Resume a specific session by ID
+#
 # Sources ~/.secrets for API keys (OPENROUTER_API_KEY, NVIDIA_API_KEY, OPENCODE_GO_API_KEY).
 set -euo pipefail
 
 SECRETS="$HOME/.secrets"
 [ -f "$SECRETS" ] && . "$SECRETS"
+
+# Pre-parse session-continuation flags — forwarded to claude in all modes.
+# Must happen before routing to picker/direct so -c works without a provider arg.
+CONTINUE_FLAG=()
+_args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -c|--continue)
+      CONTINUE_FLAG+=(-c)
+      shift
+      ;;
+    -r|--resume)
+      [[ $# -ge 2 ]] || { echo "Usage: -r <session-id>" >&2; exit 1; }
+      CONTINUE_FLAG+=(-r "$2")
+      shift 2
+      ;;
+    *)
+      _args+=("$1")
+      shift
+      ;;
+  esac
+done
+set -- "${_args[@]+"${_args[@]}"}"
+unset _args
 
 # ── helpers ──────────────────────────────────────────────────────────
 
@@ -58,7 +86,7 @@ launch() {
   ANTHROPIC_CUSTOM_MODEL_OPTION="$sonnet" \
   ANTHROPIC_DEFAULT_SONNET_MODEL="$sonnet" \
   ANTHROPIC_DEFAULT_HAIKU_MODEL="$haiku" \
-  exec claude $bare_flag --model "$sonnet" "$@"
+  exec claude $bare_flag --model "$sonnet" "${CONTINUE_FLAG[@]+"${CONTINUE_FLAG[@]}"}" "$@"
 }
 
 # ── local model detection ────────────────────────────────────────────
