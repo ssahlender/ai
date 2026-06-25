@@ -167,11 +167,11 @@ The 27B dense IQ4\_XS is the smarter pick — all 27B params active vs 3B MoE fo
 | `gemma4q5km` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | yes | 26B MoE, 4B active |
 | `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored Gemma4 fine-tune, text-only |
 | `glm47flashq5km` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | no | 30B MoE, 3B active, coding-focused |
-| `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 64 K | no | 80B MoE, 3B active, coder-focused — test candidate |
+| `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active, coder-focused — test candidate |
 
 GLM-4.7-Flash uses the DeepSeek-V2 MLA attention architecture and remains a useful comparison model, but measured slower than the Qwen MoE models on this i9. It scores ~59% on SWE-Bench Verified.
 
-Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~93 pp tok/s and ~16 tg tok/s at 8/24 — about 25% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Still interactive; quality check pending.
+Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24 — about 20% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Context bumped to 128K (from 65K) so `/compact` fits long sessions; KV capped at 24 GB via `cram`. Still interactive; quality check pending.
 
 ## Binaries
 
@@ -203,6 +203,7 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | `-dt 0.1` | 0.1 | Defragmentation threshold |
 | `--host 0.0.0.0` | — | Listen on all interfaces (required for WSL2) |
 | `--jinja` | — | Enable Jinja templates (required for tool calling) |
+| `--context-shift on` | on | Explicitly enable context shift (soft-rolls old KV instead of erroring when context fills) |
 | `-rea off` | off | Disable thinking/reasoning mode |
 | `--temp` / `--top-p` / `--top-k` | 0.2 / 0.8 / 20 | Conservative i9 Qwen sampling for OpenCode tool-call JSON reliability. Override: `IK_LLAMA_TEMP`, `IK_LLAMA_TOP_P`, `IK_LLAMA_TOP_K` |
 | `-v` | — | Verbose output (shows tok/s, timing) |
@@ -255,6 +256,21 @@ The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-
 - Avoid `IK_LLAMA_THREADS=10` and `12`; benchmarks were consistently worse than `6` and `8`.
 - Keep `qwen36u27bq5kp` for quality checks only. It is too slow for normal OpenCode loops.
 
+### ik_llama.cpp vs standard llama.cpp (i9, qwen3codernext, b9789)
+
+Measured on the same model (Qwen3-Coder-Next UD-Q3\_K\_M) with `p=2048 n=128 r=3`:
+
+| Engine | Threads | pp2048 (t/s) | tg128 (t/s) |
+|---|---|---:|---:|
+| ik_llama.cpp (Thireus fork) | 8 gen / 24 batch | **98.6** | 15.8 |
+| standard llama.cpp b9789 | 8 | 45.4 | 15.8 |
+| ik_llama.cpp | 16 gen / 24 batch | 93.1 | 14.2 |
+| standard llama.cpp b9789 | 16 | 46.4 | 14.7 |
+
+**Prompt processing: ik_llama is ~2.1× faster.** Token generation is identical (both are memory-bandwidth bound). Standard llama.cpp b9789 correctly auto-detected the i9 as Alder Lake and loaded `libggml-cpu-alderlake.so`, so this is a fair comparison — not a configuration gap.
+
+The PP speedup matters for coding sessions: it determines how fast tool results, file reads, and `/compact` requests are ingested. Some of ik_llama's IQ\*/K\_P AVX2 kernel improvements have been contributed back upstream over time (IQ1/IQ2/IQ3/IQ4 quant formats, some kernel patches), but the batch processing gap above shows significant optimizations remain fork-only.
+
 ### Completed i9 benchmark notes
 
 The completed i9 `llama-bench` runs point to `8/24` as the best default thread setting. `8/32` is usually close, but not better enough to justify changing the default. The dense "fast" Qwen models were not actually fast on this AVX2 CPU.
@@ -271,7 +287,7 @@ Best observed rows:
 | Rejected dense coder | `qwen25coder32bq4km`/`qwen25coder32bq5km` | 8/24 | ~14.1 | ~3.1–3.5 | Too slow for OpenCode daily use |
 | Rejected coder Q4 | `qwen3coderq4` | 8/24 | ~114 | ~33 | Responsive but failed manual quality |
 | Rejected coder Q3 | `qwen3coderq3` | 8/24 | ~112 | ~40.5 | Responsive but failed manual quality |
-| Coder-Next candidate | `qwen3codernext` | 8/24 | ~93 | ~16 | 80B total, 3B active; 25% slower than Qwopus; quality pending |
+| Coder-Next candidate | `qwen3codernext` | 8/24 | ~98 | ~16 | 80B total, 3B active; 128K ctx; 20% slower than Qwopus; quality pending |
 | General fallback | `supergemma4q4km` | 8/24–8/32 | ~129 | ~23 | Decent non-Qwen fallback |
 | GLM fallback | `glm47flashq5km` | 8/24 | ~92 | ~21 | Slower than expected here |
 | Dense quality check | `qwen36u27bq5kp` | 8/24 | ~21 | ~3 | Quality-only, not interactive |
@@ -340,6 +356,9 @@ The cleanup list includes the rejected Qwen3-Coder Q3/Q4/Q5/Q6/Q8 files.
 9. **GLM-4.7-Flash is not faster than Qwen3-Coder on this i9** — despite MLA, measured throughput was lower than the Qwen MoE models
 10. **Vision requires mmproj** — Qwen3.6, Qwopus3.6, and Gemma4 models support image input when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. SuperGemma4 and GLM-4.7-Flash are text-only.
 11. **One server slot per active agent** — `--parallel 2` divides the configured context between slots, while unrelated sessions evict each other's cached prefixes. Keep the default `IK_LLAMA_PARALLEL=1`; use separate server instances when concurrent agents need full context and stable cache reuse.
+12. **No YARN for Qwen3 instruct models** — Qwen3 instruct supports 128K context natively. YARN (`--rope-scaling yarn --yarn-orig-ctx 32768`) was a Qwen2.5-era workaround for 32K base models. On Qwen3 it is redundant and, critically, causes ik_llama to silently disable context shift, causing hard 500 errors when the context fills. All Qwen3-family modes have YARN removed.
+13. **`--context-shift on` is explicit** — context shift is on by default in llama.cpp/ik_llama but YARN overrides it internally. Now set explicitly in `start_model()` as a belt-and-suspenders guard against version differences. With context shift on, a full KV cache softly rolls out old tokens instead of returning a 500 error — essential for long sessions and `/compact` requests.
+14. **Claude Code does not auto-compact for local models** — Claude Code reads `context_window` from the Anthropic SDK's `data[].context_window` field in the `/v1/models` response. ik_llama returns this in a non-standard `models[]` extension array instead, so Claude Code falls back to `n_ctx_train` (262K for Qwen3-Coder-Next) as the effective window and will not auto-compact until the session is enormous. Use `/compact` manually before sessions grow too large, or restart the server with a larger context.
 
 ## Debian 12 / GLIBC 2.36 compatibility
 
