@@ -64,7 +64,7 @@ Pi config is written to `~/.pi/agent/models.json` with `api:
 ./update.sh probook
 ./download-models.sh probook
 ./setup-agents.sh probook
-./start.sh probook qwen36u35b   # or: gemma qwen3coder glm47flash
+./start.sh probook qwen36u35b   # or: ornith35q4km glm47flash
 ```
 
 Benchmark thread settings:
@@ -82,7 +82,7 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update.sh i9
 ./download-models.sh i9
 ./setup-agents.sh i9
-./start.sh i9 qwopus35bq5km   # or: qwen36u35bq6kp qwen36u27bq5kp qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km qwen3codernext ornith35q5km ornith35q6k
+./start.sh i9 qwopus35bq5km   # or: qwen36u35bq6kp ornith35q6k supergemma4q4km qwen3codernext
 ./cleanup-models.sh i9     # dry-run obsolete GGUF cleanup
 ```
 
@@ -134,9 +134,8 @@ Summarize benchmark CSVs:
 
 | Mode | Model | Size | Context | Vision | Notes |
 |---|---|---|---|---|---|---|
-| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 32 K | yes | 35B MoE, 3B active |
-| `gemma` | Gemma4-26B-A4B IQ4\_NL | ~13 GB | 64 K | yes | 26B MoE, 4B active |
-| `qwen3coder` | Qwen3-Coder-30B-A3B Q3\_K\_M | ~14 GB | 64 K | no | 30B MoE, 3B active |
+| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 32 K | no | 35B MoE, 3B active |
+| `ornith35q4km` | Ornith-1.0 35B-A3B Q4\_K\_M | ~21 GB | 64 K | no | RL agentic coder, Qwen3 MoE base, MIT |
 | `glm47flash` | GLM-4.7-Flash Q4\_K\_M | ~17 GB | 32 K | no | 30B MoE, 3B active, DeepSeek-V2 MLA |
 
 ### MacBook Air M4 (24 GB, Metal GPU)
@@ -160,16 +159,11 @@ The 27B dense IQ4\_XS is the smarter pick — all 27B params active vs 3B MoE fo
 
 | Mode | Model | Size | Context | Vision | Notes |
 |---|---|---|---|---|---|---|
-| `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P | ~20 GB | 64 K | yes | 27B dense — all params active |
-| `qwen36u35bq6kp` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline |
-| `qwopus35bq5km` | Qwopus3.6-35B-A3B Q5\_K\_M | ~25 GB | 128 K | yes | Reasoning-enhanced, tool-calling, vision |
-| `qwopus35bq6k` | Qwopus3.6-35B-A3B Q6\_K | ~29 GB | 128 K | yes | Qwopus quality candidate |
-| `gemma4q5km` | Gemma4-26B-A4B Q5\_K\_M | ~21 GB | 128 K | yes | 26B MoE, 4B active |
-| `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored Gemma4 fine-tune, text-only |
-| `glm47flashq5km` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | no | 30B MoE, 3B active, coding-focused |
-| `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active, coder-focused — test candidate |
-| `ornith35q5km` | Ornith-1.0 35B-A3B Q5\_K\_M | ~25 GB | 128 K | no | RL-trained agentic coder, Qwen3-35B-MoE base, MIT — vs Qwopus |
-| `ornith35q6k` | Ornith-1.0 35B-A3B Q6\_K | ~29 GB | 128 K | no | Ornith quality candidate |
+| `qwen36u35bq6kp` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline + vision |
+| `qwopus35bq5km` | Qwopus3.6-35B-A3B Q5\_K\_M | ~25 GB | 128 K | yes | Daily driver — fastest, reasoning, vision |
+| `ornith35q6k` | Ornith-1.0 35B-A3B Q6\_K | ~29 GB | 128 K | no | RL agentic coder, Qwen3 MoE base, MIT |
+| `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored fallback, text-only |
+| `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active — heavy coder test |
 
 GLM-4.7-Flash uses the DeepSeek-V2 MLA attention architecture and remains a useful comparison model, but measured slower than the Qwen MoE models on this i9. It scores ~59% on SWE-Bench Verified.
 
@@ -241,12 +235,17 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 ### i9-13900 (Raptor Lake, AVX2)
 
-- `qwen36u35bq6kp`: ~122.8 prompt tok/s, ~22.6 gen tok/s at `8/24`; sole retained Qwen3.6 35B-A3B HauhauCS quant (Q4/Q5/Q8 replaced by Qwopus).
-- `qwen3coderq5km`: ~110.6 prompt tok/s, ~29.8 gen tok/s at `8/24`; best generation row was ~30.0 gen tok/s at `8/32`, but prompt ingestion dropped to ~90.7 tok/s.
-- `qwen3coderq6k`: ~102.1 prompt tok/s, ~25.6 gen tok/s at `8/24`.
-- `qwen3coderq8`: ~105.8 prompt tok/s, ~20.7 gen tok/s at `8/24`.
-- 32B dense candidates were only ~13.5–14.2 prompt tok/s and ~3.0–3.6 gen tok/s.
-- Qwopus Q5_K_M / Q6_K: not yet benchmarked on this i9 (same `qwen35moe` arch — expect similar throughput to HauhauCS Qwen3.6-35B-A3B).
+Active model throughput at the default `8/24` thread setting:
+
+| Mode | pp2048 (t/s) | tg128 (t/s) | Notes |
+|---|---:|---:|---|
+| `qwopus35bq5km` | **130.9** | **26.4** | Daily driver |
+| `qwen36u35bq6kp` | ~122.8 | ~22.6 | Quality baseline |
+| `ornith35q6k` | 122.5 | 23.1 | Agentic coder |
+| `supergemma4q4km` | ~129 | ~23 | Uncensored fallback |
+| `qwen3codernext` | ~98 | ~16 | 80B MoE heavy coder |
+
+Qwopus Q5_K_M is the clear daily driver — fastest on both pp and tg. Ornith Q6_K matches Qwen3.6 Q6_K_P on throughput and is the dedicated coding slot. All three are well above the interactive threshold for OpenCode tool loops.
 
 ### i9 speed notes
 
@@ -303,7 +302,7 @@ Rejected fast-tier candidates:
 
 The benchmark script accepts explicit quantized presets like `qwopus35b:q5km`, but the canonical script/OpenCode names include the quantization suffix.
 
-The active benchmark set is `qwen36u35bq6kp`, `qwen36u27bq5kp`, `qwopus35bq5km`, `qwopus35bq6k`, `gemma4q5km`, `supergemma4q4km`, and `glm47flashq5km`.
+The active benchmark set is `qwen36u35bq6kp`, `qwopus35bq5km`, `ornith35q6k`, `supergemma4q4km`, and `qwen3codernext`.
 
 The `all` and `qwen36` benchmark groups use only the active model list. `qwen36` runs the full Qwen3.6 comparison.
 

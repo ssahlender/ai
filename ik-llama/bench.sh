@@ -17,35 +17,25 @@ case "$MACHINE" in
     NGL=0; MACHINE_PATH=
     THREADS_DEFAULT="${BENCH_THREADS:-6 8}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-24 32}"
     MODE="${MODE:-qwopus35bq5km}"
-    MODES=(qwen36u35bq6kp qwen36u27bq5kp qwopus35bq5km qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km qwen3codernext ornith35q5km ornith35q6k)
-    QWEN_MODES=(qwen36u35bq6kp qwen36u27bq5kp qwopus35bq5km qwopus35bq6k)
+    MODES=(qwen36u35bq6kp qwopus35bq5km ornith35q6k supergemma4q4km qwen3codernext)
+    QWEN_MODES=(qwen36u35bq6kp qwopus35bq5km)
     normalize_mode() {
       case "$1" in
-        qwen36u27b|qwen36u27b:q5kp|qwen36u27bq5kp) echo "qwen36u27bq5kp" ;;
         qwen36u35b|qwen36u35b:q6kp|qwen36u35bq6kp) echo "qwen36u35bq6kp" ;;
         qwopus35b|qwopus35b:q5km|qwopus35bq5km) echo "qwopus35bq5km" ;;
-        qwopus35b:q6k|qwopus35bq6k) echo "qwopus35bq6k" ;;
-        gemma4|gemma4:q5km|gemma4q5km) echo "gemma4q5km" ;;
-        supergemma4|supergemma4:q4km|supergemma4q4km) echo "supergemma4q4km" ;;
-        glm47flash|glm47flash:q5km|glm47flashq5km) echo "glm47flashq5km" ;;
-        qwen3codernext|qwcn|qwcn:q3km) echo "qwen3codernext" ;;
-        ornith35q5km|ornith35b:q5km) echo "ornith35q5km" ;;
         ornith35q6k|ornith35b:q6k) echo "ornith35q6k" ;;
+        supergemma4|supergemma4:q4km|supergemma4q4km) echo "supergemma4q4km" ;;
+        qwen3codernext|qwcn|qwcn:q3km) echo "qwen3codernext" ;;
         *) return 1 ;;
       esac
     }
     model_for_mode() {
       case "$(normalize_mode "$1")" in
-        qwen36u27bq5kp)   echo "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" ;;
         qwen36u35bq6kp)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf" ;;
         qwopus35bq5km)    echo "Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf" ;;
-        qwopus35bq6k)     echo "Qwopus3.6-35B-A3B-v1-Q6_K.gguf" ;;
-        gemma4q5km)       echo "gemma-4-26B-A4B-it-UD-Q5_K_M.gguf" ;;
-        supergemma4q4km)  echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
-        glm47flashq5km)   echo "zai-org_GLM-4.7-Flash-Q5_K_M.gguf" ;;
-        qwen3codernext)   echo "Qwen3-Coder-Next-UD-Q3_K_M.gguf" ;;
-        ornith35q5km)     echo "ornith-1.0-35b-Q5_K_M.gguf" ;;
         ornith35q6k)      echo "ornith-1.0-35b-Q6_K.gguf" ;;
+        supergemma4q4km)  echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
+        qwen3codernext)   echo "Qwen3-Coder-Next-UD-Q3_K_M.gguf" ;;
         *) return 1 ;;
       esac
     }
