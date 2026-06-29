@@ -64,7 +64,7 @@ Pi config is written to `~/.pi/agent/models.json` with `api:
 ./update.sh probook
 ./download-models.sh probook
 ./setup-agents.sh probook
-./start.sh probook qwen36u35b   # or: ornith35q4km glm47flash
+./start.sh probook qwen36u35b   # or: ornith35q4km
 ```
 
 Benchmark thread settings:
@@ -136,7 +136,6 @@ Summarize benchmark CSVs:
 |---|---|---|---|---|---|---|
 | `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 32 K | no | 35B MoE, 3B active |
 | `ornith35q4km` | Ornith-1.0 35B-A3B Q4\_K\_M | ~21 GB | 64 K | no | RL agentic coder, Qwen3 MoE base, MIT |
-| `glm47flash` | GLM-4.7-Flash Q4\_K\_M | ~17 GB | 32 K | no | 30B MoE, 3B active, DeepSeek-V2 MLA |
 
 ### MacBook Air M4 (24 GB, Metal GPU)
 

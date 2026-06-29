@@ -82,7 +82,6 @@ case "$MACHINE" in
 
     download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf
     download_if_missing deepreinforce-ai/Ornith-1.0-35B-GGUF                    ornith-1.0-35b-Q4_K_M.gguf
-    download_if_missing bartowski/zai-org_GLM-4.7-Flash-GGUF                    zai-org_GLM-4.7-Flash-Q4_K_M.gguf
     ;;
 
   macbook-air)
