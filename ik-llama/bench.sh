@@ -107,8 +107,7 @@ timestamp=$(date +%Y%m%d-%H%M%S)
 summary="$OUT_DIR/${timestamp}-${MODE}-summary.tsv"
 
 help_text=$("$BENCH" -h 2>&1 || true)
-bench_strings=$(strings "$BENCH" 2>/dev/null || true)
-option_text="${help_text}"$'\n'"${bench_strings}"
+option_text="${help_text}"
 threads_batch_flag=""
 if grep -q -- "-tgb" <<< "$option_text"; then
   threads_batch_flag="-tgb"
@@ -141,10 +140,15 @@ for run_mode in "${RUN_MODES[@]}"; do
 
   for threads in $THREADS; do
     for threads_batch in $THREADS_BATCH; do
-      output="$OUT_DIR/${timestamp}-${run_mode}-t${threads}-tb${threads_batch}.csv"
+      output="$OUT_DIR/${timestamp}-${run_mode}-t${threads}-tb${threads_batch}.json"
       echo "==> threads=$threads threads_batch=$threads_batch"
+      # Clear Windows standby page list before each run to avoid mmap exit 5
+      if [ -n "${MACHINE_PATH:-}" ] && command -v powershell.exe >/dev/null 2>&1; then
+        powershell.exe -Command "& { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class M { [DllImport(\"ntdll.dll\")] public static extern int NtSetSystemInformation(int c, IntPtr p, int l); public static void C() { var p=Marshal.AllocHGlobal(4); Marshal.WriteInt32(p,4); NtSetSystemInformation(80,p,4); Marshal.FreeHGlobal(p); } }'; [M]::C() }" 2>/dev/null || true
+      fi
 
-      args=(-m "$(model_path "$model_file")" -ngl "$NGL" -p "$PROMPT_TOKENS" -n "$GEN_TOKENS" -r "$REPETITIONS" -o csv)
+      args=(-m "$(model_path "$model_file")" -ngl "$NGL" -p "$PROMPT_TOKENS" -n "$GEN_TOKENS" -r "$REPETITIONS" -o json)
+      [ -n "${MMAP:-}" ] && args+=(-mmp "$MMAP")
 
       if [ "$threads_batch_flag" = "-tgb" ]; then
         args+=("-tgb" "${threads},${threads_batch}")
