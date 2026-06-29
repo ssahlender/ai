@@ -33,7 +33,7 @@ case "$MACHINE" in
     SERVER="$IK_LLAMA_DIR/llama-server.exe"
     MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}"
     PORT="${IK_LLAMA_PORT:-9080}"
-    NGL=0; THREADS="${IK_LLAMA_THREADS:-16}"; THREADS_BATCH="${IK_LLAMA_THREADS_BATCH:-8}"
+    NGL=0; THREADS="${IK_LLAMA_THREADS:-8}"; THREADS_BATCH="${IK_LLAMA_THREADS_BATCH:-16}"
     MLOCK=
     PGREP_NAME="llama-server.exe"
     WSL_PATH=1

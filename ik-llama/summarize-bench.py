@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Summarize llama-bench CSV files produced by bench-*.sh."""
+"""Summarize llama-bench JSON/CSV files produced by bench-*.sh."""
 
 from __future__ import annotations
 
 import csv
 import glob
+import json
 import os
 import re
 import sys
@@ -42,6 +43,14 @@ def read_csv_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def read_json_rows(path: Path) -> list[dict]:
+    if not path.exists() or path.stat().st_size == 0:
+        return []
+    with path.open() as handle:
+        data = json.load(handle)
+    return data if isinstance(data, list) else [data]
+
+
 def read_summary(path: Path) -> list[dict[str, str]]:
     with path.open(newline="") as handle:
         return list(csv.DictReader(handle, delimiter="\t"))
@@ -52,56 +61,44 @@ def result_from_summary_row(row: dict[str, str]) -> dict[str, object] | None:
     if not output.is_absolute():
         output = Path.cwd() / output
 
-    csv_rows = read_csv_rows(output)
-    if not csv_rows:
-        print(f"Skipping empty/missing CSV: {output}", file=sys.stderr)
+    # Try JSON first (new format), fall back to CSV (old format)
+    if output.suffix == ".json" or output.with_suffix(".json").exists():
+        json_path = output if output.suffix == ".json" else output.with_suffix(".json")
+        data_rows = read_json_rows(json_path)
+        output = json_path
+    else:
+        data_rows = read_csv_rows(output)
+
+    if not data_rows:
+        print(f"Skipping empty/missing file: {output}", file=sys.stderr)
         return None
 
     prompt_ts = None
     gen_ts = None
     tests: list[str] = []
 
-    for csv_row in csv_rows:
-        test_name = next(
-            (csv_row.get(key) for key in ("test", "type", "backend") if csv_row.get(key)),
-            "",
-        )
+    for data_row in data_rows:
+        test_name = str(data_row.get("test") or "")
         if test_name:
             tests.append(test_name)
 
-        row_ts = find_value(
-            csv_row,
-            (
-                "pp t/s",
-                "pp_t/s",
-                "prompt t/s",
-                "prompt tok/s",
-                "prompt_ts",
-                "avg_ts",
-            ),
-        )
+        raw_ts = data_row.get("avg_ts")
+        row_ts: float | None = None
+        if raw_ts is not None:
+            try:
+                row_ts = float(raw_ts)
+            except (ValueError, TypeError):
+                row_ts = find_value({k: str(v) for k, v in data_row.items()}, ("avg_ts",))
+        else:
+            row_ts = find_value(
+                {k: str(v) for k, v in data_row.items()},
+                ("pp t/s", "pp_t/s", "prompt t/s", "prompt tok/s", "prompt_ts", "avg_ts"),
+            )
+
         if row_ts is not None and (test_name.startswith("pp") or "prompt" in test_name):
             prompt_ts = row_ts
-            continue
-
-        row_ts = find_value(
-            csv_row,
-            (
-                "tg t/s",
-                "tg_t/s",
-                "generation t/s",
-                "gen t/s",
-                "gen tok/s",
-                "avg_ts",
-            ),
-        )
-        if row_ts is not None and (test_name.startswith("tg") or "gen" in test_name):
+        elif row_ts is not None and (test_name.startswith("tg") or "gen" in test_name):
             gen_ts = row_ts
-
-    if prompt_ts is None and len(csv_rows) == 1:
-        prompt_ts = find_value(csv_rows[0], ("pp t/s", "pp_t/s", "prompt t/s", "prompt tok/s"))
-    if gen_ts is None and len(csv_rows) == 1:
-        gen_ts = find_value(csv_rows[0], ("tg t/s", "tg_t/s", "generation t/s", "gen t/s", "gen tok/s"))
 
     return {
         "mode": row.get("mode", ""),

@@ -73,7 +73,10 @@ Benchmark thread settings:
 ./bench.sh probook qwen36u35b
 ./bench.sh probook all
 BENCH_THREADS="8 12 16" BENCH_THREADS_BATCH="8 12 16" ./bench.sh probook qwen36u35b
+./summarize-bench.py bench-results/*-summary.tsv
 ```
+
+> **ProBook bench quirks:** runs bench.sh one model at a time (`probook qwen36u35b` then `probook ornith35q4km`), not `all` at once — switching models mid-batch exhausts the Windows standby page list and causes mmap exit 5. The script clears the standby list automatically before each run now, but running models back-to-back in a single `all` invocation is still fragile on 32 GB.
 
 ### Quick start — i9
 
@@ -118,9 +121,9 @@ Benchmark thread settings:
 BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench.sh i9 qwopus35bq5km
 ```
 
-To compare results, start with the generated `*-summary.tsv`, then inspect the referenced CSV files. Look for the highest prompt processing throughput (`pp`/prompt tok/s) that does not hurt generation throughput (`tg`/generation tok/s). For OpenCode, prefer the best overall balance over the absolute highest prompt-only score.
+To compare results, start with the generated `*-summary.tsv`, then inspect the referenced JSON files. Look for the highest prompt processing throughput (`pp`/prompt tok/s) that does not hurt generation throughput (`tg`/generation tok/s). For OpenCode, prefer the best overall balance over the absolute highest prompt-only score.
 
-Summarize benchmark CSVs:
+Summarize benchmark results:
 
 ```bash
 ./summarize-bench.py bench-results/*-summary.tsv
@@ -225,12 +228,33 @@ All changes revert on reboot. The script is idempotent — safe to re-run.
 
 ## Performance
 
-### ProBook (Ryzen 7 250, Zen 5, AVX512)
+### ProBook (Ryzen 7 250, Zen 5, AVX512, Windows 11 + WSL2)
 
-- Prompt eval: ~44 tok/s
-- Generation: ~7 tok/s
-- First message with long system prompt: ~5 min (cache cold)
-- Subsequent messages: ~2.5 s (cache hit)
+Benchmarked with `p=2048 n=128 r=3` via llama-bench.exe (x64 AVX512 VNNI VBMI BF16 build):
+
+| Mode | Threads (gen/batch) | pp2048 (t/s) | tg128 (t/s) |
+|---|---|---:|---:|
+| `qwen36u35b` IQ4\_NL | **8 / 8** | **109.6** | 12.9 |
+| `qwen36u35b` IQ4\_NL | 12 / 12 | 100.2 | **13.9** |
+| `qwen36u35b` IQ4\_NL | 8 / 16 | 95.0 | 12.9 |
+| `qwen36u35b` IQ4\_NL | 16 / 8 | 85.1 | 11.7 |
+| `ornith35q4km` Q4\_K\_M | 12 / 16 | **106.6** | **13.2** |
+| `ornith35q4km` Q4\_K\_M | 8 / 16 | 105.2 | 13.2 |
+| `ornith35q4km` Q4\_K\_M | 8 / 8 | 100.0 | 13.3 |
+
+Default startup uses `THREADS=8 THREADS_BATCH=16` — a balanced setting for both models (qwen pp≈95, ornith pp≈105). Use `IK_LLAMA_THREADS=8 IK_LLAMA_THREADS_BATCH=8` for maximum qwen prompt throughput.
+
+**ProBook vs i9 comparison:**
+
+| | ProBook (Zen 5, 32 GB) | i9-13900 (Raptor Lake, 64 GB) |
+|---|---:|---:|
+| pp2048 (t/s) | ~100–110 | ~122–131 |
+| tg128 (t/s) | ~12–13 | ~23–26 |
+
+Prompt processing is close (~80% of i9) thanks to AVX512. Token generation is roughly half — memory bandwidth limited by 32 GB laptop DDR5 vs 64 GB desktop DDR5.
+
+- First message with long system prompt: ~5–10 s (cache cold, mmap)
+- Subsequent messages: ~2–3 s (cache hit)
 
 ### i9-13900 (Raptor Lake, AVX2)
 
@@ -271,6 +295,38 @@ Measured on the same model (Qwen3-Coder-Next UD-Q3\_K\_M) with `p=2048 n=128 r=3
 
 The PP speedup matters for coding sessions: it determines how fast tool results, file reads, and `/compact` requests are ingested. Some of ik_llama's IQ\*/K\_P AVX2 kernel improvements have been contributed back upstream over time (IQ1/IQ2/IQ3/IQ4 quant formats, some kernel patches), but the batch processing gap above shows significant optimizations remain fork-only.
 
+### Completed ProBook benchmark notes
+
+Benchmarked 2026-06-29 with ik_llama.cpp b4958 (`x64-avx512_vnni_vbmi_bf16`), `p=2048 n=128 r=3`.
+
+**qwen36u35b (IQ4\_NL, 19.5 GB):**
+
+| gen/batch | pp2048 (t/s) | tg128 (t/s) |
+|---|---:|---:|
+| 8 / 8 | **109.6** | 12.9 |
+| 12 / 12 | 100.2 | **13.9** |
+| 12 / 16 | 100.4 | 13.4 |
+| 8 / 16 | 95.0 | 12.9 |
+| 16 / 16 | 96.2 | 11.7 |
+| 16 / 12 | 97.0 | 10.2 |
+| 16 / 8 | 85.1 | 11.7 |
+
+**ornith35q4km (Q4\_K\_M, 20 GB):**
+
+| gen/batch | pp2048 (t/s) | tg128 (t/s) |
+|---|---:|---:|
+| 12 / 16 | **106.6** | **13.2** |
+| 8 / 16 | 105.2 | 13.2 |
+| 16 / 16 | 104.4 | 12.1 |
+| 16 / 12 | 104.1 | 12.1 |
+| 12 / 8 | 103.2 | 12.4 |
+| 16 / 8 | 102.9 | 12.1 |
+| 12 / 12 | 102.8 | 12.9 |
+| 8 / 12 | 102.4 | 12.6 |
+| 8 / 8 | 100.0 | 13.3 |
+
+Default `8/16` is the best balanced setting for both models. Use `8/8` (`IK_LLAMA_THREADS=8 IK_LLAMA_THREADS_BATCH=8`) only if qwen prompt throughput is the priority.
+
 ### Completed i9 benchmark notes
 
 `8/24` is the best default. `8/32` drops pp significantly with no tg gain.
@@ -300,7 +356,7 @@ The PP speedup matters for coding sessions: it determines how fast tool results,
 
 The benchmark script accepts explicit quantized presets like `qwopus35b:q5km`. The active benchmark set is `qwen36u35bq6kp`, `qwopus35bq5km`, `ornith35q6k`, `supergemma4q4km`, and `qwen3codernext`.
 
-**Benchmark output:** TSV summary files (`bench-results/*-summary.tsv`) are metadata indexes pointing to individual CSV files. Use `summarize-bench.py` to get throughput numbers:
+**Benchmark output:** TSV summary files (`bench-results/*-summary.tsv`) are metadata indexes pointing to individual JSON files (one per thread combo). Use `summarize-bench.py` to get throughput numbers:
 
 ```bash
 ./summarize-bench.py bench-results/*-summary.tsv
@@ -327,7 +383,7 @@ The cleanup script derives the whitelist from `start.sh` MODES automatically —
 1. **`-ngl 0` always** — integrated GPU causes Vulkan OOM crashes
 2. **Quantized KV cache requires flash attention on** — `-ctv q8_0` is incompatible with `--flash-attn off`; ik_llama.cpp enables FA by default which is correct
 3. **Avoid `_XL` variants** — incompatible quantization format with ik_llama.cpp
-4. **ProBook: use generic AVX512 build** — `znver5` crashes with MoE models
+4. **ProBook: use generic AVX512 build** — `znver5` crashes with MoE models (exit code 29 on any model load, despite `-h` working)
 5. **i9 has no AVX512** — despite being 13th gen Raptor Lake; use AVX2 build only
 6. **Prompt cache is critical** — first message is slow; subsequent messages hit cache and are fast
 7. **`-rea off`** — disables thinking mode; cuts response time 50–80% for coding tasks
@@ -338,6 +394,9 @@ The cleanup script derives the whitelist from `start.sh` MODES automatically —
 12. **No YARN for Qwen3 instruct models** — Qwen3 instruct supports 128K context natively. YARN (`--rope-scaling yarn --yarn-orig-ctx 32768`) was a Qwen2.5-era workaround for 32K base models. On Qwen3 it is redundant and, critically, causes ik_llama to silently disable context shift, causing hard 500 errors when the context fills. All Qwen3-family modes have YARN removed.
 13. **`--context-shift on` is explicit** — context shift is on by default in llama.cpp/ik_llama but YARN overrides it internally. Now set explicitly in `start_model()` as a belt-and-suspenders guard against version differences. With context shift on, a full KV cache softly rolls out old tokens instead of returning a 500 error — essential for long sessions and `/compact` requests.
 14. **Claude Code does not auto-compact for local models** — Claude Code reads `context_window` from the Anthropic SDK's `data[].context_window` field in the `/v1/models` response. ik_llama returns this in a non-standard `models[]` extension array instead, so Claude Code falls back to `n_ctx_train` (262K for Qwen3-Coder-Next) as the effective window and will not auto-compact until the session is enormous. Use `/compact` manually before sessions grow too large, or restart the server with a larger context.
+15. **ProBook: `bench.sh` uses JSON output, not CSV** — `llama-bench.exe` embeds a null byte in the `cpu_info` CSV field, which silently truncates every data row (no performance numbers captured). `-o json` is used instead. `summarize-bench.py` reads both formats.
+16. **ProBook: never run `strings` on a Windows PE binary from WSL2** — reading a `.exe` or `.dll` via Linux file APIs invalidates the Windows page-cache state for that file, causing subsequent `mmap` calls by Windows processes to fail with `ERROR_ACCESS_DENIED` (exit 5). `bench.sh` previously used `strings "$BENCH"` to detect flags; this is removed. `-h` output alone is sufficient.
+17. **ProBook: clear Windows standby page list between benchmark runs** — after each ~20 GB model run, Windows retains model pages in the standby list. Switching to a different model before the standby list is evicted causes mmap to fail with exit 5. `bench.sh` calls `NtSetSystemInformation(80, ...)` via PowerShell before each run to drain the standby list.
 
 ## Debian 12 / GLIBC 2.36 compatibility
 
