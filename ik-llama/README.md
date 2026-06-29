@@ -82,7 +82,7 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update.sh i9
 ./download-models.sh i9
 ./setup-agents.sh i9
-./start.sh i9 qwopus35bq5km   # or: qwen36u35bq6kp qwen36u27bq5kp qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km qwen3codernext
+./start.sh i9 qwopus35bq5km   # or: qwen36u35bq6kp qwen36u27bq5kp qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km qwen3codernext ornith35q5km ornith35q6k
 ./cleanup-models.sh i9     # dry-run obsolete GGUF cleanup
 ```
 
@@ -168,6 +168,8 @@ The 27B dense IQ4\_XS is the smarter pick — all 27B params active vs 3B MoE fo
 | `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored Gemma4 fine-tune, text-only |
 | `glm47flashq5km` | GLM-4.7-Flash Q5\_K\_M | ~20 GB | 64 K | no | 30B MoE, 3B active, coding-focused |
 | `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active, coder-focused — test candidate |
+| `ornith35q5km` | Ornith-1.0 35B-A3B Q5\_K\_M | ~25 GB | 128 K | no | RL-trained agentic coder, Qwen3-35B-MoE base, MIT — vs Qwopus |
+| `ornith35q6k` | Ornith-1.0 35B-A3B Q6\_K | ~29 GB | 128 K | no | Ornith quality candidate |
 
 GLM-4.7-Flash uses the DeepSeek-V2 MLA attention architecture and remains a useful comparison model, but measured slower than the Qwen MoE models on this i9. It scores ~59% on SWE-Bench Verified.
 
