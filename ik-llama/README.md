@@ -273,39 +273,38 @@ The PP speedup matters for coding sessions: it determines how fast tool results,
 
 ### Completed i9 benchmark notes
 
-The completed i9 `llama-bench` runs point to `8/24` as the best default thread setting. `8/32` is usually close, but not better enough to justify changing the default. The dense "fast" Qwen models were not actually fast on this AVX2 CPU.
+`8/24` is the best default. `8/32` drops pp significantly with no tg gain.
 
-Best observed rows:
+**Active models — best rows at `8/24`:**
 
-| Use | Mode | Threads | Prompt tok/s | Gen tok/s | Notes |
-|---|---|---|---:|---:|---:|---|
-| Qwen3.6 MoE quality baseline | `qwen36u35bq6kp` | 8/24 | ~122.8 | ~22.6 | Sole retained HauhauCS Qwen3.6 35B quant |
-| Rejected coder Q8 | `qwen3coderq8` | 8/24 | ~105.8 | ~20.7 | Manual quality failed despite highest tested quant |
-| Rejected coder Q6 | `qwen3coderq6k` | 8/24 | ~102.1 | ~25.6 | Manual quality did not justify keeping it |
-| Rejected coder Q5 | `qwen3coderq5km` | 8/24 | ~110.6 | ~29.8 | Responsive, but manual quality failed |
-| Rejected dense Qwen3 | `qwen332bq4km`/`qwen332bq5km` | 8/24 | ~13.5–13.7 | ~3.1–3.6 | Too slow for OpenCode daily use |
-| Rejected dense coder | `qwen25coder32bq4km`/`qwen25coder32bq5km` | 8/24 | ~14.1 | ~3.1–3.5 | Too slow for OpenCode daily use |
-| Rejected coder Q4 | `qwen3coderq4` | 8/24 | ~114 | ~33 | Responsive but failed manual quality |
-| Rejected coder Q3 | `qwen3coderq3` | 8/24 | ~112 | ~40.5 | Responsive but failed manual quality |
-| Coder-Next candidate | `qwen3codernext` | 8/24 | ~98 | ~16 | 80B total, 3B active; 128K ctx; 20% slower than Qwopus; quality pending |
-| General fallback | `supergemma4q4km` | 8/24–8/32 | ~129 | ~23 | Decent non-Qwen fallback |
-| GLM fallback | `glm47flashq5km` | 8/24 | ~92 | ~21 | Slower than expected here |
-| Dense quality check | `qwen36u27bq5kp` | 8/24 | ~21 | ~3 | Quality-only, not interactive |
+| Mode | pp2048 (t/s) | tg128 (t/s) | Notes |
+|---|---:|---:|---|
+| `qwopus35bq5km` | **130.9** | **26.4** | Daily driver |
+| `supergemma4q4km` | 129.1 | 23.2 | Uncensored fallback |
+| `qwen36u35bq6kp` | 122.8 | 22.6 | Quality baseline + vision |
+| `ornith35q6k` | 122.5 | 23.1 | Agentic coder |
+| `qwen3codernext` | 92.7 | 16.3 | 80B MoE heavy coder |
 
-Rejected fast-tier candidates:
+**Rejected candidates (historical):**
 
-- `qwen3fast:q5` and `qwen3fast:q4` were much slower than the MoE models.
-- `qwen38b:q5` and `qwen38b:q4` were faster than `qwen3fast`, but still not competitive with Qwen3-Coder MoE.
-- `qwen332b:q4/q5` and `qwen25coder32b:q4/q5` were all around 3–3.6 gen tok/s.
-- `qwen3coderq3` through `qwen3coderq8` were responsive enough, but not useful in manual coding tests.
+| Mode | pp2048 (t/s) | tg128 (t/s) | Reason dropped |
+|---|---:|---:|---|
+| `qwen3coderq5km` | 110.6 | 29.8 | Failed manual quality |
+| `qwen3coderq8` | 105.8 | 20.7 | Failed manual quality |
+| `qwen3coderq6k` | 102.1 | 25.6 | Failed manual quality |
+| `glm47flashq5km` | 91.7 | 20.8 | Slower than Qwen MoE, low quality |
+| `qwen3fast:q4/q5` | ~33–40 | ~6–7 | Too slow |
+| `qwen38b:q4/q5` | ~60 | ~13 | Not competitive with MoE |
+| `qwen332b / qwen25coder32b` | ~14 | ~3 | Way too slow on AVX2 |
+| `qwen36u27bq5kp` | 17.8 | 3.4 | Dense 27B — quality only, not interactive |
 
-The benchmark script accepts explicit quantized presets like `qwopus35b:q5km`, but the canonical script/OpenCode names include the quantization suffix.
+The benchmark script accepts explicit quantized presets like `qwopus35b:q5km`. The active benchmark set is `qwen36u35bq6kp`, `qwopus35bq5km`, `ornith35q6k`, `supergemma4q4km`, and `qwen3codernext`.
 
-The active benchmark set is `qwen36u35bq6kp`, `qwopus35bq5km`, `ornith35q6k`, `supergemma4q4km`, and `qwen3codernext`.
+**Benchmark output:** TSV summary files (`bench-results/*-summary.tsv`) are metadata indexes pointing to individual CSV files. Use `summarize-bench.py` to get throughput numbers:
 
-The `all` and `qwen36` benchmark groups use only the active model list. `qwen36` runs the full Qwen3.6 comparison.
-
-For OpenCode, keep `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default. The new Qwen3.6 Q5/Q6/Q8 results confirmed that `8/32` loses a lot of prompt throughput without meaningful generation gain. `6/24` can be useful only when prompt ingestion dominates and generation speed matters less.
+```bash
+./summarize-bench.py bench-results/*-summary.tsv
+```
 
 For 128K OpenCode sessions on the i9 with `qwen36u35bq6kp`, start with:
 
@@ -314,34 +313,14 @@ For 128K OpenCode sessions on the i9 with `qwen36u35bq6kp`, start with:
 OPENCODE_COMPACTION_RESERVED=24000 ./setup-agents.sh i9
 ```
 
-Raise `IK_LLAMA_CRAM_MB` to `28672` only if RAM stays comfortable. Avoid
-`32768` with Q6 unless you have verified there is no swap pressure: the Q6 model
-plus a 32 GB KV cap leaves too little headroom on a 64 GB machine with
-`--mlock`.
-
-If OpenCode shows "Preparing write" while CPU usage stays low, suspect OpenCode-side
-helpers before changing CPU threads. Disable OpenCode MCP/plugins for an A/B test:
+To free disk space after rotating models:
 
 ```bash
-../tools/opencode-local-speed.sh status
-../tools/opencode-local-speed.sh fast
-opencode mcp list
-```
-
-With local ik_llama.cpp, keep `context-mode` disabled unless you explicitly need it:
-
-```bash
-CONTEXT_MODE_ENABLE_OPENCODE=1 ../tools/context-mode-init.sh
-```
-
-To free disk space after benchmarking rejected candidates:
-
-```bash
-./cleanup-models.sh i9
+./cleanup-models.sh i9        # dry run — shows what would be removed
 ./cleanup-models.sh i9 --apply
 ```
 
-The cleanup list includes the rejected Qwen3-Coder Q3/Q4/Q5/Q6/Q8 files.
+The cleanup script derives the whitelist from `start.sh` MODES automatically — any file not in the active lineup is flagged.
 
 ## Key lessons
 
