@@ -29,6 +29,8 @@ case "$MACHINE" in
       "supergemma4q4km|SuperGemma4 26B Uncensored Q4_K_M|supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf|131072|32768"
       "glm47flashq5km|GLM-4.7-Flash 30B Q5_K_M|zai-org_GLM-4.7-Flash-Q5_K_M.gguf|65536|16384|NOSAMPLE||"
       "qwen3codernext|Qwen3-Coder-Next 80B-A3B UD-Q3_K_M|Qwen3-Coder-Next-UD-Q3_K_M.gguf|131072|24576||SAMPLE"
+      "ornith35q5km|Ornith-1.0 35B-A3B Q5_K_M|ornith-1.0-35b-Q5_K_M.gguf|131072|24576||SAMPLE"
+      "ornith35q6k|Ornith-1.0 35B-A3B Q6_K|ornith-1.0-35b-Q6_K.gguf|131072|24576||SAMPLE"
     )
     ;;
   probook)

@@ -17,7 +17,7 @@ case "$MACHINE" in
     NGL=0; MACHINE_PATH=
     THREADS_DEFAULT="${BENCH_THREADS:-6 8}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-24 32}"
     MODE="${MODE:-qwopus35bq5km}"
-    MODES=(qwen36u35bq6kp qwen36u27bq5kp qwopus35bq5km qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km qwen3codernext)
+    MODES=(qwen36u35bq6kp qwen36u27bq5kp qwopus35bq5km qwopus35bq6k gemma4q5km supergemma4q4km glm47flashq5km qwen3codernext ornith35q5km ornith35q6k)
     QWEN_MODES=(qwen36u35bq6kp qwen36u27bq5kp qwopus35bq5km qwopus35bq6k)
     normalize_mode() {
       case "$1" in
@@ -29,6 +29,8 @@ case "$MACHINE" in
         supergemma4|supergemma4:q4km|supergemma4q4km) echo "supergemma4q4km" ;;
         glm47flash|glm47flash:q5km|glm47flashq5km) echo "glm47flashq5km" ;;
         qwen3codernext|qwcn|qwcn:q3km) echo "qwen3codernext" ;;
+        ornith35q5km|ornith35b:q5km) echo "ornith35q5km" ;;
+        ornith35q6k|ornith35b:q6k) echo "ornith35q6k" ;;
         *) return 1 ;;
       esac
     }
@@ -42,6 +44,8 @@ case "$MACHINE" in
         supergemma4q4km)  echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
         glm47flashq5km)   echo "zai-org_GLM-4.7-Flash-Q5_K_M.gguf" ;;
         qwen3codernext)   echo "Qwen3-Coder-Next-UD-Q3_K_M.gguf" ;;
+        ornith35q5km)     echo "ornith-1.0-35b-Q5_K_M.gguf" ;;
+        ornith35q6k)      echo "ornith-1.0-35b-Q6_K.gguf" ;;
         *) return 1 ;;
       esac
     }

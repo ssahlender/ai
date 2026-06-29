@@ -79,6 +79,8 @@ case "$MACHINE" in
     download_if_missing Jiunsong/supergemma4-26b-uncensored-gguf-v2              supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
     download_if_missing bartowski/zai-org_GLM-4.7-Flash-GGUF                     zai-org_GLM-4.7-Flash-Q5_K_M.gguf
     download_if_missing unsloth/Qwen3-Coder-Next-GGUF                           Qwen3-Coder-Next-UD-Q3_K_M.gguf
+    download_if_missing deepreinforce-ai/Ornith-1.0-35B-GGUF                    ornith-1.0-35b-Q5_K_M.gguf
+    download_if_missing deepreinforce-ai/Ornith-1.0-35B-GGUF                    ornith-1.0-35b-Q6_K.gguf
     ;;
 
   probook)
