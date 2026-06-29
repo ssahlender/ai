@@ -42,7 +42,6 @@ case "$MACHINE" in
     MODES=(
       "qwen36u35b|Qwen3.6 35B-A3B Uncensored|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf|32768|8192|NOSAMPLE|"
       "ornith35q4km|Ornith-1.0 35B-A3B Q4_K_M|ornith-1.0-35b-Q4_K_M.gguf|65536|16384||SAMPLE"
-      "glm47flash|GLM-4.7-Flash 30B|zai-org_GLM-4.7-Flash-Q4_K_M.gguf|32768|8192|NOSAMPLE|"
     )
     ;;
   macbook-air)

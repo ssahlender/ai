@@ -47,14 +47,13 @@ case "$MACHINE" in
     NGL=0; MACHINE_PATH=1
     THREADS_DEFAULT="${BENCH_THREADS:-8 12 16}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-8 12 16}"
     MODE="${MODE:-qwen36u35b}"
-    MODES=(qwen36u35b ornith35q4km glm47flash)
+    MODES=(qwen36u35b ornith35q4km)
     QWEN_MODES=()
     normalize_mode() { echo "$1"; }
     model_for_mode() {
       case "$1" in
         qwen36u35b)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" ;;
         ornith35q4km) echo "ornith-1.0-35b-Q4_K_M.gguf" ;;
-        glm47flash)   echo "zai-org_GLM-4.7-Flash-Q4_K_M.gguf" ;;
         *) return 1 ;;
       esac
     }
