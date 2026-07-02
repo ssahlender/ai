@@ -121,6 +121,7 @@ start_model() {
     --port "$PORT" \
     --host 0.0.0.0 \
     --jinja \
+    --chat-template-file "$(dirname "$(realpath "$0")")/qwen3-template.j2" \
     --context-shift on \
     -rea off \
     -v \
