@@ -86,6 +86,7 @@ launch() {
   ANTHROPIC_CUSTOM_MODEL_OPTION="$sonnet" \
   ANTHROPIC_DEFAULT_SONNET_MODEL="$sonnet" \
   ANTHROPIC_DEFAULT_HAIKU_MODEL="$haiku" \
+  ANTHROPIC_TIMEOUT="${ANTHROPIC_TIMEOUT:-1800000}" \
   exec claude $bare_flag --model "$sonnet" "${CONTINUE_FLAG[@]+"${CONTINUE_FLAG[@]}"}" "$@"
 }
 
