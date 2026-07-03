@@ -17,13 +17,12 @@ case "$MACHINE" in
     NGL=0; MACHINE_PATH=
     THREADS_DEFAULT="${BENCH_THREADS:-6 8}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-24 32}"
     MODE="${MODE:-qwopus35bq5km}"
-    MODES=(qwen36u35bq6kp qwopus35bq5km ornith35q6k supergemma4q4km qwen3codernext)
+    MODES=(qwen36u35bq6kp qwopus35bq5km supergemma4q4km qwen3codernext)
     QWEN_MODES=(qwen36u35bq6kp qwopus35bq5km)
     normalize_mode() {
       case "$1" in
         qwen36u35b|qwen36u35b:q6kp|qwen36u35bq6kp) echo "qwen36u35bq6kp" ;;
         qwopus35b|qwopus35b:q5km|qwopus35bq5km) echo "qwopus35bq5km" ;;
-        ornith35q6k|ornith35b:q6k) echo "ornith35q6k" ;;
         supergemma4|supergemma4:q4km|supergemma4q4km) echo "supergemma4q4km" ;;
         qwen3codernext|qwcn|qwcn:q3km) echo "qwen3codernext" ;;
         *) return 1 ;;
@@ -33,7 +32,6 @@ case "$MACHINE" in
       case "$(normalize_mode "$1")" in
         qwen36u35bq6kp)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf" ;;
         qwopus35bq5km)    echo "Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf" ;;
-        ornith35q6k)      echo "ornith-1.0-35b-Q6_K.gguf" ;;
         supergemma4q4km)  echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
         qwen3codernext)   echo "Qwen3-Coder-Next-UD-Q3_K_M.gguf" ;;
         *) return 1 ;;
@@ -47,13 +45,13 @@ case "$MACHINE" in
     NGL=0; MACHINE_PATH=1
     THREADS_DEFAULT="${BENCH_THREADS:-8 12 16}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-8 12 16}"
     MODE="${MODE:-qwen36u35b}"
-    MODES=(qwen36u35b ornith35q4km)
+    MODES=(qwen36u35b qwen3coder30b)
     QWEN_MODES=()
     normalize_mode() { echo "$1"; }
     model_for_mode() {
       case "$1" in
-        qwen36u35b)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" ;;
-        ornith35q4km) echo "ornith-1.0-35b-Q4_K_M.gguf" ;;
+        qwen36u35b)    echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" ;;
+        qwen3coder30b) echo "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ;;
         *) return 1 ;;
       esac
     }

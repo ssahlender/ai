@@ -64,7 +64,7 @@ Pi config is written to `~/.pi/agent/models.json` with `api:
 ./update.sh probook
 ./download-models.sh probook
 ./setup-agents.sh probook
-./start.sh probook qwen36u35b   # or: ornith35q4km
+./start.sh probook qwen36u35b   # or: qwen3coder30b
 ```
 
 Benchmark thread settings:
@@ -76,7 +76,7 @@ BENCH_THREADS="8 12 16" BENCH_THREADS_BATCH="8 12 16" ./bench.sh probook qwen36u
 ./summarize-bench.py bench-results/*-summary.tsv
 ```
 
-> **ProBook bench quirks:** runs bench.sh one model at a time (`probook qwen36u35b` then `probook ornith35q4km`), not `all` at once — switching models mid-batch exhausts the Windows standby page list and causes mmap exit 5. The script clears the standby list automatically before each run now, but running models back-to-back in a single `all` invocation is still fragile on 32 GB.
+> **ProBook bench quirks:** runs bench.sh one model at a time (`probook qwen36u35b` then `probook qwen3coder30b`), not `all` at once — switching models mid-batch exhausts the Windows standby page list and causes mmap exit 5. The script clears the standby list automatically before each run now, but running models back-to-back in a single `all` invocation is still fragile on 32 GB.
 
 ### Quick start — i9
 
@@ -85,7 +85,7 @@ sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update.sh i9
 ./download-models.sh i9
 ./setup-agents.sh i9
-./start.sh i9 qwopus35bq5km   # or: qwen36u35bq6kp ornith35q6k supergemma4q4km qwen3codernext
+./start.sh i9 qwopus35bq5km   # or: qwen36u35bq6kp supergemma4q4km qwen3codernext
 ./cleanup-models.sh i9     # dry-run obsolete GGUF cleanup
 ```
 
@@ -97,8 +97,9 @@ All i9 start modes default to `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=2
 brew install llama.cpp             # prerequisite (once)
 ./download-models.sh macbook-air
 ./setup-agents.sh macbook-air
-./start.sh macbook-air qwen36u27b  # daily: 27B dense IQ4_XS, 32K ctx
-./start.sh macbook-air qwen36u35b  # fallback: 35B MoE IQ4_NL, 16K ctx
+./start.sh macbook-air qwen36u27b   # daily: 27B dense IQ4_XS, 32K ctx
+./start.sh macbook-air qwen36u35b   # general: 35B MoE IQ4_NL, 16K ctx
+./start.sh macbook-air qwen3coder30b  # coding: 30B MoE IQ4_NL, 32K ctx
 ```
 
 All Mac modes use Metal GPU (`-ngl 99`) with 4 threads. Same HF repos and mmproj as i9.
@@ -138,14 +139,15 @@ Summarize benchmark results:
 | Mode | Model | Size | Context | Vision | Notes |
 |---|---|---|---|---|---|---|
 | `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 32 K | no | 35B MoE, 3B active |
-| `ornith35q4km` | Ornith-1.0 35B-A3B Q4\_K\_M | ~21 GB | 64 K | no | RL agentic coder, Qwen3 MoE base, MIT |
+| `qwen3coder30b` | Qwen3-Coder-30B-A3B Q4\_K\_M | ~19 GB | 64 K | no | Dedicated agentic coder, 262K native ctx |
 
 ### MacBook Air M4 (24 GB, Metal GPU)
 
 | Mode | Model | Size | Context | Vision | Notes |
 |---|---|---|---|---|---|
 | `qwen36u27b` | Qwen3.6-27B-Uncensored IQ4\_XS | ~15 GB | 32 K | yes | 27B dense — all params active, daily driver |
-| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 16 K | yes | 35B MoE, 3B active — speed fallback |
+| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 16 K | yes | 35B MoE, 3B active — general + vision |
+| `qwen3coder30b` | Qwen3-Coder-30B-A3B IQ4\_NL | ~17 GB | 32 K | no | Dedicated agentic coder, 262K native ctx |
 
 Quick start:
 ```bash
@@ -155,7 +157,7 @@ brew install llama.cpp                      # prerequisite
 ./start.sh macbook-air qwen36u27b            # daily driver: 27B dense, 32K ctx
 ```
 
-The 27B dense IQ4\_XS is the smarter pick — all 27B params active vs 3B MoE for the 35B, and still fits at 32K context on 24 GB unified memory. Same HF repos and mmproj files as i9, just different quants (IQ4\_XS/IQ4\_NL for Mac vs K\_P for i9).
+The 27B dense IQ4\_XS is the smarter general pick — all 27B params active vs 3B MoE for the 35B, and still fits at 32K context on 24 GB unified memory. Use `qwen3coder30b` for focused coding sessions. Same HF repos and mmproj files as i9, just different quants (IQ4\_XS/IQ4\_NL for Mac vs K\_P for i9).
 
 ### i9 (64 GB RAM)
 
@@ -163,13 +165,10 @@ The 27B dense IQ4\_XS is the smarter pick — all 27B params active vs 3B MoE fo
 |---|---|---|---|---|---|---|
 | `qwen36u35bq6kp` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline + vision |
 | `qwopus35bq5km` | Qwopus3.6-35B-A3B Q5\_K\_M | ~25 GB | 128 K | yes | Daily driver — fastest, reasoning, vision |
-| `ornith35q6k` | Ornith-1.0 35B-A3B Q6\_K | ~29 GB | 128 K | no | RL agentic coder, Qwen3 MoE base, MIT |
 | `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored fallback, text-only |
 | `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active — heavy coder test |
 
-GLM-4.7-Flash uses the DeepSeek-V2 MLA attention architecture and remains a useful comparison model, but measured slower than the Qwen MoE models on this i9. It scores ~59% on SWE-Bench Verified.
-
-Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24 — about 20% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Context bumped to 128K (from 65K) so `/compact` fits long sessions; KV capped at 24 GB via `cram`. Still interactive; quality check pending.
+Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24 — about 20% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Context bumped to 128K so `/compact` fits long sessions; KV capped at 24 GB via `cram`.
 
 ## Binaries
 
@@ -238,11 +237,9 @@ Benchmarked with `p=2048 n=128 r=3` via llama-bench.exe (x64 AVX512 VNNI VBMI BF
 | `qwen36u35b` IQ4\_NL | 12 / 12 | 100.2 | **13.9** |
 | `qwen36u35b` IQ4\_NL | 8 / 16 | 95.0 | 12.9 |
 | `qwen36u35b` IQ4\_NL | 16 / 8 | 85.1 | 11.7 |
-| `ornith35q4km` Q4\_K\_M | 12 / 16 | **106.6** | **13.2** |
-| `ornith35q4km` Q4\_K\_M | 8 / 16 | 105.2 | 13.2 |
-| `ornith35q4km` Q4\_K\_M | 8 / 8 | 100.0 | 13.3 |
+| `qwen3coder30b` Q4\_K\_M | — | — | — | benchmarks pending |
 
-Default startup uses `THREADS=8 THREADS_BATCH=16` — a balanced setting for both models (qwen pp≈95, ornith pp≈105). Use `IK_LLAMA_THREADS=8 IK_LLAMA_THREADS_BATCH=8` for maximum qwen prompt throughput.
+Default startup uses `THREADS=8 THREADS_BATCH=16`. Use `IK_LLAMA_THREADS=8 IK_LLAMA_THREADS_BATCH=8` for maximum qwen prompt throughput.
 
 **ProBook vs i9 comparison:**
 
@@ -263,22 +260,20 @@ Active model throughput at the default `8/24` thread setting:
 | Mode | pp2048 (t/s) | tg128 (t/s) | Notes |
 |---|---:|---:|---|
 | `qwopus35bq5km` | **130.9** | **26.4** | Daily driver |
-| `qwen36u35bq6kp` | ~122.8 | ~22.6 | Quality baseline |
-| `ornith35q6k` | 122.5 | 23.1 | Agentic coder |
 | `supergemma4q4km` | ~129 | ~23 | Uncensored fallback |
+| `qwen36u35bq6kp` | ~122.8 | ~22.6 | Quality baseline + vision |
 | `qwen3codernext` | ~98 | ~16 | 80B MoE heavy coder |
 
-Qwopus Q5_K_M is the clear daily driver — fastest on both pp and tg. Ornith Q6_K matches Qwen3.6 Q6_K_P on throughput and is the dedicated coding slot. All three are well above the interactive threshold for OpenCode tool loops.
+Qwopus Q5_K_M is the clear daily driver — fastest on both pp and tg. All models are well above the interactive threshold for OpenCode tool loops.
 
 ### i9 speed notes
 
-The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. `qwen36u27bq5kp` is the retained dense quality option, but it is not interactive. Qwen3.6-35B-A3B Q4/Q5/Q8 HauhauCS quants are replaced by Qwopus3.6-35B-A3B Q5_K_M and Q6_K. Qwen3-Coder A3B failed manual quality even at Q8.
+The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. Qwen3-Coder-Next 80B-A3B covers the heavy coding slot; Qwopus covers daily use. Ornith-1.0 35B failed manual quality check and is removed.
 
-- Test `qwopus35bq5km` first for daily use. Keep `qwopus35bq6k` and `qwen36u35bq6kp` for quality checks.
+- Test `qwopus35bq5km` first for daily use.
 - Keep context as low as the task allows; 64K/128K context improves long sessions but slows prompt processing and grows KV memory.
 - Use `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default i9 startup point.
 - Avoid `IK_LLAMA_THREADS=10` and `12`; benchmarks were consistently worse than `6` and `8`.
-- Keep `qwen36u27bq5kp` for quality checks only. It is too slow for normal OpenCode loops.
 
 ### ik_llama.cpp vs standard llama.cpp (i9, qwen3codernext, b9789)
 
@@ -311,21 +306,9 @@ Benchmarked 2026-06-29 with ik_llama.cpp b4958 (`x64-avx512_vnni_vbmi_bf16`), `p
 | 16 / 12 | 97.0 | 10.2 |
 | 16 / 8 | 85.1 | 11.7 |
 
-**ornith35q4km (Q4\_K\_M, 20 GB):**
+**qwen3coder30b (Q4\_K\_M, ~19 GB):** benchmarks pending — run `./bench.sh probook qwen3coder30b` after download.
 
-| gen/batch | pp2048 (t/s) | tg128 (t/s) |
-|---|---:|---:|
-| 12 / 16 | **106.6** | **13.2** |
-| 8 / 16 | 105.2 | 13.2 |
-| 16 / 16 | 104.4 | 12.1 |
-| 16 / 12 | 104.1 | 12.1 |
-| 12 / 8 | 103.2 | 12.4 |
-| 16 / 8 | 102.9 | 12.1 |
-| 12 / 12 | 102.8 | 12.9 |
-| 8 / 12 | 102.4 | 12.6 |
-| 8 / 8 | 100.0 | 13.3 |
-
-Default `8/16` is the best balanced setting for both models. Use `8/8` (`IK_LLAMA_THREADS=8 IK_LLAMA_THREADS_BATCH=8`) only if qwen prompt throughput is the priority.
+Default `8/16` is the best balanced setting for qwen36u35b. Use `8/8` (`IK_LLAMA_THREADS=8 IK_LLAMA_THREADS_BATCH=8`) only if qwen prompt throughput is the priority.
 
 ### Completed i9 benchmark notes
 
@@ -338,13 +321,13 @@ Default `8/16` is the best balanced setting for both models. Use `8/8` (`IK_LLAM
 | `qwopus35bq5km` | **130.9** | **26.4** | Daily driver |
 | `supergemma4q4km` | 129.1 | 23.2 | Uncensored fallback |
 | `qwen36u35bq6kp` | 122.8 | 22.6 | Quality baseline + vision |
-| `ornith35q6k` | 122.5 | 23.1 | Agentic coder |
 | `qwen3codernext` | 92.7 | 16.3 | 80B MoE heavy coder |
 
 **Rejected candidates (historical):**
 
 | Mode | pp2048 (t/s) | tg128 (t/s) | Reason dropped |
 |---|---:|---:|---|
+| `ornith35q6k` | 122.5 | 23.1 | Good throughput, failed manual quality |
 | `qwen3coderq5km` | 110.6 | 29.8 | Failed manual quality |
 | `qwen3coderq8` | 105.8 | 20.7 | Failed manual quality |
 | `qwen3coderq6k` | 102.1 | 25.6 | Failed manual quality |
@@ -354,7 +337,7 @@ Default `8/16` is the best balanced setting for both models. Use `8/8` (`IK_LLAM
 | `qwen332b / qwen25coder32b` | ~14 | ~3 | Way too slow on AVX2 |
 | `qwen36u27bq5kp` | 17.8 | 3.4 | Dense 27B — quality only, not interactive |
 
-The benchmark script accepts explicit quantized presets like `qwopus35b:q5km`. The active benchmark set is `qwen36u35bq6kp`, `qwopus35bq5km`, `ornith35q6k`, `supergemma4q4km`, and `qwen3codernext`.
+The benchmark script accepts explicit quantized presets like `qwopus35b:q5km`. The active benchmark set is `qwen36u35bq6kp`, `qwopus35bq5km`, `supergemma4q4km`, and `qwen3codernext`.
 
 **Benchmark output:** TSV summary files (`bench-results/*-summary.tsv`) are metadata indexes pointing to individual JSON files (one per thread combo). Use `summarize-bench.py` to get throughput numbers:
 
