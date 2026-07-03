@@ -71,7 +71,6 @@ case "$MACHINE" in
     download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
     download_if_missing Jackrong/Qwopus3.6-35B-A3B-v1-GGUF                       Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf
     download_if_missing Jackrong/Qwopus3.6-35B-A3B-v1-GGUF                       mmproj-F32.gguf
-    download_if_missing deepreinforce-ai/Ornith-1.0-35B-GGUF                      ornith-1.0-35b-Q6_K.gguf
     download_if_missing Jiunsong/supergemma4-26b-uncensored-gguf-v2               supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
     download_if_missing unsloth/Qwen3-Coder-Next-GGUF                             Qwen3-Coder-Next-UD-Q3_K_M.gguf
     ;;
@@ -81,7 +80,7 @@ case "$MACHINE" in
     mkdir -p "$MODELS_DIR"
 
     download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf
-    download_if_missing deepreinforce-ai/Ornith-1.0-35B-GGUF                    ornith-1.0-35b-Q4_K_M.gguf
+    download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF               Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
     ;;
 
   macbook-air)
@@ -92,6 +91,7 @@ case "$MACHINE" in
     download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf
     download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf
     download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
+    download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF                Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf
     ;;
 
   *) usage ;;
