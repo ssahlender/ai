@@ -91,6 +91,53 @@ launch() {
   exec claude $bare_flag --model "$sonnet" "${CONTINUE_FLAG[@]+"${CONTINUE_FLAG[@]}"}" "$@"
 }
 
+# ── local proxy (caps max_tokens for llama-server) ───────────────────
+
+start_local_proxy() {
+  # Proxy listens on 9081 and forwards to llama-server on 9080.
+  # Claude CLI always sends max_tokens=32000; cap it to n_ctx/8 so 87.5% of context
+  # remains available for input (avoids "exceeds available context size" errors).
+  if curl -sf --max-time 2 "http://localhost:9081/health" >/dev/null 2>&1; then
+    return 0
+  fi
+  fuser -k "9081/tcp" 2>/dev/null || true
+  sleep 0.3
+
+  # Derive cap from running server's context size unless overridden by env.
+  local cap
+  if [ -n "${LOCAL_PROXY_MAX_TOKENS:-}" ]; then
+    cap="$LOCAL_PROXY_MAX_TOKENS"
+  else
+    local ctx
+    ctx="${local_ctx:-$(detect_local_ctx)}"
+    if [ -n "$ctx" ] && [ "$ctx" -gt 0 ] 2>/dev/null; then
+      cap=$(( ctx / 8 ))
+      [ "$cap" -lt 4096 ]  && cap=4096
+      [ "$cap" -gt 32000 ] && cap=32000
+    else
+      cap=16384
+    fi
+  fi
+
+  local script_dir upstream_host
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
+  upstream_host=$(llama_host)
+  LOCAL_PROXY_UPSTREAM="http://${upstream_host}:9080" \
+  LOCAL_PROXY_PORT=9081 \
+  LOCAL_PROXY_MAX_TOKENS="$cap" \
+    python3 "$script_dir/local-proxy.py" >"/tmp/local-proxy.log" 2>&1 &
+  local i
+  for i in {1..10}; do
+    sleep 0.3
+    if curl -sf --max-time 1 "http://localhost:9081/proxy-health" >/dev/null 2>&1; then
+      dim "  Started local-proxy on port 9081 (max_tokens cap: ${cap})"
+      return 0
+    fi
+  done
+  red "Failed to start local-proxy. Check /tmp/local-proxy.log"
+  exit 1
+}
+
 # ── local model detection ────────────────────────────────────────────
 
 detect_local() {
@@ -318,13 +365,13 @@ pick_local() {
     echo "Start one first:  ./start.sh <i9|probook|macbook-air> <mode>"
     exit 1
   fi
-  local host ctx
-  host=$(llama_host)
+  local ctx
   ctx="${local_ctx:-$(detect_local_ctx)}"
   if [ -n "$ctx" ]; then
     dim "  Context size: ${ctx} tokens (from /props)"
   fi
-  launch "http://${host}:9080" "dummy" "$local_model" "$local_model" \
+  start_local_proxy
+  launch "http://127.0.0.1:9081" "dummy" "$local_model" "$local_model" \
     "local:$local_model"
 }
 
@@ -419,7 +466,8 @@ direct() {
         exit 1
       fi
       [ -n "$local_ctx" ] && dim "  Context size: ${local_ctx} tokens (from /props)"
-      base_url="http://$(llama_host):9080"
+      start_local_proxy
+      base_url="http://127.0.0.1:9081"
       api_key="dummy"
       ;;
     openrouter)
