@@ -448,9 +448,12 @@ pick_nvidia_proxy() {
 # ── direct launch (skip picker) ──────────────────────────────────────
 
 direct() {
-  local provider="$1" model="${2:-}"
-  local base_url api_key
-  shift 2 2>/dev/null || true  # consume provider + model, rest go to claude
+  local provider="$1"; shift
+  local model="" base_url api_key
+  # Consume model arg only if next arg exists and doesn't look like a flag
+  if [[ $# -gt 0 && "${1:-}" != -* ]]; then
+    model="$1"; shift
+  fi
 
   case "$provider" in
     local)
