@@ -24,7 +24,7 @@ case "$MACHINE" in
       "qwen36u35bq6kp|Qwen3.6 35B-A3B Uncensored Q6_K_P|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf|131072|24576||SAMPLE|mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
       "qwopus35bq5km|Qwopus3.6 35B-A3B Q5_K_M|Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf|131072|24576||SAMPLE|mmproj-F32.gguf"
       "supergemma4q4km|SuperGemma4 26B Uncensored Q4_K_M|supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf|131072|32768"
-      "qwen3codernext|Qwen3-Coder-Next 80B-A3B UD-Q3_K_M|Qwen3-Coder-Next-UD-Q3_K_M.gguf|131072|24576||SAMPLE"
+      "qwen3codernext|Qwen3-Coder-Next 80B-A3B UD-Q3_K_M|Qwen3-Coder-Next-UD-Q3_K_M.gguf|131072|14336||SAMPLE"
     )
     ;;
   probook)

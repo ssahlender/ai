@@ -66,9 +66,34 @@ else
   echo "  not available"
 fi
 
+# --- RLIMIT_MEMLOCK → unlimited for llama-server user ---
+# Default 8 GB limit causes mlock failures when loading large models.
+# KV cache beyond the limit becomes swappable; with only ~2 GB swap this
+# causes OOM during heavy context (compact, long sessions).
+# Write to limits.d so every new llama-server session inherits unlimited.
+echo
+echo "memlock limit:"
+limits_file="/etc/security/limits.d/llama-memlock.conf"
+expected=$'isc-ssl soft memlock unlimited\nisc-ssl hard memlock unlimited'
+if [ -f "$limits_file" ] && [ "$(cat "$limits_file")" = "$expected" ]; then
+  echo "  already unlimited (${limits_file})"
+else
+  printf '%s\n' "$expected" > "$limits_file"
+  echo "  set unlimited memlock for isc-ssl → ${limits_file}"
+  echo "  (takes effect on next login / llama-server restart)"
+  changed=$((changed + 1))
+fi
+
+# Also raise the limit for any currently running llama-server process.
+llama_pid=$(pgrep -x llama-server 2>/dev/null | head -1 || true)
+if [ -n "$llama_pid" ]; then
+  prlimit --pid "$llama_pid" --memlock=unlimited:unlimited 2>/dev/null && \
+    echo "  raised live limit for llama-server PID $llama_pid" || true
+fi
+
 echo
 if [ "$changed" -gt 0 ]; then
-  echo "$changed setting(s) applied. Reboot to revert."
+  echo "$changed setting(s) applied. Reboot to revert CPU/NUMA settings; memlock persists."
 else
   echo "All settings already optimal — nothing to change."
 fi
