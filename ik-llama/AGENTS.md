@@ -93,9 +93,20 @@ claude --bare --model deepseek-v4-pro
 Supports `OCG_PROXY_PORT`, `OCG_PROXY_MODELS` (comma-separated), and
 `SSL_CERT_FILE` (matches `update.sh`/`download-models.sh` pattern).
 
-### Local models
+### Local models and the max_tokens proxy
 
-For local models, Claude Code points at the ik_llama.cpp server on port 9080.
+For local models, Claude Code connects through `local-proxy.py` on port **9081**
+(not directly to llama-server on 9080). The proxy is auto-started by `claude-providers.sh`
+when you pick `local`. It intercepts every `/v1/messages` request and caps
+`max_tokens` to `ctx/8` before forwarding to llama-server.
+
+**Why the proxy is needed**: Claude CLI always sends `max_tokens=32000`. When
+`input_tokens + 32000 > n_ctx`, llama-server rejects the request with
+`"the request exceeds the available context size"`. The proxy caps the value so
+87.5% of context stays available for input.
+
+The proxy logs to `/tmp/local-proxy.log`. Kill it with `./kill-proxy.sh`.
+
 The script auto-detects WSL2 and uses the Windows host IP when needed (llama-server
 runs as a Windows `.exe` on ProBook). On native Linux/macOS it uses `localhost`.
 Ensure a model is loaded first: `./start.sh <machine> <mode>`.
@@ -110,9 +121,10 @@ discovery. If you prefer full features, run `claude /logout` first, then set
 ### Manual env vars (without the picker)
 
 ```bash
-# Local (auto-detect WSL vs native)
-export ANTHROPIC_BASE_URL=http://$(ip route show default | awk '{print $3; exit}'):9080  # WSL2
-export ANTHROPIC_BASE_URL=http://localhost:9080                                            # native
+# Local — point at the proxy on 9081, NOT directly at llama-server on 9080.
+# Start local-proxy.py first, or just use claude-providers.sh local (it does it).
+export ANTHROPIC_BASE_URL=http://$(ip route show default | awk '{print $3; exit}'):9081  # WSL2
+export ANTHROPIC_BASE_URL=http://localhost:9081                                            # native
 export ANTHROPIC_API_KEY=dummy
 export ANTHROPIC_CUSTOM_MODEL_OPTION=<gguf-stem>   # e.g. Qwopus3.6-35B-A3B-v1-Q6_K
 export ANTHROPIC_DEFAULT_SONNET_MODEL=<gguf-stem>

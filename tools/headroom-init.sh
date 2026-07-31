@@ -101,7 +101,13 @@ systemctl --user enable headroom-proxy.service
 
 echo "Starting proxy service..."
 systemctl --user start headroom-proxy.service
-sleep 2
+for _i in {1..10}; do
+  sleep 0.5
+  if curl -sf --max-time 1 "${HEADROOM_PROXY_URL}/health" >/dev/null 2>&1; then
+    echo "Proxy ready."
+    break
+  fi
+done
 systemctl --user status headroom-proxy.service --no-pager -l || true
 
 echo ""

@@ -25,7 +25,6 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `bench.sh <machine> <mode>` | Benchmark CPU thread settings with llama-bench (i9/probook) |
 | `model-info.sh` | Show on-disk models, file sizes, mmproj status |
 | `cleanup-models.sh <machine>` | Remove GGUFs not in active start.sh lineup — whitelist-driven, dry-run by default |
-| `tune-i9.sh` | OS-level tuning for inference (cpu governor, THP, NUMA) |
 
 `setup-agents.sh` writes the `ik-llama` provider for OpenCode when `opencode` is
 installed and for Pi when `pi` is installed. Per-model context values are parsed
@@ -81,7 +80,6 @@ BENCH_THREADS="8 12 16" BENCH_THREADS_BATCH="8 12 16" ./bench.sh probook qwen36u
 ### Quick start — i9
 
 ```bash
-sudo ./tune-i9.sh       # OS tuning (once per boot)
 ./update.sh i9
 ./download-models.sh i9
 ./setup-agents.sh i9
@@ -214,16 +212,6 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 ```
 
 Recommended by the Qwen3 technical report for thinking/chat mode.
-
-## OS tuning (i9)
-
-Run `sudo ./tune-i9.sh` once per boot to apply:
-
-- **CPU governor → performance** — prevents frequency scaling latency on the single-token generation path
-- **Transparent Huge Pages → madvise** — lets llama-server opt into 2MB pages without wasting them on other processes
-- **NUMA balancing → off** — no benefit on single-socket; avoids kernel migration overhead
-
-All changes revert on reboot. The script is idempotent — safe to re-run.
 
 ## Performance
 
