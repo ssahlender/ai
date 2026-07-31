@@ -27,6 +27,7 @@ UPDATE_TOOLS=(
   repomix
   ccusage
   headroom
+  mattpocock-skills
 )
 
 for tool in "${UPDATE_TOOLS[@]}"; do
