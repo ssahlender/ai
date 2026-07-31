@@ -97,7 +97,7 @@ start_local_proxy() {
   # Proxy listens on 9081 and forwards to llama-server on 9080.
   # Claude CLI always sends max_tokens=32000; cap it to n_ctx/8 so 87.5% of context
   # remains available for input (avoids "exceeds available context size" errors).
-  if curl -sf --max-time 2 "http://localhost:9081/health" >/dev/null 2>&1; then
+  if curl -sf --max-time 2 "http://localhost:9081/proxy-health" >/dev/null 2>&1; then
     return 0
   fi
   fuser -k "9081/tcp" 2>/dev/null || true
@@ -359,6 +359,23 @@ picker() {
   esac
 }
 
+warn_session_size() {
+  # Warn if the most recent session file in the current project is large.
+  # Large sessions cause "exceeds context size" errors with local models.
+  local project_key sessions_dir latest size lines
+  project_key=$(pwd | sed 's|^/||; s|/|-|g')
+  sessions_dir="$HOME/.claude/projects/$project_key"
+  latest=$(ls -t "$sessions_dir"/*.jsonl 2>/dev/null | head -1 || true)
+  [ -z "$latest" ] && return
+  size=$(wc -c < "$latest" 2>/dev/null || echo 0)
+  lines=$(wc -l < "$latest" 2>/dev/null || echo 0)
+  if [ "$size" -gt 307200 ]; then  # 300 KB
+    echo
+    red "  ⚠ Session $(basename "$latest") is large ($(( size / 1024 ))KB, ${lines} turns)."
+    red "    Risk of context overflow. Run /compact early or start without -c."
+  fi
+}
+
 pick_local() {
   if [ -z "$local_model" ]; then
     red "No local server running."
@@ -370,6 +387,7 @@ pick_local() {
   if [ -n "$ctx" ]; then
     dim "  Context size: ${ctx} tokens (from /props)"
   fi
+  warn_session_size
   start_local_proxy
   launch "http://127.0.0.1:9081" "dummy" "$local_model" "$local_model" \
     "local:$local_model"
@@ -469,6 +487,7 @@ direct() {
         exit 1
       fi
       [ -n "$local_ctx" ] && dim "  Context size: ${local_ctx} tokens (from /props)"
+      warn_session_size
       start_local_proxy
       base_url="http://127.0.0.1:9081"
       api_key="dummy"

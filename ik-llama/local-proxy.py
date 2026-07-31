@@ -94,8 +94,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._forward(body)
 
 
+class _QuietServer(http.server.ThreadingHTTPServer):
+    def handle_error(self, request, client_address):
+        exc = sys.exc_info()[1]
+        # Client disconnects mid-stream are normal — don't log tracebacks for them.
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError,
+                            http.client.RemoteDisconnected)):
+            return
+        import traceback
+        traceback.print_exc()
+
+
 if __name__ == "__main__":
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", PROXY_PORT), Handler)
+    server = _QuietServer(("127.0.0.1", PROXY_PORT), Handler)
     sys.stderr.write(
         f"[local-proxy] port={PROXY_PORT} upstream={UPSTREAM} max_tokens_cap={MAX_TOKENS_CAP}\n"
     )

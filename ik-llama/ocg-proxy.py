@@ -382,12 +382,23 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
 # ── main ────────────────────────────────────────────────────────────
 
+class _QuietServer(HTTPServer):
+    def handle_error(self, request, client_address):
+        import http.client
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError,
+                            http.client.RemoteDisconnected)):
+            return
+        import traceback
+        traceback.print_exc()
+
+
 def main():
     if not API_KEY:
         print("❌ OCG_PROXY_API_KEY not set. Export it first.", file=sys.stderr)
         sys.exit(1)
 
-    server = HTTPServer(("127.0.0.1", PORT), ProxyHandler)
+    server = _QuietServer(("127.0.0.1", PORT), ProxyHandler)
     print(f"ocg-proxy → {UPSTREAM}  (port {PORT})", file=sys.stderr)
     print(f"models: {', '.join(MODELS)}", file=sys.stderr)
     print(f"Claude Code: ANTHROPIC_BASE_URL=http://localhost:{PORT} ANTHROPIC_CUSTOM_MODEL_OPTION={MODELS[0]} ANTHROPIC_API_KEY=dummy claude --bare --model {MODELS[0]}", file=sys.stderr)
