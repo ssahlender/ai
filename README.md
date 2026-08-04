@@ -182,6 +182,21 @@ directory with `ANTIGRAVITY_INSTALL_DIR=/custom/path ./antigravity-install.sh`.
 
 Supported on Linux and macOS (amd64/arm64, glibc and musl).
 
+#### Known quirks (headless/print mode)
+
+- **Flag order bug**: `agy -p --model <model> "prompt"` swallows the prompt —
+  the model name becomes the prompt and you get a canned greeting ("I am
+  currently powered by the Gemini..."). Correct order:
+  `agy --model <model> -p "prompt"`. Same applies to `--effort`.
+- **Headless auto-denies file writes**: in headless mode (`-p`), tools that
+  require permissions (e.g. `write_file`) are auto-denied with a jetski
+  warning. Add an allow-rule in `~/.gemini/antigravity-cli/settings.json`
+  (`permissions.allow`), or pass `--dangerously-skip-permissions` to auto-approve.
+- **Global skills** live in `~/.gemini/config/skills/<name>/SKILL.md` (not
+  `~/.gemini/antigravity-cli/builtin/`, which is managed/overwritten on
+  updates). See the built-in `agy-customizations` skill for the full
+  customization system reference.
+
 ---
 
 ### Pi Coding Agent
