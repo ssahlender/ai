@@ -38,4 +38,27 @@ if [ "$NODE_MAJOR" -lt 22 ]; then
 fi
 
 echo "Updating global skills (~/.agents/skills/)..."
-_npx_cmd skills update -g -y 2>&1 || echo "  skills update failed — skipping"
+UPDATE_OUTPUT=""
+if ! UPDATE_OUTPUT=$(_npx_cmd skills update -g -y 2>&1); then
+  echo "$UPDATE_OUTPUT"
+  echo "  skills update failed — skipping"
+  exit 0
+fi
+echo "$UPDATE_OUTPUT"
+
+# `update -y` skips deleting skills the upstream repo no longer serves
+# (it would otherwise need an interactive y/n prompt). Parse those names
+# out of the warning block and remove them explicitly via `skills remove`,
+# which does have a real non-interactive -y, so stale skills don't pile
+# up in ~/.agents/skills/ forever.
+mapfile -t STALE_SKILLS < <(printf '%s\n' "$UPDATE_OUTPUT" \
+  | sed -E 's/\x1b\[[0-9;]*m//g' \
+  | awk '/appear to have been deleted upstream/{flag=1; next} flag && /^[[:space:]]*•/{print; next} flag{flag=0}' \
+  | sed -E 's/^[[:space:]]*•[[:space:]]*//')
+
+if [ "${#STALE_SKILLS[@]}" -gt 0 ]; then
+  echo "Removing skills mattpocock/skills no longer serves: ${STALE_SKILLS[*]}"
+  if ! _npx_cmd skills remove -y -g "${STALE_SKILLS[@]}" 2>&1; then
+    echo "  removal failed — leaving stale skills in place"
+  fi
+fi
