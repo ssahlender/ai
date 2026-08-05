@@ -12,11 +12,20 @@ source "$(dirname "${BASH_SOURCE[0]}")/_brew-i9.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/_npm-wrapper.sh"
 
 # ── Claude Code plugin ────────────────────────────────────────────────────────
-if command -v claude >/dev/null 2>&1; then
+PLUGIN_INSTALLED=false
+if command -v claude >/dev/null 2>&1 && claude plugins list 2>/dev/null | grep -q 'mattpocock-skills@'; then
+  PLUGIN_INSTALLED=true
   echo "mattpocock-skills (Claude Code plugin): auto-updates on use — OK"
 fi
 
 # ── Editable installs (other agents) ─────────────────────────────────────────
+if [ ! -d "$HOME/.agents/skills" ] || [ -z "$(ls -A "$HOME/.agents/skills" 2>/dev/null)" ]; then
+  if ! $PLUGIN_INSTALLED; then
+    echo "mattpocock-skills not installed — skipping (run mattpocock-skills-install.sh first)"
+  fi
+  exit 0
+fi
+
 if ! command -v node >/dev/null 2>&1; then
   echo "node not found — skipping skills editable update"
   exit 0
