@@ -28,5 +28,5 @@ if [ "$NODE_MAJOR" -lt 22 ]; then
   exit 0
 fi
 
-echo "Checking for editable skills updates..."
-_npx_cmd skills update 2>/dev/null || echo "  No editable install found — nothing to update"
+echo "Updating global skills (~/.agents/skills/)..."
+_npx_cmd skills update -g -y 2>&1 || echo "  skills update failed — skipping"
