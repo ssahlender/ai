@@ -57,7 +57,13 @@ _npx_cmd() {
   fi
 
   if [ -n "${IS_I9:-}" ] && [ -f "$SYSTEM_CA_FILE" ]; then
+    # NODE_USE_ENV_PROXY=1 is required separately from the CA vars below:
+    # Node's built-in fetch (undici) ignores http_proxy/https_proxy unless
+    # this is set, even though npm/curl honor those vars automatically.
+    # Without it, tools using fetch() (like the `skills` CLI) silently fail
+    # to reach github.com through the corporate proxy.
     env \
+      NODE_USE_ENV_PROXY=1 \
       NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--use-openssl-ca" \
       NODE_EXTRA_CA_CERTS="$SYSTEM_CA_FILE" \
       NPM_CONFIG_CAFILE="$SYSTEM_CA_FILE" \
