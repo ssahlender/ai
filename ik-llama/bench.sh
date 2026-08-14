@@ -17,7 +17,7 @@ case "$MACHINE" in
     NGL=0; MACHINE_PATH=
     THREADS_DEFAULT="${BENCH_THREADS:-6 8}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-24 32}"
     MODE="${MODE:-qwopus35bq5km}"
-    MODES=(qwen36u35bq6kp qwopus35bq5km supergemma4q4km qwen3codernext)
+    MODES=(qwen36u35bq6kp qwopus35bq5km supergemma4q4km qwen3codernext qwen36u27bq5kp)
     QWEN_MODES=(qwen36u35bq6kp qwopus35bq5km)
     normalize_mode() {
       case "$1" in
@@ -25,6 +25,7 @@ case "$MACHINE" in
         qwopus35b|qwopus35b:q5km|qwopus35bq5km) echo "qwopus35bq5km" ;;
         supergemma4|supergemma4:q4km|supergemma4q4km) echo "supergemma4q4km" ;;
         qwen3codernext|qwcn|qwcn:q3km) echo "qwen3codernext" ;;
+        qwen36u27b|qwen36u27b:q5kp|qwen36u27bq5kp) echo "qwen36u27bq5kp" ;;
         *) return 1 ;;
       esac
     }
@@ -34,6 +35,7 @@ case "$MACHINE" in
         qwopus35bq5km)    echo "Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf" ;;
         supergemma4q4km)  echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
         qwen3codernext)   echo "Qwen3-Coder-Next-UD-Q3_K_M.gguf" ;;
+        qwen36u27bq5kp)   echo "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" ;;
         *) return 1 ;;
       esac
     }
