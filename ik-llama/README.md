@@ -7,7 +7,7 @@ CPU-only local LLM inference on two machines using [ik_llama.cpp](https://github
 | Machine | CPU | RAM | OS | Notes |
 |---|---|---|---|---|
 | HP ProBook (Ryzen) | AMD Ryzen 7 250 (Zen 5) | 32 GB | Windows 11 + WSL2 | AVX512 VNNI VBMI BF16 |
-| Work PC (i9) | Intel Core i9-13900 (Raptor Lake) | 64 GB | Debian 13 | AVX2 only — no AVX512 |
+| Work PC (i9) | Intel Core i9-13900 (Raptor Lake) | 64 GB | Debian 12 (bookworm), GLIBC 2.36 | AVX2 + AVX-VNNI — no AVX512 |
 
 Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vulkan OOM crashes — always use `-ngl 0`.
 
@@ -165,8 +165,13 @@ The 27B dense IQ4\_XS is the smarter general pick — all 27B params active vs 3
 | `qwopus35bq5km` | Qwopus3.6-35B-A3B Q5\_K\_M | ~25 GB | 128 K | yes | Daily driver — fastest, reasoning, vision |
 | `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored fallback, text-only |
 | `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active — heavy coder test |
+| `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P (dense) | ~19 GB | 128 K | no | Dense, all 27B active — slow (3.4 tg tok/s measured) but higher quality ceiling than 3B-active MoE; kept on hand since no GPU upgrade is coming |
 
 Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24 — about 20% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Context bumped to 128K so `/compact` fits long sessions; KV capped at 24 GB via `cram`.
+
+NVIDIA's Nemotron-3.5-Lightning-30B-A3B was tried and dropped: its architecture interleaves Mamba-2 (SSM) layers with MoE and attention layers, which ik_llama.cpp (an AVX2/quant-kernel-focused `llama.cpp` fork) doesn't implement — it fails to load with `unknown model architecture: 'nemotron_h_moe'`. Confirmed via direct load test, not just a version mismatch.
+
+**`-ub`/`--ubatch-size` default raised to 1024** (`IK_LLAMA_UBATCH` env override) after a sweep on `qwopus35bq5km` showed a free ~2.5% pp gain (135.8 → 139.1 t/s at ub=1024 vs the previous default of 512) with `tg` unaffected. No GPU-style cliff at small ubatch values on this AVX2 CPU path, unlike reports on GPU/ROCm backends.
 
 ## Binaries
 
@@ -323,7 +328,6 @@ Default `8/16` is the best balanced setting for qwen36u35b. Use `8/8` (`IK_LLAMA
 | `qwen3fast:q4/q5` | ~33–40 | ~6–7 | Too slow |
 | `qwen38b:q4/q5` | ~60 | ~13 | Not competitive with MoE |
 | `qwen332b / qwen25coder32b` | ~14 | ~3 | Way too slow on AVX2 |
-| `qwen36u27bq5kp` | 17.8 | 3.4 | Dense 27B — quality only, not interactive |
 
 The benchmark script accepts explicit quantized presets like `qwopus35b:q5km`. The active benchmark set is `qwen36u35bq6kp`, `qwopus35bq5km`, `supergemma4q4km`, and `qwen3codernext`.
 

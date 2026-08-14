@@ -73,6 +73,7 @@ case "$MACHINE" in
     download_if_missing Jackrong/Qwopus3.6-35B-A3B-v1-GGUF                       mmproj-F32.gguf
     download_if_missing Jiunsong/supergemma4-26b-uncensored-gguf-v2               supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
     download_if_missing unsloth/Qwen3-Coder-Next-GGUF                             Qwen3-Coder-Next-UD-Q3_K_M.gguf
+    download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive       Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf
     ;;
 
   probook)

@@ -15,6 +15,7 @@ case "$MACHINE" in
     MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
     PORT="${IK_LLAMA_PORT:-9080}"
     NGL=0; THREADS="${IK_LLAMA_THREADS:-8}"; THREADS_BATCH="${IK_LLAMA_THREADS_BATCH:-24}"
+    UBATCH="${IK_LLAMA_UBATCH:-1024}"
     MLOCK="--mlock"
     PGREP_NAME="llama-server"
     WSL_PATH=
@@ -25,6 +26,7 @@ case "$MACHINE" in
       "qwopus35bq5km|Qwopus3.6 35B-A3B Q5_K_M|Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf|131072|24576||SAMPLE|mmproj-F32.gguf"
       "supergemma4q4km|SuperGemma4 26B Uncensored Q4_K_M|supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf|131072|32768"
       "qwen3codernext|Qwen3-Coder-Next 80B-A3B UD-Q3_K_M|Qwen3-Coder-Next-UD-Q3_K_M.gguf|131072|14336||SAMPLE"
+      "qwen36u27bq5kp|Qwen3.6 27B Uncensored Q5_K_P (dense)|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf|131072|32768"
     )
     ;;
   probook)
@@ -103,12 +105,13 @@ start_model() {
   ctx="${IK_LLAMA_CTX_SIZE:-$ctx}"
   cram="${IK_LLAMA_CRAM_MB:-$cram}"
   local extra=("$@")
-  echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB, threads=${THREADS}/${THREADS_BATCH}, parallel=${PARALLEL})..."
+  echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB, threads=${THREADS}/${THREADS_BATCH}, ubatch=${UBATCH:-default}, parallel=${PARALLEL})..."
   exec "$SERVER" \
     -m "$(model_path "$model")" \
     -ngl "$NGL" \
     --threads "$THREADS" \
     --threads-batch "$THREADS_BATCH" \
+    ${UBATCH:+--ubatch-size "$UBATCH"} \
     --parallel "$PARALLEL" \
     --ctx-size "$ctx" \
     -sps 0.5 \
