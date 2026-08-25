@@ -42,7 +42,7 @@ echo "  --all  = every skill"
 echo "  -g     = user-level (not project-level)"
 echo "  -y     = no prompts"
 echo ""
-_npx_cmd skills@latest add mattpocock/skills --all -g
+_npx_cmd --yes skills@latest add mattpocock/skills --all -g -y
 
 echo ""
 echo "Next: open a project repo and run /setup-matt-pocock-skills"

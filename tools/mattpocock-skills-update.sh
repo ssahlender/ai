@@ -39,7 +39,7 @@ fi
 
 echo "Updating global skills (~/.agents/skills/)..."
 UPDATE_OUTPUT=""
-if ! UPDATE_OUTPUT=$(_npx_cmd skills update -g -y 2>&1); then
+if ! UPDATE_OUTPUT=$(_npx_cmd --yes skills update -g -y 2>&1); then
   echo "$UPDATE_OUTPUT"
   echo "  skills update failed — skipping"
   exit 0
@@ -58,7 +58,7 @@ mapfile -t STALE_SKILLS < <(printf '%s\n' "$UPDATE_OUTPUT" \
 
 if [ "${#STALE_SKILLS[@]}" -gt 0 ]; then
   echo "Removing skills mattpocock/skills no longer serves: ${STALE_SKILLS[*]}"
-  if ! _npx_cmd skills remove -y -g "${STALE_SKILLS[@]}" 2>&1; then
+  if ! _npx_cmd --yes skills remove -y -g "${STALE_SKILLS[@]}" 2>&1; then
     echo "  removal failed — leaving stale skills in place"
   fi
 fi
