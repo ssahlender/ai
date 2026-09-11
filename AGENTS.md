@@ -35,7 +35,7 @@ Headroom compresses tool outputs, files, and text before they reach the LLM (40-
 ### MCP (universal — all agents)
 Add to agent MCP config:
 ```json
-{"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve"]}}}
+{"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve", "--proxy-url", "http://127.0.0.1:8788"]}}}
 ```
 Tools: `mcp_headroom_headroom_compress`, `_retrieve`, `_stats`.
 

@@ -61,7 +61,7 @@ if insert_at is None:
     lines.append('\nmcp_servers:\n')
     lines.append('  headroom:\n')
     lines.append('    command: headroom\n')
-    lines.append('    args: [mcp, serve]\n')
+    lines.append('    args: [mcp, serve, --proxy-url, http://127.0.0.1:8788]\n')
     lines.append('    timeout: 120\n')
 else:
     # Insert headroom entry before next top-level key or end
@@ -71,7 +71,7 @@ else:
     new_entry = [
         '  headroom:\n',
         '    command: headroom\n',
-        '    args: [mcp, serve]\n',
+        '    args: [mcp, serve, --proxy-url, http://127.0.0.1:8788]\n',
         '    timeout: 120\n',
     ]
     lines = lines[:insert_idx] + new_entry + lines[insert_idx:]
@@ -91,26 +91,26 @@ echo "[Claude Code] Installing MCP server..."
 "$HEADROOM_BIN" mcp install --agent claude --proxy-url "$PROXY_URL" 2>&1 || {
   echo "WARNING: headroom mcp install failed for Claude Code"
   echo "  Manual config: add to ~/.claude/mcp.json:"
-  echo '  {"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve"]}}}'
+  echo '  {"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve", "--proxy-url", "http://127.0.0.1:8788"]}}}'
 }
 
 # --- 3. Codex ---
 echo ""
 echo "[Codex] Not yet supported by headroom mcp install."
 echo "  Manual config: add to ~/.codex/mcp.json:"
-echo '  {"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve"]}}}'
+echo '  {"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve", "--proxy-url", "http://127.0.0.1:8788"]}}}'
 
 # --- 4. OpenCode ---
 echo ""
 echo "[OpenCode] Manual MCP config:"
 echo "  Create ~/.config/opencode/mcp.json:"
-echo '  {"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve"]}}}'
+echo '  {"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve", "--proxy-url", "http://127.0.0.1:8788"]}}}'
 
 # --- 5. Pi ---
 echo ""
 echo "[Pi] Manual MCP config:"
 echo "  Add to your Pi MCP configuration:"
-echo '  {"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve"]}}}'
+echo '  {"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve", "--proxy-url", "http://127.0.0.1:8788"]}}}'
 
 echo ""
 echo "=== MCP Integration complete ==="
