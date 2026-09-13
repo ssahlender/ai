@@ -7,6 +7,7 @@ Scripts for running local AI tools across multiple machines.
 | Path | Contents |
 |---|---|
 | `ik-llama/` | LLM inference with ik_llama.cpp / llama.cpp — models, server, OpenCode config (ProBook, i9, MacBook Air) |
+| `mlx/` | MLX vs llama.cpp/Metal throughput comparison (MacBook Air M4) |
 | `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Antigravity, Pi, Headroom, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
