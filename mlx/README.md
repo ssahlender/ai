@@ -91,13 +91,48 @@ number has been captured on the Mac for a direct comparison — still open, see 
 `mlx_lm.server` smoke-tested via `curl /v1/chat/completions` — OpenAI-compatible
 API confirmed working with `reasoning_effort: low` applied server-wide.
 
+## Engine comparison — 2026-09-13
+
+Before committing to raw `mlx_lm.server`, ran the same Qwen3.8-27B model through
+three engines, all on this Mac:
+
+| Engine | Model file | Size | Prompt tok/s | Gen tok/s | Notes |
+|---|---|---:|---:|---:|---|
+| **Raw `mlx_lm.server`** | `mlx-community/Qwen3.8-27B-4bit` (MLX) | 15.5 GB | 22.7–37.9 | **6.5–6.6** | Winner — fits with headroom, fastest |
+| Ollama 0.33.3 + MLX backend | `qwen3.8:27b-mlx` | 18 GB | 12.7 | 2.69 | Ollama ships MLX as a hard dependency now (not just a preview flag) and manages context safely (bounded to 4K by default via "vram-based default context"), but memory pressure (only 17.8 GB of 24 GB available to the GPU) made it 2.4x slower than raw MLX |
+| llama.cpp `llama-server` | `unsloth/Qwen3.8-27B-UD-Q4_K_XL.gguf` | 17.6 GB | 23.46 | 4.56 | Unsloth's "dynamic" Q4_K_XL quant is bigger than the MLX 4-bit build — OOM'd (`ggml_metal_synchronize: Insufficient Memory`) at 8K+ context on this 24 GB machine, only worked reduced to 4K context. Needed `--parallel 1` (ik-llama's own documented lesson) to even get that far — default 4 slots multiply KV cache 4x and OOM immediately. |
+
+**Raw `mlx_lm.server` wins on both speed and memory headroom.** The smaller MLX
+quant (15.5 GB vs. 17.6 GB GGUF) is what lets it fit on 24 GB with room for a
+real context window at all — the other two paths are memory-constrained on this
+specific machine, not just slower. Ollama's own research context (checked
+2026-09-13): even the general MLX-vs-llama.cpp comparisons out there report
+MLX 15–25% faster for 14B+ models and Ollama itself switched its Apple Silicon
+backend to MLX in March 2026 (stable/default since v0.30, May 2026) — this test
+confirms that holds for this exact model on this exact machine.
+
+Ollama and its test model were removed after the comparison (`brew uninstall
+ollama`, `ollama rm qwen3.8:27b-mlx`) — not part of the chosen stack. The
+Unsloth GGUF (17.6 GB) was deleted too.
+
+### Known risk: accepted, with mitigation
+
+`mlx_lm.server` has open upstream issues about unbounded KV-cache growth during
+long agentic sessions, up to a macOS kernel panic on a 96 GB Mac Studio after
+~58K tokens ([ml-explore/mlx-lm#883](https://github.com/ml-explore/mlx-lm/issues/883),
+[#1390](https://github.com/ml-explore/mlx-lm/issues/1390),
+[#1672](https://github.com/ml-explore/mlx-lm/issues/1672)) — root cause: no
+`--max-kv-size` support on the server ([#615](https://github.com/ml-explore/mlx-lm/issues/615),
+still open). This Air has 24 GB, less headroom than that Mac Studio. Accepted
+for now since it only bites at very long (50K+ token) unbounded sessions — mitigate by
+restarting the server between long OpenCode sessions rather than leaving it up
+indefinitely, and revisit if `--max-kv-size` lands on the server.
+
 ### Not yet done
 
-- No llama.cpp/ik_llama Metal benchmark captured on the Mac to compare tok/s
-  apples-to-apples against MLX for the same architecture — the numbers above only
-  compare MLX models against each other, not a head-to-head engine speed test.
 - `reasoning_effort: low` only smoke-tested on short prompts via CLI and one curl
   request — not yet run through an actual OpenCode coding/tool-call session.
-- Not yet decided: keep `qwen36u27b` (llama.cpp/GGUF) as the daily driver and treat
-  MLX/Qwen3.8-27B as a second option, or switch the daily driver over and update
-  `../ik-llama/README.md`'s Mac table accordingly.
+- Not yet decided: keep `qwen36u27b` (llama.cpp/GGUF, `../ik-llama/`) as the
+  OpenCode daily driver and treat MLX/Qwen3.8-27B as a second option, or switch
+  the daily driver over and update `../ik-llama/README.md`'s Mac table
+  accordingly.
