@@ -1,7 +1,33 @@
 # Local LLM for receipt/OCR structured extraction and ledger matching
 
-Use case: a Codex/agent pipeline (e.g. the Accounting Helper project on
-`pmon-macbookair`) OCRs receipts locally (Apple Vision, see
+## Summary for Codex
+
+There is a local LLM available on this Mac (Ollama, model `qwen3.8:27b-mlx`)
+that can do two things for free instead of spending your own tokens on them:
+
+1. **Extract** structured fields (vendor, date, amount, currency) from raw
+   OCR text of a receipt/invoice.
+2. **Propose a match** between a receipt and the correct existing ledger
+   entry, given a short list of candidates.
+
+Both are validated against real project data (see "Verified" below) — not
+hypothetical. Start the engine with `cd ~/data/git/ai-tools/ollama &&
+./start.sh` if it isn't already running (`curl -s
+http://127.0.0.1:11434/v1/models` to check), then call it exactly as shown in
+"Extraction call" / "Matching call" below. Stop it with `./stop.sh` when done
+if nothing else needs it running.
+
+**Treat every result as a proposal, not a fact.** Use the same
+`matched`/`ambiguous`/`missing_or_unmatched` convention the pipeline already
+uses — a "high confidence" model match still needs human review before
+anything is booked or renamed, same as any other receipt match. Never let the
+model's output skip the review step this project's `AGENTS.md` already
+requires for financial data.
+
+---
+
+Use case in more detail: a Codex/agent pipeline (e.g. the Accounting Helper
+project on `pmon-macbookair`) OCRs receipts locally (Apple Vision, see
 `MAC_WORKER.md` in that project). Two things currently cost the cloud agent
 tokens/context that a local model can do instead, for free:
 
