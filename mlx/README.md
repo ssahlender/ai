@@ -135,7 +135,7 @@ competitive here once configured correctly.
 The llama.cpp GGUF path was deleted after testing (17.6 GB freed) — clearly
 memory-constrained on this specific 24 GB machine with this specific quant.
 
-### oMLX — proven memory safety, caching not yet demonstrated
+### oMLX — proven memory safety, caching real but memory-limited on this hardware
 
 [oMLX](https://github.com/jundot/omlx) (genuine upstream verified: 21.6k
 stars, active — beware many identically-named/described GitHub forks, that's
@@ -155,15 +155,35 @@ Fix: `--memory-guard aggressive` plus raising macOS's Metal wired-memory cap
 that, generation worked normally. This is the mechanism that should prevent
 the kernel-panic class of bug documented for raw `mlx_lm.server` below.
 
-**Caching: not demonstrated by this test, likely due to test design, not a
-flaw.** A 3-turn conversation (57–302 tokens per turn) showed `cached_tokens: 0`
-throughout, even with `--hot-cache-max-size` and `--paged-ssd-cache-dir`
-explicitly enabled (both default OFF — easy to miss). Server log explained why:
-cache operates in **2048-token blocks**
-(`boundary_snapshot_unavailable ... available_boundaries=0`), and the test
-conversation never got close to one full block. Real OpenCode sessions
-(system prompt + file contents) would clear 2048 tokens quickly — this needs a
-realistic longer-context test to actually observe, not a toy Q&A exchange.
+**Caching: real, but the memory guard undercuts it on this specific 24 GB
+machine.** First short-Q&A attempt (57–302 tokens/turn) showed `cached_tokens: 0`
+throughout — turned out to be a test-design issue: oMLX's cache works in
+**2048-token blocks**, and that conversation never crossed one boundary.
+Retested with a real ~3.9K-token document (a repo README) as shared context,
+explicitly capping oMLX's own memory ceiling (`--memory-guard-gb`, independent
+of the system-wide Metal cap) to leave several GB free for normal Mac use
+alongside it:
+
+- Turn 1 (cold, 3794 prompt tokens): succeeded, and the server log confirmed
+  `Using boundary cache snapshot ...: storing 2048/3926 tokens` — the cache
+  mechanism genuinely works.
+- Turn 2 (same conversation, now ~3900 tokens): **rejected by the memory
+  guard**, even at a fairly permissive 20 GB ceiling (leaving only ~4GB for
+  the OS/apps). Root cause in the log: admission checks the incoming prompt's
+  *raw* size before applying any cache-reuse savings, and current usage was
+  already sitting at 17.9 GB right after turn 1 — there wasn't enough
+  remaining margin for turn 2's full (uncached) size estimate.
+
+**Practical conclusion for this 24 GB machine specifically:** oMLX's
+crash-prevention works exactly as designed, and its caching mechanism is real
+— but the two interact badly here. A real multi-turn coding session with
+~4K-token turns can hit the memory guard by the *second* turn unless the
+ceiling is pushed close to the system limit, which conflicts directly with
+wanting the Mac usable for other things (browser, apps) at the same time
+oMLX is running. This is a real tradeoff on 24 GB hardware, not a bug — worth
+knowing before picking oMLX as the daily driver on this specific machine. It
+may behave very differently (i.e., actually deliver its designed benefit) on
+a Mac with more RAM headroom.
 
 Install note: the Homebrew tap path (`brew tap jundot/omlx <url>`) hit
 formula-loading and `git` auth errors on this machine's modified Homebrew
@@ -196,22 +216,22 @@ indefinitely, and revisit if `--max-kv-size` lands on the server.
 - `mlx-community/Qwen3.8-27B-4bit` (15.5 GB, standard 4-bit MLX) stays cached —
   used by both raw `mlx_lm.server` and oMLX tests.
 
-### Backlog: realistic long-context test (oMLX caching)
-
-oMLX's headline feature — tiered KV caching across turns — needs a test with
-a genuinely long shared prefix (2048+ tokens: a real system prompt or a pasted
-code file) to actually observe a cache hit, not a short Q&A exchange like the
-one run above. Do this before ruling oMLX in or out on caching grounds; its
-proven memory-safety behavior already stands on its own regardless.
-
 ### Not yet done
 
 - `reasoning_effort: low` only smoke-tested on short prompts — not yet run
   through an actual OpenCode coding/tool-call session, on any engine.
+- Ollama's multi-turn caching behavior under a realistic ~4K-token shared
+  prefix (matching the oMLX test above) hasn't been checked — only tested with
+  short Q&A turns so far. Worth confirming it doesn't hit a similar memory wall.
 - Not yet decided: keep `qwen36u27b` (llama.cpp/GGUF, `../ik-llama/`) as the
   OpenCode daily driver and treat MLX/Ollama/oMLX as second options, or switch
   the daily driver over and update `../ik-llama/README.md`'s Mac table
-  accordingly. Candidates ranked by what's known so far: Ollama (fastest,
-  proven caching) vs. oMLX (same speed as raw MLX, proven crash-safety, caching
-  unproven) vs. raw `mlx_lm.server` (no longer favored — same speed as oMLX
-  without its safety net, slower than Ollama).
+  accordingly. Candidates ranked by what's known so far:
+  - **Ollama** — fastest raw generation (~10-12 tok/s), proven caching on short
+    turns, multi-turn-at-scale behavior not yet checked.
+  - **oMLX** — same speed as raw MLX (~6.4 tok/s), proven crash-safety, caching
+    mechanism confirmed real but memory-guard-limited to ~1-2 turns on this
+    24 GB machine at realistic (~4K token) turn sizes without eating all
+    headroom needed for normal Mac use.
+  - **Raw `mlx_lm.server`** — no longer favored: same speed as oMLX without its
+    safety net, slower than Ollama, and has the open unbounded-KV-cache risk.
