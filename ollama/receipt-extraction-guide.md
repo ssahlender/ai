@@ -33,35 +33,35 @@ own OCR README already reached by hand. This is the part worth automating:
 it's exactly the kind of multi-file cross-referencing (OCR text ↔ ledger CSV
 rows) that otherwise costs the cloud agent real context/tokens per receipt.
 
-This is a different workload than the daily-driver coding-agent testing in
+This is a different workload than the daily-driver coding-agent evaluation in
 `README.md` — single-turn, short input/output, no multi-turn context growth —
-so the memory-guard/long-context tradeoffs documented there don't apply here.
-Any of the three tested engines works; Ollama is the simplest default since
-it's already the fastest of the three for single-shot calls.
+so the memory-guard/long-context tradeoffs from that comparison don't apply
+here. **Engine: Ollama** (the settled daily driver — see `README.md` for why).
+Both the extraction and matching prompts below were re-verified directly
+against Ollama specifically, not just the MLX engine used during initial
+exploration — same correct results.
 
 ## Starting the engine
 
 ```bash
-# Ollama (recommended default — fastest single-shot generation in testing)
-export PATH=/opt/homebrew/bin:$PATH
-ollama serve &                    # if not already running as a service
-# model already pulled: qwen3.8:27b-mlx
-
-# Alternative: raw MLX (no daemon, simpler for a one-off batch job)
-cd ~/git/ai-tools/mlx && ./start.sh qwen38-27b
+cd ~/git/ai-tools/ollama
+./start.sh
 ```
 
 Check it's up:
 
 ```bash
-curl -s http://127.0.0.1:11434/v1/models   # Ollama
-curl -s http://127.0.0.1:8090/v1/models    # raw mlx_lm.server
+curl -s http://127.0.0.1:11434/v1/models
 ```
 
 ## Extraction call
 
-Use `reasoning_effort: low` — this is a short structured-output task, not a
+Use `reasoning_effort: low` on the **OpenAI-compatible endpoint**
+(`/v1/chat/completions`) — this is a short structured-output task, not a
 reasoning task, and `xhigh` (the model's default) wastes time thinking.
+**Do not use `/api/chat`'s `think` field** — its enum doesn't match this
+model's own template and silently fails to reduce reasoning (see
+`README.md`'s "one real quirk" section for the full story).
 
 ```bash
 curl -s http://127.0.0.1:11434/v1/chat/completions \
@@ -141,9 +141,12 @@ large ledger excerpt) in one call.
 ## Verified
 
 Both prompts above were run against real project data on 2026-09-13, not
-hypothetical examples — see the extraction and matching results earlier in
-this file. Before extending beyond the two cases already tested (one
-[VENDOR] invoice extraction, one 3-way [VENDOR] disambiguation), spot-check
-a few more receipts against their already-known-correct answers (the project's
-`outputs/*/ocr/README.md` files record several) before trusting it across a
-full batch unattended.
+hypothetical examples, and both were confirmed specifically on Ollama (not
+just during the initial multi-engine exploration): the extraction case
+(one already-verified single-page invoice) and the matching case (3-way
+disambiguation between lookalike invoices from the same vendor) both returned
+the same correct results on Ollama as they did on the other engines tested
+during evaluation. Before extending beyond these two verified cases,
+spot-check a few more receipts against their already-known-correct answers
+(the project's `outputs/*/ocr/README.md` files record several) before
+trusting it across a full batch unattended.

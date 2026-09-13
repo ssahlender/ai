@@ -75,13 +75,13 @@ Unlike `mlx_lm.server` (which bakes `reasoning_effort` into server startup via
 per-request. If OpenCode/Pi's provider config doesn't expose a way to inject
 extra body params, requests through the agent may still default to `xhigh`.
 Direct API calls (e.g. the receipt-extraction/matching use case in
-`../mlx/receipt-extraction-guide.md`) always set it explicitly and are
+`receipt-extraction-guide.md`) always set it explicitly and are
 unaffected.
 
 ## Also validated for non-coding use
 
 The same engine (correctly configured) was used for a real accounting
 extraction/matching task with 100% correct results — see
-`../mlx/receipt-extraction-guide.md`. Same model, same `reasoning_effort`
+`receipt-extraction-guide.md`. Same model, same `reasoning_effort`
 fix, different (single-turn, short) workload — the long-context/memory
 tradeoffs from the coding-agent testing don't apply there.
