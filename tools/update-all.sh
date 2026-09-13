@@ -18,6 +18,7 @@ UPDATE_TOOLS=(
   codex
   antigravity
   hf
+  mlx-lm
   hermes
   rtk
   context-mode
