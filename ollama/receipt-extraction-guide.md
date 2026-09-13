@@ -33,10 +33,13 @@ own OCR README already reached by hand. This is the part worth automating:
 it's exactly the kind of multi-file cross-referencing (OCR text ↔ ledger CSV
 rows) that otherwise costs the cloud agent real context/tokens per receipt.
 
-This is a different workload than the daily-driver coding-agent evaluation in
-`README.md` — single-turn, short input/output, no multi-turn context growth —
-so the memory-guard/long-context tradeoffs from that comparison don't apply
-here. **Engine: Ollama** (the settled daily driver — see `README.md` for why).
+This is a different workload than the daily-driver coding-agent evaluation
+that chose this engine — single-turn, short input/output, no multi-turn
+context growth — so the memory-guard/long-context tradeoffs from that
+comparison don't apply here. **Engine: Ollama** (the settled daily driver,
+chosen after a full comparison against raw MLX and oMLX on speed,
+crash-safety, and quirks — full writeup at
+`~/data/git/ai-tools/ollama/README.md` on this Mac).
 Both the extraction and matching prompts below were re-verified directly
 against Ollama specifically, not just the MLX engine used during initial
 exploration — same correct results.
@@ -59,9 +62,12 @@ curl -s http://127.0.0.1:11434/v1/models
 Use `reasoning_effort: low` on the **OpenAI-compatible endpoint**
 (`/v1/chat/completions`) — this is a short structured-output task, not a
 reasoning task, and `xhigh` (the model's default) wastes time thinking.
-**Do not use `/api/chat`'s `think` field** — its enum doesn't match this
-model's own template and silently fails to reduce reasoning (see
-`README.md`'s "one real quirk" section for the full story).
+**Do not use `/api/chat`'s `think` field** — its enum
+(`low`/`medium`/`high`/`none`) doesn't match this model's own template enum
+(`low`/`medium`/`xhigh`) and silently fails to reduce reasoning: passing
+`"think":"low"` on the native endpoint measured 2.69 tok/s (looked like a
+broken/slow engine); `"reasoning_effort":"low"` on the OpenAI-compatible
+endpoint measured 10-12 tok/s with the same model, same hardware.
 
 ```bash
 curl -s http://127.0.0.1:11434/v1/chat/completions \
@@ -127,10 +133,12 @@ tested here; the flagship model was simply what was already on hand.
 ## Practical context size on this Mac
 
 The model's architectural max context is 262,144 tokens, but that's not the
-real ceiling on a 24 GB machine. In today's testing, a single ~3.9K-token
-prompt already pushed KV cache usage to 17-18 GB on top of the 15.5 GB model
-weights — right against the memory-guard ceiling (see `README.md`'s
-long-context section). Rough estimate from that data: realistic safe context
+real ceiling on a 24 GB machine. In testing during engine evaluation, a single
+~3.9K-token prompt already pushed KV cache usage to 17-18 GB on top of the
+15.5 GB model weights — right against a memory guard's ceiling (that specific
+test was on oMLX, which enforces a hard ceiling; Ollama doesn't hard-fail the
+same way but the underlying memory pressure is the same). Rough estimate from
+that data: realistic safe context
 for a single request here is more like **8K-16K tokens**, not benchmarked
 precisely. For this receipt-matching use case that's not a constraint — OCR
 text for one invoice plus a handful of candidate ledger rows is a few hundred
