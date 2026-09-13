@@ -93,29 +93,86 @@ API confirmed working with `reasoning_effort: low` applied server-wide.
 
 ## Engine comparison — 2026-09-13
 
-Before committing to raw `mlx_lm.server`, ran the same Qwen3.8-27B model through
-three engines, all on this Mac:
+Compared the same Qwen3.8-27B model across four engines on this Mac: raw
+`mlx_lm.server`, Ollama + MLX backend, llama.cpp `llama-server` (GGUF), and
+oMLX. First pass at the Ollama number was **wrong** — worth recording why,
+since it changed the outcome.
 
-| Engine | Model file | Size | Prompt tok/s | Gen tok/s | Notes |
-|---|---|---:|---:|---:|---|
-| **Raw `mlx_lm.server`** | `mlx-community/Qwen3.8-27B-4bit` (MLX) | 15.5 GB | 22.7–37.9 | **6.5–6.6** | Winner — fits with headroom, fastest |
-| Ollama 0.33.3 + MLX backend | `qwen3.8:27b-mlx` | 18 GB | 12.7 | 2.69 | Ollama ships MLX as a hard dependency now (not just a preview flag) and manages context safely (bounded to 4K by default via "vram-based default context"), but memory pressure (only 17.8 GB of 24 GB available to the GPU) made it 2.4x slower than raw MLX |
-| llama.cpp `llama-server` | `unsloth/Qwen3.8-27B-UD-Q4_K_XL.gguf` | 17.6 GB | 23.46 | 4.56 | Unsloth's "dynamic" Q4_K_XL quant is bigger than the MLX 4-bit build — OOM'd (`ggml_metal_synchronize: Insufficient Memory`) at 8K+ context on this 24 GB machine, only worked reduced to 4K context. Needed `--parallel 1` (ik-llama's own documented lesson) to even get that far — default 4 slots multiply KV cache 4x and OOM immediately. |
+**Round 1 (bugged):** Ollama tested via its native `/api/chat` with
+`"think":"low"`, giving 2.69 tok/s — apparently much slower than raw MLX's 6.5.
+Root cause found later: Ollama's `think` enum (`low`/`medium`/`high`/`none`)
+doesn't match Qwen3.8's own template enum (`low`/`medium`/`xhigh`), so the
+parameter silently didn't take effect and the model kept thinking at full
+(`xhigh`) effort, burning most of the measured time. The fix is to use
+`reasoning_effort` on Ollama's **OpenAI-compatible** `/v1/chat/completions`
+endpoint instead, which does map correctly to Qwen3.8's template.
 
-**Raw `mlx_lm.server` wins on both speed and memory headroom.** The smaller MLX
-quant (15.5 GB vs. 17.6 GB GGUF) is what lets it fit on 24 GB with room for a
-real context window at all — the other two paths are memory-constrained on this
-specific machine, not just slower. Ollama's own research context (checked
-2026-09-13): even the general MLX-vs-llama.cpp comparisons out there report
-MLX 15–25% faster for 14B+ models and Ollama itself switched its Apple Silicon
-backend to MLX in March 2026 (stable/default since v0.30, May 2026) — this test
-confirms that holds for this exact model on this exact machine.
+**Round 2 (also invalid):** retested the fixed parameter, but running Ollama
+and oMLX loading a model *simultaneously* pushed this 24 GB machine into severe
+memory pressure (~150 MB free, model process stuck in uninterruptible I/O
+wait/swap thrashing) — invalidating that run too. Lesson: **test one engine at
+a time** on a memory-constrained machine; concurrent large-model loads produce
+garbage numbers, not a "multi-engine" data point.
 
-Ollama and its test model were removed after the comparison (`brew uninstall
-ollama`, `ollama rm qwen3.8:27b-mlx`) — not part of the chosen stack. The
-Unsloth GGUF (17.6 GB) was deleted too.
+**Round 3 (clean, isolated, one engine at a time):**
 
-### Known risk: accepted, with mitigation
+| Engine | Model file | Size | Gen tok/s (warm) | Notes |
+|---|---|---:|---:|---|
+| Raw `mlx_lm.server` | `mlx-community/Qwen3.8-27B-4bit` (MLX, standard 4-bit) | 15.5 GB | 6.5–6.6 | No safety rails; has basic built-in prompt caching (confirmed: 56→189 cached tokens across a 3-turn test) |
+| **Ollama 0.33.3 + MLX backend** | `qwen3.8:27b-mlx` (**nvfp4** quant — different format from mlx-community's 4-bit, a real confound, not just "a wrapper") | 18 GB | **10–12.2** | Fastest of the three once correctly configured; clean prompt caching (52→210 cached tokens) |
+| llama.cpp `llama-server` | `unsloth/Qwen3.8-27B-UD-Q4_K_XL.gguf` | 17.6 GB | 4.56 (4K ctx only) | Unsloth's "dynamic" quant is bigger than the MLX 4-bit build — OOM'd at 8K+ context on this 24 GB machine, needed `--parallel 1` (ik-llama's own documented lesson) just to get that far |
+| oMLX 0.6.4 | `mlx-community/Qwen3.8-27B-4bit` (same MLX file as raw server) | 15.5 GB | ~6.4 | Same speed as raw MLX (expected — same underlying engine), but with a real memory-safety enforcer (see below) |
+
+**Corrected takeaway: Ollama's MLX backend is fastest for raw single-turn
+generation on this machine**, not raw `mlx_lm.server` as first concluded —
+that first conclusion was an artifact of a misconfigured test parameter, not a
+real engine difference. Cross-checked against general public benchmarks too:
+MLX is broadly reported 15–25% faster than llama.cpp for 14B+ models, and
+Ollama itself switched its Apple Silicon backend to MLX in March 2026
+(stable/default since v0.30, May 2026) — consistent with Ollama being
+competitive here once configured correctly.
+
+The llama.cpp GGUF path was deleted after testing (17.6 GB freed) — clearly
+memory-constrained on this specific 24 GB machine with this specific quant.
+
+### oMLX — proven memory safety, caching not yet demonstrated
+
+[oMLX](https://github.com/jundot/omlx) (genuine upstream verified: 21.6k
+stars, active — beware many identically-named/described GitHub forks, that's
+normal fork behavior, not spam) is a server built specifically for "coding
+agents on Apple Silicon" with a documented process-memory enforcer and tiered
+(RAM + paged-SSD) KV caching.
+
+**Memory safety: proven, not just documented.** With the default `balanced`
+tier, the exact model that raw `mlx_lm.server` runs fine on this machine
+(15.5 GB) got a **clean, actionable rejection** instead of a crash:
+
+> `process memory limit exceeded (usage 17.7 GB, abort threshold 16.9 GB,
+> metal_cap ceiling 17.8 GB)`
+
+Fix: `--memory-guard aggressive` plus raising macOS's Metal wired-memory cap
+(`sudo sysctl iogpu.wired_limit_mb=20480` — temporary, resets on reboot). After
+that, generation worked normally. This is the mechanism that should prevent
+the kernel-panic class of bug documented for raw `mlx_lm.server` below.
+
+**Caching: not demonstrated by this test, likely due to test design, not a
+flaw.** A 3-turn conversation (57–302 tokens per turn) showed `cached_tokens: 0`
+throughout, even with `--hot-cache-max-size` and `--paged-ssd-cache-dir`
+explicitly enabled (both default OFF — easy to miss). Server log explained why:
+cache operates in **2048-token blocks**
+(`boundary_snapshot_unavailable ... available_boundaries=0`), and the test
+conversation never got close to one full block. Real OpenCode sessions
+(system prompt + file contents) would clear 2048 tokens quickly — this needs a
+realistic longer-context test to actually observe, not a toy Q&A exchange.
+
+Install note: the Homebrew tap path (`brew tap jundot/omlx <url>`) hit
+formula-loading and `git` auth errors on this machine's modified Homebrew
+build — used `pip install -e .` from a cloned source checkout instead, which
+worked cleanly. No custom Metal kernels needed for Qwen3.8 specifically (only
+GLM-5.2/MiniMax M3/Qwen3.5 need those, per the project's own docs) — Xcode is
+not required for this use case.
+
+### Known risk (raw `mlx_lm.server`): accepted, with mitigation
 
 `mlx_lm.server` has open upstream issues about unbounded KV-cache growth during
 long agentic sessions, up to a macOS kernel panic on a 96 GB Mac Studio after
@@ -128,11 +185,33 @@ for now since it only bites at very long (50K+ token) unbounded sessions — mit
 restarting the server between long OpenCode sessions rather than leaving it up
 indefinitely, and revisit if `--max-kv-size` lands on the server.
 
+### Current state (2026-09-13, backlogged — no rush, this is a months-scale decision)
+
+- Ollama and oMLX are both **kept installed** via Homebrew (binaries only,
+  nothing running, no idle resource cost) so testing can resume without
+  re-setup. Ollama's `qwen3.8:27b-mlx` (17 GB) is also kept on disk.
+- Neither engine is wired into OpenCode yet — no daily-driver decision has been
+  made. Current OpenCode config still points at `../ik-llama/`
+  (llama.cpp/`qwen36u27b`).
+- `mlx-community/Qwen3.8-27B-4bit` (15.5 GB, standard 4-bit MLX) stays cached —
+  used by both raw `mlx_lm.server` and oMLX tests.
+
+### Backlog: realistic long-context test (oMLX caching)
+
+oMLX's headline feature — tiered KV caching across turns — needs a test with
+a genuinely long shared prefix (2048+ tokens: a real system prompt or a pasted
+code file) to actually observe a cache hit, not a short Q&A exchange like the
+one run above. Do this before ruling oMLX in or out on caching grounds; its
+proven memory-safety behavior already stands on its own regardless.
+
 ### Not yet done
 
-- `reasoning_effort: low` only smoke-tested on short prompts via CLI and one curl
-  request — not yet run through an actual OpenCode coding/tool-call session.
+- `reasoning_effort: low` only smoke-tested on short prompts — not yet run
+  through an actual OpenCode coding/tool-call session, on any engine.
 - Not yet decided: keep `qwen36u27b` (llama.cpp/GGUF, `../ik-llama/`) as the
-  OpenCode daily driver and treat MLX/Qwen3.8-27B as a second option, or switch
+  OpenCode daily driver and treat MLX/Ollama/oMLX as second options, or switch
   the daily driver over and update `../ik-llama/README.md`'s Mac table
-  accordingly.
+  accordingly. Candidates ranked by what's known so far: Ollama (fastest,
+  proven caching) vs. oMLX (same speed as raw MLX, proven crash-safety, caching
+  unproven) vs. raw `mlx_lm.server` (no longer favored — same speed as oMLX
+  without its safety net, slower than Ollama).
