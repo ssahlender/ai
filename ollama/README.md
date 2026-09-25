@@ -88,7 +88,7 @@ extraction/matching task with 100% correct results — see
 fix, different (single-turn, short) workload — the long-context/memory
 tradeoffs from the coding-agent testing don't apply there.
 
-## Using this ollama from another host (graphify on the Hermes LXC)
+## Using this ollama from another host (e.g. graphify on a separate machine)
 
 `start.sh` binds `OLLAMA_HOST=127.0.0.1` on purpose — an ollama endpoint has no
 authentication, so it never listens on the LAN. Another host reaches it over an SSH
@@ -97,7 +97,7 @@ tunnel instead:
 ```bash
 # client side, once per session. The concrete host, account and key path are
 # deliberately NOT recorded in this repository — it is public. They live in the
-# Hermes-local graphify-integration skill and the private Gitea repos.
+# host-local graphify-integration skill and a private repository.
 ssh -f -N -o ExitOnForwardFailure=yes -i ~/.ssh/<key> <user>@<air-lan-address> \
     -L 11434:127.0.0.1:11434
 
@@ -105,7 +105,7 @@ export OLLAMA_BASE_URL=http://127.0.0.1:11434/v1   # graphify reads this one ver
 export OLLAMA_API_KEY=dummy                        # graphify wants a non-empty value
 ```
 
-Client-side findings (measured on the Hermes side with graphify 0.9.67, Sept 2026):
+Client-side findings (measured against graphify 0.9.67, Sept 2026):
 
 - **graphify batches documents into large chunks.** Ten small ESPHome YAML files went
   out as *one* ~18,755-token chunk, so cap it: `--token-budget 3000`.

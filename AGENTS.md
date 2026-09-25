@@ -6,7 +6,7 @@ How to wire AI coding agents to the tools in this repo.
 
 `github.com/ssahlender/ai` is public. Never commit internal addressing to it: no LAN
 IPs, internal hostnames, account names, SSH key filenames/paths, or
-private URLs. Keep the real values in the Hermes-local skills or the private Gitea
+private URLs. Keep the real values in host-local skills or a private repository
 repos and reference them from here — `ollama/README.md` shows the pattern. The same
 rule applies to `sysadmin-github`.
 
@@ -47,7 +47,7 @@ Add to agent MCP config:
 ```
 Tools: `mcp_headroom_headroom_compress`, `_retrieve`, `_stats`.
 
-Hermes: `mcp_servers.headroom` in `~/.hermes/config.yaml` (already configured).
+The agent host: `mcp_servers.headroom` in its own `config.yaml` (configured locally, not in this repo).
 Claude Code: `headroom mcp install --agent claude` (already configured).
 
 ### Proxy (transparent — Claude Code / Codex)
@@ -96,7 +96,7 @@ On i9 the `pdf` extra is omitted (corporate proxy CVE filter blocks `pypdf`).
    - Claude Code `~/.claude/skills/graphify/`
    - Codex `~/.codex/skills/graphify/`
    - OpenCode `~/.config/opencode/skills/graphify/` (also auto-loads `~/.claude/skills/`)
-   - Hermes `~/.hermes/skills/graphify/`
+   - the host-local `~/.hermes/skills/graphify/`
    - Antigravity `~/.gemini/config/skills/graphify/` (agy reads that path globally;
      project-level is `<workspace>/.agents/skills/`)
 
