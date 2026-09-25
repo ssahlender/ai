@@ -144,3 +144,40 @@ Client-side findings (measured on the Hermes side with graphify 0.9.67, Sept 202
   OpenAI-compatible `/v1/chat/completions` endpoint, so a failed call reports
   `Connection error`, never an import error. No server = connection refused.
 
+## What decides whether a local extraction run finishes (measured 2026-09-25)
+
+Same corpus (10 YAML docs), same `--token-budget 3000`, same extraction instance, same model — only the
+output bounding differs:
+
+| variant | wall | outcome |
+|---|---|---|
+| `max_tokens 2500` + `reasoning_effort low` | 861 s | **graph produced, 0 truncation** |
+| uncapped (`max_tokens 16384`) | 1500 s timeout | no graph |
+| `reasoning_effort none` (thinking off) | 1500 s timeout | no graph |
+
+Two rules from it: **cap the output** (2500 is enough for a real config corpus) and keep
+`reasoning_effort: low`. Do not assume turning thinking off buys speed — the `none` variant was slower
+here, not faster. Judge a variant by whether `graph.json` exists and how many chunks were truncated,
+never by how many tokens it generated; the variants that produced *nothing* generated more tokens than
+the one that worked.
+
+**The extraction instance does not survive a reboot.** `start-graphify.sh` starts a detached process and
+installs no LaunchAgent, so after a restart re-run it before expecting local extractions to work:
+`cd <this repo>/ollama && ./start-graphify.sh`. (The daily-driver instance on the default port is
+unaffected — it is started by ollama itself.)
+
+## Local model verdicts (extraction use, measured)
+
+- **`Qwen3.6-35B-A3B` `UD-Q2_K_XL` — the working choice** (13 GB): the only model that produced a graph
+  with the bounded recipe above, on both a fixture and a real 12-file repo.
+- `UD-Q3_K_XL` (17 GB) — downloaded, **never benchmarked**; higher quant should adhere better and run
+  ~20–35 % slower. Unproven either way.
+- `gemma4:26b` — unusable with graphify: upstream `/v1` puts all text in `reasoning`, and the MoE variant
+  returns nothing with system prompts over ~500 chars. Measured 0 completion tokens.
+- `granite4.2:30b` — fails on context: a ~18.8k-token chunk against a smaller `NUM_CTX` gives
+  `BadRequestError` and endless slice splitting, no usable graph.
+- `qwen2.5-coder:7b` — completes but unreliable (see the baseline note above). Fine as a smoke test.
+- `qwen3.8:27b-mlx` — unsuitable for extraction: it defaults to `reasoning_effort xhigh` at ~2.7 tok/s
+  against 10–12 for the others, so it cannot finish a chunk cap in reasonable time.
+
+
