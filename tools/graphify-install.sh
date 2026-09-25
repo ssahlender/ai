@@ -9,11 +9,17 @@ source "$(dirname "${BASH_SOURCE[0]}")/_brew-wrapper.sh"
 # shellcheck source=/dev/null
 source "$(dirname "${BASH_SOURCE[0]}")/_uv-wrapper.sh"
 
-# pdf extra blocked by corporate proxy CVE filter on i9 — omit by default
+# pdf extra blocked by corporate proxy CVE filter on i9 — omit by default.
+# terraform  : tree_sitter_hcl — without it every .tf/.hcl file is silently skipped (#1745)
+# leiden     : Leiden community detection (igraph-based)
+# mcp        : SDK for the `graphify --mcp` stdio server
+# watch      : watchfiles, needed by `--watch` auto-rebuild
+# office/sql : document + SQL corpora
+GRAPHIFY_EXTRAS_BASE="openai,ollama,sql,terraform,leiden,mcp,watch,office"
 if [ -n "${IS_I9:-}" ]; then
-  GRAPHIFY_EXTRAS="${GRAPHIFY_EXTRAS:-openai,ollama,sql,office}"
+  GRAPHIFY_EXTRAS="${GRAPHIFY_EXTRAS:-$GRAPHIFY_EXTRAS_BASE}"
 else
-  GRAPHIFY_EXTRAS="${GRAPHIFY_EXTRAS:-openai,ollama,sql,pdf,office}"
+  GRAPHIFY_EXTRAS="${GRAPHIFY_EXTRAS:-$GRAPHIFY_EXTRAS_BASE,pdf}"
 fi
 if [ -n "$GRAPHIFY_EXTRAS" ]; then
   GRAPHIFY_SPEC="graphifyy[$GRAPHIFY_EXTRAS]"
