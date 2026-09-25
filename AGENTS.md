@@ -4,7 +4,8 @@ How to wire AI coding agents to the tools in this repo.
 
 ## This repository is PUBLIC
 
-`github.com/ssahlender/ai` is public. Never commit internal addressing to it: no LAN
+This repository is public (its own URL is the only GitHub reference that belongs here). Never
+commit internal addressing: no LAN
 IPs, internal hostnames, account names, SSH key filenames/paths, or
 private URLs. Keep the real values in host-local skills or a private repository
 repos and reference them from here — `ollama/README.md` shows the pattern. The same
@@ -96,7 +97,7 @@ On i9 the `pdf` extra is omitted (corporate proxy CVE filter blocks `pypdf`).
    - Claude Code `~/.claude/skills/graphify/`
    - Codex `~/.codex/skills/graphify/`
    - OpenCode `~/.config/opencode/skills/graphify/` (also auto-loads `~/.claude/skills/`)
-   - the host-local `~/.hermes/skills/graphify/`
+   - the agent host's own graphify skill directory (outside this repo)
    - Antigravity `~/.gemini/config/skills/graphify/` (agy reads that path globally;
      project-level is `<workspace>/.agents/skills/`)
 
