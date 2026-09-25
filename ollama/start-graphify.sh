@@ -17,6 +17,19 @@ set -euo pipefail
 
 PORT="${GRAPHIFY_OLLAMA_PORT:-11438}"
 
+# Resolve the binary explicitly: this script is started from non-interactive sessions
+# (ssh) where Homebrew's bin directory is not on PATH.
+OLLAMA_BIN="$(command -v ollama 2>/dev/null || true)"
+if [ -z "$OLLAMA_BIN" ]; then
+  for cand in /opt/homebrew/bin/ollama /usr/local/bin/ollama /usr/bin/ollama; do
+    [ -x "$cand" ] && OLLAMA_BIN="$cand" && break
+  done
+fi
+if [ -z "$OLLAMA_BIN" ] || [ ! -x "$OLLAMA_BIN" ]; then
+  echo "could not find the ollama binary (looked in PATH and the usual prefixes)" >&2
+  exit 1
+fi
+
 if curl -s -m 2 "http://127.0.0.1:$PORT/api/version" >/dev/null 2>&1; then
   echo "an ollama instance is already listening on $PORT. Stop it first: ./stop-graphify.sh" >&2
   exit 1
@@ -30,4 +43,4 @@ exec env \
   OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:-5m}" \
   OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-1}" \
   OLLAMA_HOST="127.0.0.1:$PORT" \
-  ollama serve
+  "$OLLAMA_BIN" serve
