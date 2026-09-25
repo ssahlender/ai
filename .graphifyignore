@@ -24,3 +24,17 @@ repomix-output.md
 passwd
 vault.yml
 vault.yaml
+# name-based exclusions (layer 2). Kept in step with the post-run check in graphify-semantic-pass*.sh,
+# which refuses to publish a graph whose nodes come from a sensitive-named file. When the two lists
+# disagree, a repo gets skipped instead of published — so extend BOTH together.
+*password*
+*passwd*
+*token*
+*api-key*
+*apikey*
+*.conf
+*.tfvars
+*.tfstate*
+.secrets*
+*kubeconfig*
+*auth.json*
