@@ -38,8 +38,10 @@ not just a different wrapper around the same weights. ~18 GB on disk.
 
 | Script | Purpose |
 |---|---|
-| `start.sh` | Start `ollama serve` (flash-attention on, q8_0 KV cache) |
+| `start.sh` | Start the daily-driver `ollama serve` (flash-attention on, q8_0 KV cache) |
 | `stop.sh` | Stop it |
+| `start-graphify.sh` | Start the extraction-only instance on :11438 (ctx 16384, 1 parallel slot, 5 min keep-alive) |
+| `stop-graphify.sh` | Stop only that instance; the daily driver is never touched |
 | `setup-agent.sh` | Wire OpenCode + Pi provider config |
 
 ### Quick start
@@ -115,9 +117,16 @@ Client-side findings (measured on the Hermes side with graphify 0.9.67, Sept 202
   `/api/*` API honours them. Consequences: `GRAPHIFY_OLLAMA_NUM_CTX` does nothing;
   graphify's own derived `num_ctx` (`llm.py`) is dead code against `/v1`; and any request
   whose output needs more than `4096 - prompt` is cut off mid-answer
-  (`truncated at max_completion_tokens`). The fix is `start.sh`
-  (`OLLAMA_CONTEXT_LENGTH`, default 16384) — measured cost ~0.68 GB of q8_0 KV for this
-  class of model (~42.5 KiB/token), so it is cheap on a 24 GB machine.
+  (`truncated at max_completion_tokens`). **The fix is `start-graphify.sh`: a second,
+  extraction-only instance on port 11438 with `OLLAMA_CONTEXT_LENGTH=16384`.** A second
+  instance is used rather than raising the shared one because the server env is global to
+  the instance, and the daily-driver model (18 GB, 64 layers, MLX format) exposes no
+  KV-head geometry — its cache may be fp16-sized (ollama's MLX path need not honour
+  `OLLAMA_KV_CACHE_TYPE=q8_0`), so a global bump could put a 24 GB machine under pressure
+  during coding sessions. Measured cost for the extraction model: ~0.68 GB of q8_0 KV at
+  16384 (~42.5 KiB/token). The extraction instance also pins `OLLAMA_NUM_PARALLEL=1`
+  (each parallel slot carries its own context) and uses `OLLAMA_KEEP_ALIVE=5m` so a
+  resident extraction model cannot collide with a coding-agent call.
   Verify it on a LIVE request (`ollama ps` while a call is in flight), never on an idle one:
   an idle snapshot shows whatever the previous run left loaded.
 - **Uncapped prompts kill big models.** An 18 GB model plus an 18.7K-token prompt dies
