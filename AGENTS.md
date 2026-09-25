@@ -2,6 +2,14 @@
 
 How to wire AI coding agents to the tools in this repo.
 
+## This repository is PUBLIC
+
+`github.com/ssahlender/ai` is public. Never commit internal addressing to it: no LAN
+IPs, internal hostnames, account names, SSH key filenames/paths, or
+private URLs. Keep the real values in the Hermes-local skills or the private Gitea
+repos and reference them from here — `ollama/README.md` shows the pattern. The same
+rule applies to `sysadmin-github`.
+
 ## Local LLM (OpenCode + Claude Code)
 
 ### x86 CPU (ProBook + i9)
