@@ -64,8 +64,14 @@ path.write_text("\n".join(out).rstrip() + "\n")
 print(f"Codex config updated: {path}" if inserted or features_seen else f"Codex config unchanged: {path}")
 PY
 
-echo "Registering Graphify for OpenCode..."
-graphify install --platform opencode
+# OpenCode's plugin registration is PROJECT-scoped: it writes .opencode/opencode.json
+# and .opencode/plugins/graphify.js into $PWD. Run it from a throwaway directory so
+# the repo you happen to be standing in stays clean. Always-on wiring for a real
+# project is opt-in: cd into that repo and run `graphify opencode install`.
+echo "Registering Graphify for OpenCode (user-level skill; plugin wiring is per-repo)..."
+GRAPHIFY_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/graphify-opencode.XXXXXX")"
+( cd "$GRAPHIFY_TMP_DIR" && graphify install --platform opencode )
+rm -rf "$GRAPHIFY_TMP_DIR"
 
 echo "Registering Graphify for Hermes..."
 if command -v hermes >/dev/null 2>&1; then
@@ -74,6 +80,17 @@ else
   echo "hermes not found — skipping"
 fi
 
+# Antigravity is Gemini-family: the skill goes to ~/.gemini/config/skills/graphify/.
+# The .agents/rules + .agents/workflows part of `graphify antigravity install` is
+# project-scoped, so do that per repo when you want always-on rules there.
+echo "Registering Graphify for Antigravity..."
+if command -v agy >/dev/null 2>&1; then
+  graphify install --platform antigravity
+else
+  echo "agy not found — skipping"
+fi
+
 _pi_install_package @gaodes/pi-graphify
 
-echo "Graphify registered. Restart Claude Code, Codex, OpenCode, and Pi sessions to load the new instructions."
+echo "Graphify registered. Restart Claude Code, Codex, OpenCode, Antigravity, and Pi sessions to load the new instructions."
+echo "Per-repo always-on wiring (AGENTS.md / CLAUDE.md / hooks): cd into the repo and run 'graphify <platform> install'."

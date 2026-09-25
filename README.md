@@ -382,29 +382,40 @@ CLAUDE_MEM_FORCE_INSTALL=1 ./claude-mem-install.sh
 
 | Script | What it does |
 |---|---|
-| `graphify-install.sh` | Installs the official PyPI package `graphifyy[openai,ollama,sql,pdf,office]` with `uv tool install`, falling back to `pipx`; then registers Claude Code, Codex, OpenCode, and Hermes |
+| `graphify-install.sh` | Installs the official PyPI package `graphifyy[openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf]` with `uv tool install`, falling back to `pipx`; then registers Claude Code, Codex, OpenCode, Hermes, and Antigravity |
 | `graphify-update.sh` | Upgrades Graphify with the same default extras when managed by `uv tool` or `pipx`, then refreshes integrations |
-| `graphify-init.sh` | Re-registers Claude Code, Codex, OpenCode, Hermes, and Pi integrations; enables Codex `multi_agent = true` |
+| `graphify-init.sh` | Re-registers Claude Code, Codex, OpenCode, Hermes, Antigravity, and Pi integrations; enables Codex `multi_agent = true`. Runs the OpenCode registration in a throwaway tmpdir because it writes `.opencode/` into `$PWD` |
 
 Graphify's package name is `graphifyy` but the CLI is `graphify`. The default
-extras are `openai,ollama,sql,pdf,office`, so the preferred installer is
-`uv tool install 'graphifyy[openai,ollama,sql,pdf,office]'` on both Linux and
-macOS. Override with `GRAPHIFY_EXTRAS=...`; use `GRAPHIFY_EXTRAS=` for the base
+extras are `openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf`, so the
+preferred installer is
+`uv tool install 'graphifyy[openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf]'`
+on both Linux and macOS. `terraform` matters even on a non-Terraform machine's
+behalf: without it every `.tf`/`.hcl` file silently contributes nothing to the
+graph. Override with `GRAPHIFY_EXTRAS=...`; use `GRAPHIFY_EXTRAS=` for the base
 package only. On macOS, install `uv` with Homebrew (`brew install uv`) if it is
 missing; the install script will also do this when Homebrew is available.
 `pipx install 'graphifyy[...]'` is kept as a fallback for Linux systems that
 already use pipx. On the i9/proxy environment, the scripts pass
 `--system-certs` to `uv tool install` so corporate CA certificates are honored.
 
+Registration has two levels, and the init script only does the first:
+`graphify install --platform <p>` copies the **user-level skill** (nothing in the
+repo), while `graphify <platform> install` — run inside a repo — writes
+**project-scoped always-on wiring** (`AGENTS.md`, `CLAUDE.md`,
+`.claude/settings.json`, `.codex/hooks.json`, `.agents/rules|workflows`,
+`.opencode/`). The second form touches committed files, so it stays opt-in per
+repository.
+
 On i9 (Debian 12 / GLIBC < 2.38/2.39), brew's `uv` bottle is incompatible.
 `graphify-install.sh` uses `_uv-wrapper.sh` which installs uv via the official
 astral.sh installer (`~/.local/bin/uv`, musl binary, glibc-independent) when
 `IS_I9` is set and no working uv is found. The corporate proxy CVE filter blocks
 `pypdf` (all versions), so the `pdf` extra is omitted by default on i9
-(`openai,ollama,sql,office`). Override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office`
+(`openai,ollama,sql,terraform,leiden,mcp,watch,office`). Override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office`
 once the proxy allowlist is updated.
 
-After install/update, restart Claude Code, Codex, OpenCode, and Hermes sessions. Use it
+After install/update, restart Claude Code, Codex, OpenCode, Hermes, and Antigravity sessions. Use it
 inside a project with:
 
 ```bash
