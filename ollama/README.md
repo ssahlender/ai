@@ -85,3 +85,39 @@ extraction/matching task with 100% correct results — see
 `receipt-extraction-guide.md`. Same model, same `reasoning_effort`
 fix, different (single-turn, short) workload — the long-context/memory
 tradeoffs from the coding-agent testing don't apply there.
+
+## Using this ollama from another host (graphify on the Hermes LXC)
+
+`start.sh` binds `OLLAMA_HOST=127.0.0.1` on purpose — an ollama endpoint has no
+authentication, so it never listens on the LAN. Another host reaches it over an SSH
+tunnel instead:
+
+```bash
+# client side, once per session. The concrete host, account and key path are
+# deliberately NOT recorded in this repository — it is public. They live in the
+# Hermes-local graphify-integration skill and the private Gitea repos.
+ssh -f -N -o ExitOnForwardFailure=yes -i ~/.ssh/<key> <user>@<air-lan-address> \
+    -L 11434:127.0.0.1:11434
+
+export OLLAMA_BASE_URL=http://127.0.0.1:11434/v1   # graphify reads this one verbatim
+export OLLAMA_API_KEY=dummy                        # graphify wants a non-empty value
+```
+
+Client-side findings (measured on the Hermes side with graphify 0.9.67, Sept 2026):
+
+- **graphify batches documents into large chunks.** Ten small ESPHome YAML files went
+  out as *one* ~18,755-token chunk, so cap it: `--token-budget 3000`. Its
+  `GRAPHIFY_OLLAMA_NUM_CTX` variable is an estimate only — `ollama ps` shows the runner
+  loaded with context **4096** regardless, so raising that env var does not help.
+- **Uncapped prompts kill big models.** An 18 GB model plus an 18.7K-token prompt dies
+  with a Metal OOM (`mlx: [METAL] Command buffer execution failed: Insufficient
+  Memory`). Capping the chunk fixes it; raising `iogpu.wired_limit_mb` is the other
+  lever (see `../mlx/README.md`). Free RAM was not the cause — the Mac sat at 72% free
+  with only ~2 GiB in apps when it happened.
+- **`qwen2.5-coder:7b` is not a usable extraction model.** It cannot produce the JSON
+  that graphify requires (prose answers, `invalid JSON` x3, hollow responses x6, zero
+  nodes). Pick the extraction model by JSON-contract reliability, not size or speed.
+- The `ollama` Python module is *not* needed by graphify — it speaks the
+  OpenAI-compatible `/v1/chat/completions` endpoint, so a failed call reports
+  `Connection error`, never an import error. No server = connection refused.
+
