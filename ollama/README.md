@@ -106,17 +106,31 @@ export OLLAMA_API_KEY=dummy                        # graphify wants a non-empty 
 Client-side findings (measured on the Hermes side with graphify 0.9.67, Sept 2026):
 
 - **graphify batches documents into large chunks.** Ten small ESPHome YAML files went
-  out as *one* ~18,755-token chunk, so cap it: `--token-budget 3000`. Its
-  `GRAPHIFY_OLLAMA_NUM_CTX` variable is an estimate only — `ollama ps` shows the runner
-  loaded with context **4096** regardless, so raising that env var does not help.
+  out as *one* ~18,755-token chunk, so cap it: `--token-budget 3000`.
+
+- **The context window is a SERVER-side setting on ollama 0.34.4 — no client can raise it.**
+  Verified on the wire 2026-09-25 with a logging proxy: graphify sent
+  `options={'num_ctx': 16384} keep_alive='30m'`, and the runner still came up at
+  **CONTEXT 4096** (`ollama ps`), i.e. `/v1` silently drops both fields. Only the native
+  `/api/*` API honours them. Consequences: `GRAPHIFY_OLLAMA_NUM_CTX` does nothing;
+  graphify's own derived `num_ctx` (`llm.py`) is dead code against `/v1`; and any request
+  whose output needs more than `4096 - prompt` is cut off mid-answer
+  (`truncated at max_completion_tokens`). The fix is `start.sh`
+  (`OLLAMA_CONTEXT_LENGTH`, default 16384) — measured cost ~0.68 GB of q8_0 KV for this
+  class of model (~42.5 KiB/token), so it is cheap on a 24 GB machine.
+  Verify it on a LIVE request (`ollama ps` while a call is in flight), never on an idle one:
+  an idle snapshot shows whatever the previous run left loaded.
 - **Uncapped prompts kill big models.** An 18 GB model plus an 18.7K-token prompt dies
   with a Metal OOM (`mlx: [METAL] Command buffer execution failed: Insufficient
   Memory`). Capping the chunk fixes it; raising `iogpu.wired_limit_mb` is the other
   lever (see `../mlx/README.md`). Free RAM was not the cause — the Mac sat at 72% free
   with only ~2 GiB in apps when it happened.
-- **`qwen2.5-coder:7b` is not a usable extraction model.** It cannot produce the JSON
-  that graphify requires (prose answers, `invalid JSON` x3, hollow responses x6, zero
-  nodes). Pick the extraction model by JSON-contract reliability, not size or speed.
+- **`qwen2.5-coder:7b` is a weak-but-working extraction baseline, not a dead end.**
+  Corrrected 2026-09-25 after re-measuring against a real corpus: with
+  `--token-budget 3000` it produced **59 nodes / 83 edges over 8 files** in 1529 s, with
+  3 `invalid JSON` and 6 hollow responses. An earlier "zero nodes" reading was a harness
+  artifact, not the model's fault. Still: pick the extraction model by JSON-contract
+  reliability and graph density, not by size or speed.
 - The `ollama` Python module is *not* needed by graphify — it speaks the
   OpenAI-compatible `/v1/chat/completions` endpoint, so a failed call reports
   `Connection error`, never an import error. No server = connection refused.
