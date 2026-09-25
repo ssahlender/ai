@@ -5,15 +5,10 @@ __pycache__/
 *.py[cod]
 *.opencode
 repomix-output.*
-# >>> graphify (managed by ~/scripts/graphify-adopt-repo.sh) >>>
 # Per-agent skill copies are duplicated per repo (~460K); the user-level skill
 # already exists on every host, so only the wiring files are worth committing.
 .claude/skills/
 .codex/skills/
 .opencode/skills/
 .agents/skills/
-# Generated graph output. No trailing slash on purpose: 'graphify-out/' matches
 # directories only, so it would NOT ignore the symlink and the link would
-# become committable; 'graphify-out' ignores the symlink and a real dir alike.
-graphify-out
-# <<< graphify (managed by ~/scripts/graphify-adopt-repo.sh) <<<
