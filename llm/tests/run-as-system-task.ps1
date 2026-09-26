@@ -18,7 +18,7 @@
     Full path of the .ps1 to run.
 
 .PARAMETER ScriptArgs
-    Arguments passed through to it, e.g. @('-Mode','gemma4qat','-OutFile','C:\x.txt').
+    Argument string passed through to it, e.g. "-Mode gemma4qat -OutFile C:\x.txt".
 
 .PARAMETER TaskName
     Task name; an existing task of the same name is replaced.
@@ -27,22 +27,23 @@
     Execution time limit before the task is killed.
 
 .EXAMPLE
-    .\run-as-system-task.ps1 -Script C:\work\job.ps1 -ScriptArgs @('-Mode','gemma4qat') -TaskName my-job
+    .\run-as-system-task.ps1 -Script C:\work\job.ps1 -ScriptArgs "-Mode gemma4qat" -TaskName my-job
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$Script,
-    [string[]]$ScriptArgs = @(),
+    # A single argument STRING, not an array: 'powershell.exe -File' flattens arrays into
+    # loose arguments, which then bind positionally and corrupt the callee's parameters.
+    # Pass e.g. "-Mode gemma4qat -OutFile C:\data\llm\blind-gemma.txt".
+    [string]$ScriptArgs = '',
     [string]$TaskName = 'hermes-long-job',
     [int]$TimeoutMinutes = 45
 )
 
 if (-not (Test-Path $Script)) { throw "script not found: $Script" }
 
-$quoted = ($ScriptArgs | ForEach-Object {
-    if ($_ -match '\s') { '"' + $_ + '"' } else { $_ }
-}) -join ' '
-$argString = "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" $quoted"
+$argString = "-NoProfile -ExecutionPolicy Bypass -File `"$Script`""
+if ($ScriptArgs) { $argString = "$argString $ScriptArgs" }
 $workDir = Split-Path $Script -Parent
 
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $argString -WorkingDirectory $workDir
