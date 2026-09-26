@@ -44,9 +44,9 @@ foreach ($j in $jobs) {
     $slug = ('bench-' + ($j.label -replace '[^A-Za-z0-9]+', '-')).Trim('-')
     $log = New-RunLogPath -Name $slug -LlmRoot $LlmRoot
     Write-Output ("=== " + $j.label + " ===")
-    & $BenchExe -m $modelPath -ngl 0 -p 8,128 -n 128 -r $Repeats *> $log
-    if ($LASTEXITCODE -ne 0) {
-        throw "benchmark failed for $($j.label) with exit code $LASTEXITCODE. Matrix is incomplete; no partial result is reported."
+    $code = Invoke-NativeToFile -Exe $BenchExe -Arguments @('-m', $modelPath, '-ngl', '0', '-p', '8,128', '-n', '128', '-r', "$Repeats") -LogPath $log
+    if ($code -ne 0) {
+        throw "benchmark failed for $($j.label) with exit code $code. Matrix is incomplete; no partial result is reported."
     }
     $metrics = Get-Content $log | Select-String -Pattern 'pp8|pp128|tg128|build:'
     if (-not $metrics) {

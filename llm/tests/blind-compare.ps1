@@ -57,8 +57,8 @@ $prompts = Get-RelayPromptList -Path (Join-Path $here 'suite-prompts.txt')
 if (Test-PortOpen -Port $Port) { throw "port $Port is already occupied; refusing to compare against a server this run did not start" }
 # Do NOT pipe this to Out-Null: if the launcher cannot be found, that error is the only clue,
 # and swallowing it turns a hard failure into a silent 300s wait for a port that never opens.
-& powershell -NoProfile -ExecutionPolicy Bypass -File $startScript $Mode -Background -Port $Port 2>&1 |
-    ForEach-Object { "  [start] $_" }
+$startOut = Get-NativeOutput -Exe 'powershell' -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $startScript, $Mode, '-Background', '-Port', "$Port")
+($startOut -split "`n") | Where-Object { $_.Trim() -ne '' } | ForEach-Object { "  [start] $($_.Trim())" }
 $health = Wait-ServerHealth -Port $Port -TimeoutSec 300 -IntervalSec 5
 if (-not $health.Ok) {
     "FAILED: server did not become healthy after $($health.Waited)s ($($health.LastErr))" | Set-Content "$OutFile.status" -Encoding UTF8

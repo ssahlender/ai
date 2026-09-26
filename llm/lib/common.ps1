@@ -198,3 +198,43 @@ function Get-RelayPromptList {
     if (-not (Test-Path $Path)) { throw "prompt list not found: $Path" }
     return @(Get-Content $Path | Where-Object { $_.Trim() -ne '' -and -not $_.StartsWith('#') })
 }
+
+function Invoke-NativeToFile {
+    # Run a native tool, capturing stdout AND stderr to a file, and return its exit code.
+    #
+    # WHY THIS EXISTS: llama-bench writes its whole table to STDERR. Merging stderr (`*>` or `2>&1`)
+    # under $ErrorActionPreference='Stop' turns the first stderr line into a NativeCommandError,
+    # which terminates the script - the run aborts with a 0-byte log and the scheduled task exits 1.
+    # It only reproduces in the production path (SYSTEM task); an interactive session with
+    # 'Continue' hides it, which is exactly how it survived review. Relaxing the preference around
+    # the call lets a native tool write to either stream without being treated as a failure, while
+    # the exit code is still checked by the caller.
+    param(
+        [Parameter(Mandatory = $true)][string]$Exe,
+        [string[]]$Arguments = @(),
+        [Parameter(Mandatory = $true)][string]$LogPath
+    )
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $Exe @Arguments *> $LogPath
+        return $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
+function Get-NativeOutput {
+    # Same problem, text-capture flavour: returns merged stdout+stderr as a string.
+    param(
+        [Parameter(Mandatory = $true)][string]$Exe,
+        [string[]]$Arguments = @()
+    )
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        return ((& $Exe @Arguments 2>&1 | Out-String))
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
