@@ -34,7 +34,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $here = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-$startScript = Join-Path $here 'start-llm.ps1'
+# start-llm.ps1 sits in llm\, this script in llm\tests\: probe BOTH instead of assuming a
+# sibling, otherwise -File gets a path that does not exist and the launcher silently fails.
+$startScript = @(
+    (Join-Path $here 'start-llm.ps1')
+    (Join-Path (Split-Path -Parent $here) 'start-llm.ps1')
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $startScript) { throw "start-llm.ps1 not found beside $here or its parent" }
 
 # Same prompts for every model. Covering: infra reasoning, shell scripting, German
 # business writing, arithmetic, and code review.
@@ -55,8 +61,17 @@ function Test-Port([int]$P) {
     } catch { return $false } finally { $c.Close() }
 }
 
-"=== $Mode : starting server ==="
-& powershell -NoProfile -ExecutionPolicy Bypass -File $startScript $Mode -Background -Port $Port | Out-Null
+# Write the header and status BEFORE anything slow happens. A model load takes minutes and a
+# long operation over WinRM can die with WSManFault 1359, so results are written as they arrive.
+"# Answers: $Mode" | Set-Content $OutFile -Encoding UTF8
+""                 | Add-Content $OutFile -Encoding UTF8
+"starting server ($startScript)" | Set-Content "$OutFile.status" -Encoding UTF8
+
+"=== $Mode : starting server ($startScript) ==="
+# Do NOT pipe this to Out-Null: if the launcher cannot be found, that error is the only clue,
+# and swallowing it turns a hard failure into a silent 300s wait for a port that never opens.
+& powershell -NoProfile -ExecutionPolicy Bypass -File $startScript $Mode -Background -Port $Port 2>&1 |
+    ForEach-Object { "  [start] $_" }
 $waited = 0
 while (-not (Test-Port $Port) -and $waited -lt 300) { Start-Sleep -Seconds 5; $waited += 5 }
 if (-not (Test-Port $Port)) {
@@ -64,13 +79,6 @@ if (-not (Test-Port $Port)) {
     "FAILED: server did not come up after ${waited}s"; exit 1
 }
 "  server up after ~${waited}s"
-
-# Write the header and status BEFORE anything slow happens. A model load takes minutes and
-# a long operation over WinRM can die with WSManFault 1359, so results are written as they
-# arrive rather than once at the end.
-"# Answers: $Mode" | Set-Content $OutFile -Encoding UTF8
-""                 | Add-Content $OutFile -Encoding UTF8
-"starting server"  | Set-Content "$OutFile.status" -Encoding UTF8
 
 $sw = [Diagnostics.Stopwatch]::StartNew()
 for ($i = 0; $i -lt $prompts.Count; $i++) {
