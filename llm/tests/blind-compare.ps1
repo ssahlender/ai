@@ -59,11 +59,20 @@ function Test-Port([int]$P) {
 & powershell -NoProfile -ExecutionPolicy Bypass -File $startScript $Mode -Background -Port $Port | Out-Null
 $waited = 0
 while (-not (Test-Port $Port) -and $waited -lt 300) { Start-Sleep -Seconds 5; $waited += 5 }
-if (-not (Test-Port $Port)) { "FAILED: server did not come up after ${waited}s"; exit 1 }
+if (-not (Test-Port $Port)) {
+    "FAILED: server did not come up after ${waited}s" | Set-Content "$OutFile.status" -Encoding UTF8
+    "FAILED: server did not come up after ${waited}s"; exit 1
+}
 "  server up after ~${waited}s"
 
+# Write the header and status BEFORE anything slow happens. A model load takes minutes and
+# a long operation over WinRM can die with WSManFault 1359, so results are written as they
+# arrive rather than once at the end.
+"# Answers: $Mode" | Set-Content $OutFile -Encoding UTF8
+""                 | Add-Content $OutFile -Encoding UTF8
+"starting server"  | Set-Content "$OutFile.status" -Encoding UTF8
+
 $sw = [Diagnostics.Stopwatch]::StartNew()
-$results = @()
 for ($i = 0; $i -lt $prompts.Count; $i++) {
     $n = $i + 1
     $body = @{
@@ -80,15 +89,26 @@ for ($i = 0; $i -lt $prompts.Count; $i++) {
                 -ContentType 'application/json' -Body $body -TimeoutSec 600
         $sw2.Stop()
         $answer = $r.choices[0].message.content
-        $tps = if ($r.usage.completion_tokens -and $sw2.Elapsed.TotalSeconds -gt 0) {
-                   [Math]::Round($r.usage.completion_tokens / $sw2.Elapsed.TotalSeconds, 2)
+        $tokens = $r.usage.completion_tokens
+        $tps = if ($tokens -and $sw2.Elapsed.TotalSeconds -gt 0) {
+                   [Math]::Round($tokens / $sw2.Elapsed.TotalSeconds, 2)
                } else { 'n/a' }
-        "  prompt $n done ($($r.usage.completion_tokens) tok, $tps t/s)"
-        $results += [pscustomobject]@{ n = $n; prompt = $prompts[$i]; answer = $answer; tokens = $r.usage.completion_tokens; tps = $tps }
+        "  prompt $n done ($tokens tok, $tps t/s)"
     } catch {
+        $answer = "ERROR: $($_.Exception.Message)"
         "  prompt $n FAILED: $($_.Exception.Message)"
-        $results += [pscustomobject]@{ n = $n; prompt = $prompts[$i]; answer = "ERROR: $($_.Exception.Message)"; tokens = 0; tps = 'n/a' }
     }
+
+    # append this answer immediately so partial progress is visible and survives a drop
+    "## Prompt $n"                             | Add-Content $OutFile -Encoding UTF8
+    ""                                         | Add-Content $OutFile -Encoding UTF8
+    "> $($prompts[$i])"                        | Add-Content $OutFile -Encoding UTF8
+    ""                                         | Add-Content $OutFile -Encoding UTF8
+    "**Answer** ($tokens tokens, $tps t/s)"    | Add-Content $OutFile -Encoding UTF8
+    ""                                         | Add-Content $OutFile -Encoding UTF8
+    (($answer -replace "`r`n", "`n").Trim())   | Add-Content $OutFile -Encoding UTF8
+    ""                                         | Add-Content $OutFile -Encoding UTF8
+    "prompt $n/$($prompts.Count)"              | Set-Content "$OutFile.status" -Encoding UTF8
 }
 $sw.Stop()
 
@@ -96,20 +116,5 @@ $sw.Stop()
 Get-Process -Name llama-server -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
-$md = New-Object System.Text.StringBuilder
-[void]$md.AppendLine("# Answers: $Mode")
-[void]$md.AppendLine("")
-[void]$md.AppendLine("total wall time: $([Math]::Round($sw.Elapsed.TotalSeconds,1))s")
-[void]$md.AppendLine("")
-foreach ($r in $results) {
-    [void]$md.AppendLine("## Prompt $($r.n)")
-    [void]$md.AppendLine("")
-    [void]$md.AppendLine("> $($r.prompt)")
-    [void]$md.AppendLine("")
-    [void]$md.AppendLine("**Answer** ($($r.tokens) tokens, $($r.tps) t/s)")
-    [void]$md.AppendLine("")
-    [void]$md.AppendLine((($r.answer -replace "`r`n", "`n").Trim()))
-    [void]$md.AppendLine("")
-}
-$md.ToString() | Set-Content $OutFile -Encoding UTF8
+"complete ($([Math]::Round($sw.Elapsed.TotalSeconds,1))s)" | Set-Content "$OutFile.status" -Encoding UTF8
 "=== wrote $OutFile ($([Math]::Round($sw.Elapsed.TotalSeconds,1))s total) ==="
