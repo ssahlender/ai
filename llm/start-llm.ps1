@@ -52,7 +52,10 @@ param(
     [string]$LogFile = '',
     [string]$BindAddress = '127.0.0.1',
     [string]$ApiKey = '',
-    [switch]$AllowNonLoopback
+    [switch]$AllowNonLoopback,
+    # Appended verbatim to llama-server's arguments. Kept generic on purpose: serving flags that change
+    # results (e.g. --no-reasoning-preserve) must be explicit at the call site, not baked into a mode.
+    [string[]]$ExtraArgs
 )
 
 $ErrorActionPreference = 'Stop'
@@ -93,18 +96,26 @@ $ModeTable = @(
         Template = $null; Mmproj = $null
     }
     [pscustomobject]@{
-        Short  = 'katcoder25'
-        Name   = 'Kwaipilot KAT-Coder V2.5 Dev Q3_K_M (verified download)'
+        Short  = 'qwen36u35b_ml'
+        Name   = 'Qwen3.6 35B-A3B Uncensored IQ4_NL on MAINLINE (round-2 reference)'
         Engine = 'mainline'
-        File   = 'Kwaipilot_KAT-Coder-V2.5-Dev-Q3_K_M.gguf'
+        File   = 'Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf'
         Ctx    = 32768; Cram = 0
         Template = $null; Mmproj = $null
     }
     [pscustomobject]@{
-        Short  = 'ornith15'
-        Name   = 'Ornith 1.5 35B-A3B Q3_K_M (verified download)'
+        Short  = 'qwen38distill'
+        Name   = 'Qwen3.8 35B-A3B Distill IQ4_XS (round-2 candidate, verified download)'
         Engine = 'mainline'
-        File   = 'Ornith-1.5-35B-A3B-Q3_K_M.gguf'
+        File   = 'Qwen3.8-35B-A3B-Distill-IQ4_XS.gguf'
+        Ctx    = 32768; Cram = 0
+        Template = $null; Mmproj = $null
+    }
+    [pscustomobject]@{
+        Short  = 'agentworld35b'
+        Name   = 'Qwen AgentWorld 35B-A3B UD-IQ4_XS (round-2 candidate, verified download)'
+        Engine = 'mainline'
+        File   = 'Qwen-AgentWorld-35B-A3B-UD-IQ4_XS.gguf'
         Ctx    = 32768; Cram = 0
         Template = $null; Mmproj = $null
     }
@@ -187,6 +198,7 @@ switch ($sel.Engine) {
 }
 if ($sel.Mmproj) { $serverArgs += @('--mmproj', (Join-Path $ModelDir $sel.Mmproj)) }
 if ($ApiKey) { $serverArgs += @('--api-key', $ApiKey) }
+if ($ExtraArgs) { $serverArgs += $ExtraArgs }
 
 if ($DryRun) {
     Write-Host ""
