@@ -43,15 +43,7 @@ $startScript = @(
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $startScript) { throw "start-llm.ps1 not found beside $here or its parent" }
 
-# Same prompts for every model. Covering: infra reasoning, shell scripting, German
-# business writing, arithmetic, and code review.
-$prompts = @(
-    'Explain, in 5 short bullet points, how to safely put one node of a 3-node Proxmox VE cluster into maintenance without causing quorum loss.'
-    'Write a bash one-liner that lists running Docker containers sorted by memory usage, showing only those over 2 GB.'
-    'Schreibe eine kurze, freundliche E-Mail an einen Mieter, der die Miete drei Tage zu spaet bezahlt hat. Auf Deutsch, sachlich, ohne Drohung.'
-    'A language model must read 2.3 GB of weights per generated token, and memory bandwidth is 89.6 GB/s. Show the arithmetic for the theoretical maximum tokens/s, then state which fraction is realistic in practice and why.'
-    'Review this snippet and name the bug plus the fix: for f in $(ls /data/*.json); do jq -r .id $f >> ids.txt; done'
-)
+$prompts = Get-RelayPromptList -Path (Join-Path $here 'suite-prompts.txt')
 
 # Write the header and status BEFORE anything slow happens. A model load takes minutes and a
 # long operation over WinRM can die with WSManFault 1359, so results are written as they arrive.

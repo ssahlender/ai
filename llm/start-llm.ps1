@@ -49,10 +49,17 @@ param(
     [switch]$Background,
     [switch]$ListOnly,
     [switch]$DryRun,
-    [string]$LogFile = 'C:\data\llm\llama-server.log'
+    [string]$LogFile = '',
+    [string]$BindAddress = '127.0.0.1',
+    [string]$ApiKey = '',
+    [switch]$AllowNonLoopback
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'lib\common.ps1')
+if ($BindAddress -ne '127.0.0.1') {
+    if (-not $AllowNonLoopback -or -not $ApiKey) { throw 'non-loopback binding requires -AllowNonLoopback and a non-empty -ApiKey; the previous all-interface dummy-key default exposed the server unnecessarily' }
+}
 
 # ── mode table ─────────────────────────────────────────────────────
 # Named fields, no positional columns (the bash launcher's machine table had NOSAMPLE sitting
@@ -135,7 +142,7 @@ $serverArgs = @(
     '-ctk', 'q8_0'
     '-ctv', 'q8_0'
     '--port', $Port
-    '--host', '0.0.0.0'
+    '--host', $BindAddress
     '-v'
 )
 
@@ -163,6 +170,7 @@ switch ($sel.Engine) {
     }
 }
 if ($sel.Mmproj) { $serverArgs += @('--mmproj', (Join-Path $ModelDir $sel.Mmproj)) }
+if ($ApiKey) { $serverArgs += @('--api-key', $ApiKey) }
 
 if ($DryRun) {
     Write-Host ""
@@ -178,6 +186,7 @@ Write-Host ("  model  : {0}" -f $modelPath)
 Write-Host ("  port={0} ctx={1} threads={2}/{3}" -f $Port, $Ctx, $Threads, $ThreadsBatch)
 
 if ($Background) {
+    if (-not $LogFile) { $LogFile = New-RunLogPath -Name 'llama-server' }
     $p = Start-Process -FilePath $server -ArgumentList $serverArgs -PassThru -WindowStyle Hidden `
                        -RedirectStandardOutput $LogFile -RedirectStandardError "$LogFile.err"
     Write-Host ("Detached: pid {0}, log {1}" -f $p.Id, $LogFile)

@@ -68,6 +68,9 @@ foreach ($block in [regex]::Matches($table.Groups[1].Value, '(?s)\[pscustomobjec
     $file  = [regex]::Match($body, "File\s*=\s*'([^']+)'").Groups[1].Value
     $ctx   = [regex]::Match($body, 'Ctx\s*=\s*(\d+)').Groups[1].Value
     $name  = [regex]::Match($body, "Name\s*=\s*'([^']+)'").Groups[1].Value
+    if (-not $short -or -not $file -or -not $ctx -or -not $name) {
+        throw "mode-table parse failed for a mode block in $StartScript; refusing to generate an incomplete provider config"
+    }
     if ($short -and $file) {
         $modes += [pscustomobject]@{
             Short = $short; File = $file; Ctx = [int]$ctx; Name = $name
@@ -75,6 +78,8 @@ foreach ($block in [regex]::Matches($table.Groups[1].Value, '(?s)\[pscustomobjec
         }
     }
 }
+
+if ($modes.Count -eq 0) { throw "mode-table parse found zero usable modes in $StartScript; launcher syntax likely changed" }
 
 Write-Host ("modes found in start-llm.ps1: {0}" -f $modes.Count)
 $models = [ordered]@{}
