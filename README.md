@@ -9,7 +9,7 @@ Scripts for running local AI tools across multiple machines.
 | `ik-llama/` | LLM inference with ik_llama.cpp / llama.cpp — models, server, OpenCode config (ProBook, i9, MacBook Air) |
 | `mlx/` | MLX/oMLX vs llama.cpp/Metal engine comparison (MacBook Air M4) — background/history |
 | `ollama/` | **Settled daily-driver engine on the MacBook Air M4** — start/stop/setup-agent, chosen after the `mlx/` comparison |
-| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Antigravity, Pi, Headroom, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage) |
+| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Antigravity, Pi, Headroom, nvm, hf, RTK, context-mode, claude-mem, Repomix, ccusage) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
 ---
@@ -95,7 +95,7 @@ ln -sf <repo-dir>/tools/brewenv.sh ~/bin/brewenv.sh
 
 After that, `~/bin/brewenv.sh` reads from `tools/brewenv-tools.conf` in this repo. Pull updates and re-run to stay in sync.
 
-For tools that install to `~/.local/bin` (npm-based: ccusage, context-mode; uv-based: graphify) no symlink is needed — `~/.local/bin` in PATH is enough.
+For tools that install to `~/.local/bin` (npm-based: ccusage, context-mode; uv-based: headroom) no symlink is needed — `~/.local/bin` in PATH is enough.
 
 **3. Run the install scripts** from this repo normally — they detect the proxy and use `sudo -n -u brewuser brew` automatically:
 
@@ -116,7 +116,7 @@ Update scripts detect brew-wrapper installs by grepping for `Cellar`/`linuxbrew`
 
 The system npm prefix (`/data/app/nodejs24`) is not user-writable. npm-based tools (ccusage, context-mode) fall back to installing into `~/.local` via `_npm-wrapper.sh` automatically (`npm install -g --prefix ~/.local` — the `-g` flag is required; without it npm treats the prefix as a project directory and removes other packages). No manual configuration needed.
 
-#### uv / graphify on i9
+#### uv on i9
 
 Brew's `uv` bottle also requires GLIBC ≥ 2.38. `_uv-wrapper.sh` skips brew's uv on i9 and uses the official astral.sh installer (`~/.local/bin/uv`, musl binary, glibc-independent). The installer is called with `SSL_CERT_FILE` pointing at the system CA bundle for the corporate proxy.
 
@@ -124,7 +124,7 @@ Brew's `uv` bottle also requires GLIBC ≥ 2.38. `_uv-wrapper.sh` skips brew's u
 
 Scripts that download via curl or npm set `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, and `NPM_CONFIG_CAFILE` to `/etc/ssl/certs/ca-certificates.crt` on i9. Override the cert path with `SYSTEM_CA_FILE=/path/to/ca.crt` if your machine uses a different bundle.
 
-The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` extra is omitted by default on i9 — override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office` once the allowlist is updated.
+The corporate proxy CVE filter blocks `pypdf` (all versions) — any tool on i9 that needs PDF parsing is affected until the allowlist is updated.
 
 ---
 
@@ -136,7 +136,7 @@ The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` e
 
 Order is defined by the `UPDATE_TOOLS` array in `update-all.sh`:
 `nvm` → `claude` → `opencode` → `codex` → `antigravity` → `hf` → `hermes` → `rtk` →
-`context-mode` → `claude-mem` → `graphify` → `pi` → `repomix` → `ccusage`. Ollama is updated
+`context-mode` → `claude-mem` → `pi` → `repomix` → `ccusage`. Ollama is updated
 afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
 run last. Each `*-update.sh` upgrades only if already installed and skips
 otherwise — run `*-install.sh` for new tools.
@@ -207,7 +207,7 @@ Supported on Linux and macOS (amd64/arm64, glibc and musl).
 |---|---|
 | `pi-install.sh` | `$BREW install pi-coding-agent`; on Debian 12 (GLIBC < 2.38) creates a `~/.local/bin/pi` wrapper using system node (same pattern as `repomix-install.sh`); then installs Pi packages |
 | `pi-update.sh` | `$BREW upgrade pi-coding-agent`, then refreshes Pi packages (skips if not installed); wrapper auto-picks latest brew version via glob |
-| `pi-init.sh` | Installs Pi-native packages: `context-mode`, `@sherif-fanous/pi-rtk`, and `@gaodes/pi-graphify` |
+| `pi-init.sh` | Installs Pi-native packages: `context-mode`, `@sherif-fanous/pi-rtk` |
 
 Pi itself is installed via Homebrew. Pi extensions/skills are installed with
 Pi's own package manager:
@@ -215,7 +215,6 @@ Pi's own package manager:
 ```bash
 pi install npm:context-mode
 pi install npm:@sherif-fanous/pi-rtk
-pi install npm:@gaodes/pi-graphify
 ```
 
 On the i9/proxy environment, `pi-init.sh` runs these installs with
@@ -375,59 +374,6 @@ To force the upstream Codex/OpenCode installer again:
 ```bash
 CLAUDE_MEM_FORCE_INSTALL=1 ./claude-mem-install.sh
 ```
-
----
-
-### Graphify
-
-| Script | What it does |
-|---|---|
-| `graphify-install.sh` | Installs the official PyPI package `graphifyy[openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf]` with `uv tool install`, falling back to `pipx`; then registers Claude Code, Codex, OpenCode, Hermes, and Antigravity |
-| `graphify-update.sh` | Upgrades Graphify with the same default extras when managed by `uv tool` or `pipx`, then refreshes integrations |
-| `graphify-init.sh` | Re-registers Claude Code, Codex, OpenCode, Hermes, Antigravity, and Pi integrations; enables Codex `multi_agent = true`. Runs the OpenCode registration in a throwaway tmpdir because it writes `.opencode/` into `$PWD` |
-
-Graphify's package name is `graphifyy` but the CLI is `graphify`. The default
-extras are `openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf`, so the
-preferred installer is
-`uv tool install 'graphifyy[openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf]'`
-on both Linux and macOS. `terraform` matters even on a non-Terraform machine's
-behalf: without it every `.tf`/`.hcl` file silently contributes nothing to the
-graph. Override with `GRAPHIFY_EXTRAS=...`; use `GRAPHIFY_EXTRAS=` for the base
-package only. On macOS, install `uv` with Homebrew (`brew install uv`) if it is
-missing; the install script will also do this when Homebrew is available.
-`pipx install 'graphifyy[...]'` is kept as a fallback for Linux systems that
-already use pipx. On the i9/proxy environment, the scripts pass
-`--system-certs` to `uv tool install` so corporate CA certificates are honored.
-
-Registration has two levels, and the init script only does the first:
-`graphify install --platform <p>` copies the **user-level skill** (nothing in the
-repo), while `graphify <platform> install` — run inside a repo — writes
-**project-scoped always-on wiring** (`AGENTS.md`, `CLAUDE.md`,
-`.claude/settings.json`, `.codex/hooks.json`, `.agents/rules|workflows`,
-`.opencode/`). The second form touches committed files, so it stays opt-in per
-repository.
-
-On i9 (Debian 12 / GLIBC < 2.38/2.39), brew's `uv` bottle is incompatible.
-`graphify-install.sh` uses `_uv-wrapper.sh` which installs uv via the official
-astral.sh installer (`~/.local/bin/uv`, musl binary, glibc-independent) when
-`IS_I9` is set and no working uv is found. The corporate proxy CVE filter blocks
-`pypdf` (all versions), so the `pdf` extra is omitted by default on i9
-(`openai,ollama,sql,terraform,leiden,mcp,watch,office`). Override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office`
-once the proxy allowlist is updated.
-
-After install/update, restart Claude Code, Codex, OpenCode, Hermes, and Antigravity sessions. Use it
-inside a project with:
-
-```bash
-/graphify .
-```
-
-Codex uses `$graphify` instead of `/graphify`.
-
-Graphify overlaps partly with context/memory tooling, but it is more of a
-project knowledge-graph generator than a background memory worker. Keep OpenCode
-local-speed testing in mind before enabling extra graph/query instructions in
-large local-model sessions.
 
 ---
 
