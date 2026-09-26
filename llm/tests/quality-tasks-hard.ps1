@@ -12,6 +12,10 @@
 #
 # Dot-sourced by quality-run.ps1 -TaskSet hard. Reuses the round-1 checks and helpers.
 
+# This file needs Write-Utf8NoBom from lib/common.ps1 (fixture construction). Load it HERE instead of
+# relying on the caller: the first standalone caller (hard-task-answerability.ps1) died with
+# 'Write-Utf8NoBom is not recognized' because quality-run.ps1 happened to load common first.
+. (Join-Path (Split-Path $PSScriptRoot -Parent) 'lib\common.ps1')
 . (Join-Path $PSScriptRoot 'quality-tasks.ps1')
 
 function Write-FixtureFile {
