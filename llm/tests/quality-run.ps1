@@ -15,6 +15,9 @@ param(
     [int]$Port = 9080,
     [int]$Replicates = 1,
     [string[]]$Only,
+    # base = the round-1 12-task set (kept reproducible); hard = round 2, which is the one that can
+    # actually separate capable models. Round 1 was passed 12/12 by both candidates.
+    [ValidateSet('base', 'hard')][string]$TaskSet = 'base',
     [string]$FixtureDir,
     [string]$LlmRoot,
     [string]$OutDir,
@@ -33,7 +36,12 @@ if (-not $OutDir) { $OutDir = Get-RunLogDir -LlmRoot $llmRoot }
 $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
 $resultPath = Join-Path $OutDir ("quality-$Mode-$stamp.json")
 
-$null = New-QualityFixture -Dir $FixtureDir
+if ($TaskSet -eq 'hard') {
+    . (Join-Path $PSScriptRoot 'quality-tasks-hard.ps1')
+    $null = New-QualityHardFixture -Dir $FixtureDir
+} else {
+    $null = New-QualityFixture -Dir $FixtureDir
+}
 
 function Invoke-ProcessCapture {
     # Execute a child process with a HARD timeout. Invoke-NativeToFile has no timeout, and a
@@ -169,14 +177,16 @@ function Invoke-MockTool {
 
 function Invoke-GeneratedCode {
     # Write the answer (plus our trusted test block, for fix tasks) as a script and run it with a
-    # timeout, from inside the fixture directory so relative paths in the answer resolve there.
-    param([string]$Code, [string]$AppendTest, [int]$TimeoutMs = 60000)
-    $script = Join-Path $FixtureDir ('gen-' + [guid]::NewGuid().ToString('N') + '.ps1')
+    # timeout. -WorkDir is where it runs: the fixture root for a one-liner task, a project subdirectory
+    # for the multi-file tasks, so relative paths in the answer resolve the way an agent would expect.
+    param([string]$Code, [string]$AppendTest, [int]$TimeoutMs = 60000, [string]$WorkDir)
+    if (-not $WorkDir) { $WorkDir = $FixtureDir }
+    $script = Join-Path $WorkDir ('gen-' + [guid]::NewGuid().ToString('N') + '.ps1')
     $lines = @($Code)
     if ($AppendTest) { $lines += $AppendTest }
     Write-Utf8NoBom -Path $script -Lines $lines
     $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $r = Invoke-ProcessCapture -Exe $exe -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script) -WorkDir $FixtureDir -TimeoutMs $TimeoutMs
+    $r = Invoke-ProcessCapture -Exe $exe -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script) -WorkDir $WorkDir -TimeoutMs $TimeoutMs
     Remove-Item $script -Force -ErrorAction SilentlyContinue
     return $r
 }
@@ -212,6 +222,34 @@ function Invoke-ToolTask {
     return @{ Text = $final; Calls = $calls; Err = ''; Ms = $ms }
 }
 
+function Invoke-TaskCheck {
+    # One dispatcher, because each family needs different arguments and PowerShell rejects an unknown
+    # parameter name - passing every possible argument to every check would fail outright.
+    param($Task, [string]$Answer, $Calls, [string]$FixtureDir, [string]$ExecOut, [string]$ExecErr, [int]$ExitCode)
+    switch ("$($Task.Check)") {
+        'Assert-SuiteTest' {
+            return (& $Task.Check -FixtureDir $FixtureDir -SubDir "$($Task.SubDir)")
+        }
+        'Assert-AnswerExact' {
+            return (& $Task.Check -Answer $Answer -Expect "$($Task.Expect)")
+        }
+        'Assert-JsonShape' {
+            return (& $Task.Check -Answer $Answer -Expect $Task.Expect)
+        }
+        'Assert-OneLineChanged' {
+            return (& $Task.Check -Answer $Answer -OriginalPath (Join-Path $FixtureDir "$($Task.OriginalFile)") -Expect "$($Task.Expect)")
+        }
+        'Assert-ToolTask' {
+            return (& $Task.Check -Answer $Answer -Calls @($Calls) -Expect $Task.Expect)
+        }
+        'Assert-ExecOutput' {
+            return (& $Task.Check -Answer $Answer -FixtureDir $FixtureDir -Expect "$($Task.Expect)" `
+                -ExecOutput $ExecOut -ExecError $ExecErr -ExitCode $ExitCode)
+        }
+        default { return @{ Pass = $false; Reason = "unknown check: $($Task.Check)" } }
+    }
+}
+
 # ------------------------------------------------------------------ start the server
 $startScript = Join-Path (Split-Path $PSScriptRoot -Parent) 'start-llm.ps1'
 if (Test-PortOpen -Port $Port) {
@@ -238,6 +276,7 @@ try {
     Write-Host "  model healthy after $($ready.Waited)s"
 
     $tasks = @(Get-QualityTaskList)
+    if ($TaskSet -eq 'hard') { $tasks = @(Get-QualityHardTaskList) }
     if ($Only) {
         # -Only exists for smoke tests and for the pre-registered tie-breaker re-run of just the
         # discordant tasks. Wildcards are allowed ('tool-*').
@@ -267,7 +306,7 @@ try {
                 if ($err) {
                     $check = @{ Pass = $false; Reason = "request failed: $err" }
                 } else {
-                    $check = & $t.Check -Answer $text -Calls @($r.Calls) -Expect $t.Expect
+                    $check = Invoke-TaskCheck -Task $t -Answer $text -Calls @($r.Calls) -FixtureDir $FixtureDir -ExecOut '' -ExecErr '' -ExitCode 0
                 }
                 $calls = @($r.Calls | ForEach-Object { @{ name = $_.Name; arguments = $_.Arguments } })
             } else {
@@ -278,24 +317,33 @@ try {
                     $check = @{ Pass = $false; Reason = "request failed: $err" }
                 } else {
                     $text = Get-MessageText -Msg $r.Response.choices[0].message
-                    # Try each alternative the model offered; the task passes if ANY of them
-                    # produces the expected output. See Get-CodeCandidates for why.
-                    $cands = @(Get-CodeCandidates -Text $text -Max 3)
-                    $tried = 0
-                    $denied = ''
-                    $check = @{ Pass = $false; Reason = 'no candidate produced the expected output' }
-                    foreach ($cand in $cands) {
-                        $deny = Get-CodeDenyReason -Code $cand
-                        if ($deny) { $denied = $deny; continue }
-                        $tried++
-                        $ex = Invoke-GeneratedCode -Code $cand -AppendTest $t.AppendTest -TimeoutMs $CodeTimeoutMs
-                        $res = & $t.Check -Answer $cand -FixtureDir $FixtureDir -Expect $t.Expect `
-                            -ExecOutput $ex.Out -ExecError $ex.Err -ExitCode $ex.ExitCode
-                        $check = $res
-                        if ($res.Pass) { break }
+                    if ($t.Check -notin @('Assert-ExecOutput', 'Assert-SuiteTest')) {
+                        # Text-only families (long-context retrieval, instruction precision): there is
+                        # nothing to execute - the answer itself is the artifact under test.
+                        $check = Invoke-TaskCheck -Task $t -Answer $text -Calls @() -FixtureDir $FixtureDir -ExecOut '' -ExecErr '' -ExitCode 0
+                    } else {
+                        # Try each alternative the model offered; the task passes if ANY of them
+                        # produces the expected output. See Get-CodeCandidates for why.
+                        $cands = @(Get-CodeCandidates -Text $text -Max 3)
+                        $tried = 0
+                        $denied = ''
+                        $check = @{ Pass = $false; Reason = 'no candidate produced the expected output' }
+                        # Multi-file tasks run inside their project subdirectory, so relative paths in
+                        # the answer resolve the way an agent would expect.
+                        $workDir = $FixtureDir
+                        if ($t.PSObject.Properties.Name -contains 'SubDir' -and $t.SubDir) { $workDir = Join-Path $FixtureDir $t.SubDir }
+                        foreach ($cand in $cands) {
+                            $deny = Get-CodeDenyReason -Code $cand
+                            if ($deny) { $denied = $deny; continue }
+                            $tried++
+                            $ex = Invoke-GeneratedCode -Code $cand -AppendTest $t.AppendTest -TimeoutMs $CodeTimeoutMs -WorkDir $workDir
+                            $res = Invoke-TaskCheck -Task $t -Answer $cand -Calls @() -FixtureDir $FixtureDir -ExecOut $ex.Out -ExecErr $ex.Err -ExitCode $ex.ExitCode
+                            $check = $res
+                            if ($res.Pass) { break }
+                        }
+                        if ($tried -eq 0 -and $denied) { $check = @{ Pass = $false; Reason = $denied } }
+                        $candidateCount = $tried
                     }
-                    if ($tried -eq 0 -and $denied) { $check = @{ Pass = $false; Reason = $denied } }
-                    $candidateCount = $tried
                 }
             }
 
@@ -327,7 +375,7 @@ try {
 }
 
 $familySummary = @{}
-foreach ($fam in @('code', 'fix', 'tool')) {
+foreach ($fam in @($results | ForEach-Object { $_.family } | Select-Object -Unique)) {
     $of = @($results | Where-Object { $_.family -eq $fam })
     $pass = @($of | Where-Object { $_.pass }).Count
     $familySummary[$fam] = "$pass/$($of.Count)"
@@ -340,6 +388,7 @@ $doc = [ordered]@{
     replicates  = $Replicates
     temperature = 0
     fixtureDir  = $FixtureDir
+    taskSet     = $TaskSet
     taskCount   = $taskCount
     summary     = $familySummary
     results     = $results
@@ -348,7 +397,7 @@ $doc = [ordered]@{
 
 Write-Host ''
 Write-Host "=== summary: $Mode ==="
-foreach ($fam in @('code', 'fix', 'tool')) { Write-Host ("  {0,-5} {1}" -f $fam, $familySummary[$fam]) }
+foreach ($fam in @($results | ForEach-Object { $_.family } | Select-Object -Unique)) { Write-Host ("  {0,-5} {1}" -f $fam, $familySummary[$fam]) }
 $requestFailures = @($results | Where-Object { $_.reason -like 'request failed*' }).Count
 if ($requestFailures -gt 3) {
     Write-Host "  $requestFailures tasks failed at the HTTP layer - treating this run as invalid"
