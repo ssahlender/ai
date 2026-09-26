@@ -257,6 +257,7 @@ try {
             $calls = @()
             $ms = 0
             $err = ''
+            $candidateCount = 0
 
             if ($t.Family -eq 'tool') {
                 $r = Invoke-ToolTask -Task $t -Seed $rep
@@ -277,15 +278,24 @@ try {
                     $check = @{ Pass = $false; Reason = "request failed: $err" }
                 } else {
                     $text = Get-MessageText -Msg $r.Response.choices[0].message
-                    $code = Get-CodeFromAnswer -Text $text
-                    $deny = Get-CodeDenyReason -Code $code
-                    if ($deny) {
-                        $check = @{ Pass = $false; Reason = $deny }
-                    } else {
-                        $ex = Invoke-GeneratedCode -Code $code -AppendTest $t.AppendTest -TimeoutMs $CodeTimeoutMs
-                        $check = & $t.Check -Answer $text -FixtureDir $FixtureDir -Expect $t.Expect `
+                    # Try each alternative the model offered; the task passes if ANY of them
+                    # produces the expected output. See Get-CodeCandidates for why.
+                    $cands = @(Get-CodeCandidates -Text $text -Max 3)
+                    $tried = 0
+                    $denied = ''
+                    $check = @{ Pass = $false; Reason = 'no candidate produced the expected output' }
+                    foreach ($cand in $cands) {
+                        $deny = Get-CodeDenyReason -Code $cand
+                        if ($deny) { $denied = $deny; continue }
+                        $tried++
+                        $ex = Invoke-GeneratedCode -Code $cand -AppendTest $t.AppendTest -TimeoutMs $CodeTimeoutMs
+                        $res = & $t.Check -Answer $cand -FixtureDir $FixtureDir -Expect $t.Expect `
                             -ExecOutput $ex.Out -ExecError $ex.Err -ExitCode $ex.ExitCode
+                        $check = $res
+                        if ($res.Pass) { break }
                     }
+                    if ($tried -eq 0 -and $denied) { $check = @{ Pass = $false; Reason = $denied } }
+                    $candidateCount = $tried
                 }
             }
 
@@ -297,6 +307,7 @@ try {
                 replicate = $rep
                 pass      = $pass
                 reason    = $reason
+                candidates = $candidateCount
                 ms        = $ms
                 calls     = $calls
                 answer    = $text
