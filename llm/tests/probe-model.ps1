@@ -27,9 +27,18 @@ if (-not (Test-Path $logDir)) { $null = New-Item -ItemType Directory -Path $logD
 $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
 if (-not $Label) { $Label = [IO.Path]::GetFileNameWithoutExtension($ModelFile) }
 $logFile = Join-Path $logDir ("probe-$Label-$stamp.log")
+# Results also go to a small text file: this runs as a child process (a scheduled task), where stdout
+# is not guaranteed to reach the caller. The file is the evidence, and it survives the run.
+$resultFile = Join-Path $logDir ("probe-$Label-$stamp.txt")
+function Emit {
+    param([string]$Line)
+    Write-Output $Line
+    Add-Content -Path $resultFile -Value $Line -ErrorAction SilentlyContinue
+}
+"PROBE $Label probe started at $stamp" | Set-Content -Path $resultFile -ErrorAction SilentlyContinue
 
-if (-not (Test-Path $server)) { Write-Output "PROBE $Label load=NO-ENGINE reason=llama-server.exe missing at $server"; exit 1 }
-if (-not (Test-Path $model)) { Write-Output "PROBE $Label load=NO-MODEL reason=$model missing"; exit 1 }
+if (-not (Test-Path $server)) { Emit "PROBE $Label load=NO-ENGINE reason=llama-server.exe missing at $server"; exit 1 }
+if (-not (Test-Path $model)) { Emit "PROBE $Label load=NO-MODEL reason=$model missing"; exit 1 }
 
 # Stop anything already on the port so we never read a different model's /props.
 try {
@@ -68,8 +77,8 @@ if (-not $ready) {
         Select-Object -First 3) -join ' | '
     Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
     if (-not $why) { $why = 'server did not answer /props within ' + $WaitSeconds + 's (no explicit error in log)' }
-    Write-Output "PROBE $Label load=FAIL waited=${waited}s reason=$why"
-    Write-Output "PROBE $Label log=$logFile"
+    Emit "PROBE $Label load=FAIL waited=${waited}s reason=$why"
+    Emit "PROBE $Label log=$logFile"
     exit 2
 }
 
@@ -92,10 +101,10 @@ if ($m2.Success) { $nCtx = $m2.Groups[1].Value }
 $mmproj = 'no'
 if ($logText -match 'mmproj|clip model|vision') { $mmproj = 'mentioned-in-log' }
 
-Write-Output ("PROBE {0} load=OK arch={1} n_ctx_train={2} templateChars={3} caps={4} vision={5} waited={6}s" -f `
+Emit ("PROBE {0} load=OK arch={1} n_ctx_train={2} templateChars={3} caps={4} vision={5} waited={6}s" -f `
     $Label, $(if ($arch) { $arch } else { 'unknown' }), $(if ($nCtx) { $nCtx } else { '?' }), $tmpl.Length, `
     $(if ($capsJson) { $capsJson } else { 'none' }), $mmproj, $waited)
-Write-Output "PROBE $Label log=$logFile"
+Emit "PROBE $Label log=$logFile"
 
 Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 500
