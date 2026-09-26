@@ -15,7 +15,11 @@ param(
     [string]$Label = '',
     [int]$Port = 9077,
     [int]$WaitSeconds = 180,
-    [int]$Ctx = 4096
+    [int]$Ctx = 4096,
+    # Several Qwen templates enable reasoning-preservation by default, which prepends reasoning tokens
+    # and roughly doubles time-per-answer. Serving with and without it is a real measurement, not a
+    # tweak, so the switch is explicit and the label records which way the run went.
+    [switch]$NoReasoningPreserve
 )
 
 $ErrorActionPreference = 'Continue'
@@ -26,6 +30,7 @@ $logDir = Join-Path $LlmRoot 'logs'
 if (-not (Test-Path $logDir)) { $null = New-Item -ItemType Directory -Path $logDir -Force }
 $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
 if (-not $Label) { $Label = [IO.Path]::GetFileNameWithoutExtension($ModelFile) }
+if ($NoReasoningPreserve -and $Label -notlike '*-norp') { $Label = "$Label-norp" }
 $logFile = Join-Path $logDir ("probe-$Label-$stamp.log")
 # Results also go to a small text file: this runs as a child process (a scheduled task), where stdout
 # is not guaranteed to reach the caller. The file is the evidence, and it survives the run.
@@ -51,6 +56,7 @@ try {
 # -ngl 0: this box has no usable GPU. --jinja: use the template carried by the GGUF.
 $argList = @('-m', $model, '--jinja', '-c', "$Ctx", '-ngl', '0', '-t', '8', '-np', '1',
              '--host', '127.0.0.1', '--port', "$Port")
+if ($NoReasoningPreserve) { $argList += '--no-reasoning-preserve' }
 $p = Start-Process -FilePath $server -ArgumentList $argList -PassThru -WindowStyle Hidden `
     -RedirectStandardOutput $logFile -RedirectStandardError ($logFile + '.err')
 
@@ -90,8 +96,13 @@ $capsJson = ''
 if ($caps) { $capsJson = ($props.chat_template_caps | ConvertTo-Json -Compress -Depth 6) }
 
 # The load log is the only place the architecture is stated plainly.
+# llama-server writes its log to STDERR: the .log file stays 0 bytes while .log.err carries the load
+# log, the architecture line and the reasoning-preserve warning. Read BOTH, always - reading only
+# .log made a successfully loaded model look like a silent failure.
 $logText = ''
-if (Test-Path $logFile) { $logText = Get-Content $logFile -Raw -ErrorAction SilentlyContinue }
+foreach ($lf in @($logFile, ($logFile + '.err'))) {
+    if (Test-Path $lf) { $logText += (Get-Content $lf -Raw -ErrorAction SilentlyContinue) + "`n" }
+}
 $arch = ''
 $m = [regex]::Match($logText, 'general\.architecture\s+str\s*=\s*([A-Za-z0-9_.\-]+)')
 if ($m.Success) { $arch = $m.Groups[1].Value }
@@ -100,10 +111,19 @@ $m2 = [regex]::Match($logText, 'n_ctx_train\s*=\s*([0-9]+)')
 if ($m2.Success) { $nCtx = $m2.Groups[1].Value }
 $mmproj = 'no'
 if ($logText -match 'mmproj|clip model|vision') { $mmproj = 'mentioned-in-log' }
+# Two signals that decide how this model must be served, both easy to miss in a long log:
+# reasoning-preserve inflates per-answer time, and unused tensors usually mean an MTP block the
+# engine ignores (benign) rather than corruption.
+$rp = 'n/a'
+if ($logText -match 'preserving reasoning') { $rp = 'ON' }
+if ($NoReasoningPreserve) { $rp = 'disabled-by-flag' }
+$unused = ([regex]::Matches($logText, 'has unused tensor ')).Count
+$loaded = 'no'
+if ($logText -match 'model loaded') { $loaded = 'yes' }
 
-Emit ("PROBE {0} load=OK arch={1} n_ctx_train={2} templateChars={3} caps={4} vision={5} waited={6}s" -f `
+Emit ("PROBE {0} load=OK arch={1} n_ctx_train={2} templateChars={3} caps={4} vision={5} reasoningPreserve={6} unusedTensors={7} loaded={8} waited={9}s" -f `
     $Label, $(if ($arch) { $arch } else { 'unknown' }), $(if ($nCtx) { $nCtx } else { '?' }), $tmpl.Length, `
-    $(if ($capsJson) { $capsJson } else { 'none' }), $mmproj, $waited)
+    $(if ($capsJson) { $capsJson } else { 'none' }), $mmproj, $rp, $unused, $loaded, $waited)
 Emit "PROBE $Label log=$logFile"
 
 Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
