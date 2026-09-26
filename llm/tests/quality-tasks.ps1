@@ -78,28 +78,36 @@ function Get-CodeDenyReason {
     # is a wrong answer for these tasks, and this is also what makes executing safe at all.
     param([string]$Code)
     if (-not $Code -or $Code.Trim() -eq '') { return 'empty answer' }
+    # System-level and destructive operations only. This is deliberately NOT a verb blocklist: an
+    # earlier version denied Set-Content, Add-Content, Out-File, New-Item, Rename-Item, Copy-Item,
+    # Move-Item and even 'Format-' (catching Format-Table) - every way of writing a file. The
+    # multifile tasks REQUIRE editing files, so those tasks were impossible to pass for ANY model,
+    # and the deny reason then read like a model failure. Legitimate in-fixture writes are handled by
+    # the path rule below, which is what the policy above actually intends.
     $rules = @(
-        'Remove-Item', 'Remove-', 'rm -', 'del ', 'Format-', 'Clear-Content', 'Erase ',
-        'Stop-Process', 'Start-Process', 'Start-Job', 'Start-ThreadJob', 'Start-Sleep',
-        'Set-Content', 'Add-Content', 'Out-File', 'New-Item', 'Set-Item', 'Set-Service',
-        'Stop-Service', 'Start-Service', 'New-Service', 'Set-ItemProperty', 'New-ItemProperty',
-        'Remove-ItemProperty', 'Copy-Item', 'Move-Item', 'Rename-Item', 'New-ItemProperty',
-        'Invoke-WebRequest', 'Invoke-RestMethod', 'Invoke-Expression', 'Invoke-Command',
-        'curl', 'wget', 'Invoke-Item', 'shutdown', 'Restart-', 'schtasks', 'net user',
-        'New-LocalUser', 'Add-LocalGroupMember', 'reg add', 'reg delete', 'reg import',
-        'HKLM', 'HKCU', 'Get-CimInstance', 'Set-CimInstance', 'Get-WmiObject', 'Stop-Computer',
-        'Set-Location C:', 'Set-Location D:', 'cd C:', 'cd D:', '..\', '../'
+        'Format-Volume', 'Format-Partition', 'Clear-Disk', 'Initialize-Disk', 'Erase ',
+        'Stop-Computer', 'Restart-Computer', 'shutdown', 'schtasks', 'net user', 'net localgroup',
+        'New-LocalUser', 'Remove-LocalUser', 'Add-LocalGroupMember',
+        'reg add', 'reg delete', 'reg import', 'Set-ExecutionPolicy',
+        'Set-Service', 'New-Service', 'Stop-Service', 'Start-Service',
+        'Set-ItemProperty', 'New-ItemProperty', 'Remove-ItemProperty',
+        'Set-CimInstance', 'Invoke-Expression', 'Invoke-Command',
+        'Invoke-WebRequest', 'Invoke-RestMethod', 'curl', 'wget',
+        'Start-Process', 'Start-Job', 'Start-ThreadJob', 'Stop-Process',
+        'Set-Location C:', 'Set-Location D:', 'cd C:', 'cd D:', 'HKLM', 'HKCU'
     )
     foreach ($r in $rules) {
         if ($Code -match [regex]::Escape($r)) { return "denylisted construct: $r" }
     }
     # Output redirection used to be denied outright, which scored IDIOMATIC answers zero. That is a
     # false failure: it measures the harness, not the model. Redirecting to a relative name inside the
-    # fixture directory is harmless, so only a redirect that leaves the fixture (drive path or UNC) is
-    # denied, alongside the destructive constructs above.
+    # fixture directory is harmless, so only a redirect that leaves the fixture is denied.
     if ($Code -match '>{1,2}\s*[A-Za-z]:') { return 'denylisted construct: redirection to a drive path' }
     if ($Code -match '>{1,2}\s*\\\\') { return 'denylisted construct: redirection to a UNC path' }
-    if ($Code -match '(?i)-Path\s+[A-Za-z]:') { return 'denylisted construct: absolute drive path' }
+    # Write verbs are fine INSIDE the fixture - that is the point of the multifile family - so they are
+    # denied only when the target leaves it (drive-absolute, UNC, or climbing out with ..\).
+    $writeVerbs = 'Set-Content|Add-Content|Out-File|New-Item|Set-Item|Remove-Item|Copy-Item|Move-Item|Rename-Item|Clear-Content|Export-Csv|Export-Clixml|Tee-Object'
+    if ($Code -match "(?i)($writeVerbs)[^\r\n]*([A-Za-z]:|\\\\|\.\.[\\/])") { return 'denylisted construct: write outside the fixture' }
     return ''
 }
 
