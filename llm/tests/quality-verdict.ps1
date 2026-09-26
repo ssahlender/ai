@@ -46,6 +46,8 @@ function Import-Evidence {
         $t = @($vals | Where-Object { $_ }).Count
         $final[$k] = ($t * 2 -ge $vals.Count)   # majority (ties count as pass for 1 replicate only)
     }
+    $reqFail = @($doc.results | Where-Object { "$($_.reason)" -like 'request failed*' }).Count
+    $valid = ($reqFail -le 3)
     return [pscustomobject]@{
         Path     = $Path
         Mode     = "$($doc.mode)"
@@ -53,8 +55,21 @@ function Import-Evidence {
         Outcomes = $final
         Families = $families
         Ms       = $ms
+        ReqFail  = $reqFail
+        Valid    = $valid
         Doc      = $doc
     }
+}
+
+function Get-MeanSec {
+    # Mean SECONDS per answer - the number a user actually feels. A model with a great decode rate
+    # can still be slow here, because it spends tokens on reasoning before it answers. Speed was
+    # stated as a decision criterion, so the verdict reports it rather than leaving it in the log.
+    param($Evidence)
+    $all = @()
+    foreach ($k in $Evidence.Ms.Keys) { $all += $Evidence.Ms[$k] }
+    if ($all.Count -eq 0) { return 0 }
+    return [Math]::Round((($all | Measure-Object -Sum).Sum) / $all.Count / 1000, 1)
 }
 
 function Get-BinomialTail {
@@ -88,20 +103,21 @@ function Get-FamilyScore {
 $ref = Import-Evidence -Path $Reference
 $refScore = Get-FamilyScore -Evidence $ref
 $refTool = [int]("$($refScore['tool'])".Split('/')[0])
+$refMean = Get-MeanSec -Evidence $ref
 
 Write-Output ''
 Write-Output "=== quality verdict ==="
-Write-Output ("  reference: {0}  (code {1}, fix {2}, tool {3}, total {4})" -f `
-    $ref.Mode, $refScore['code'], $refScore['fix'], $refScore['tool'], $refScore['total'])
+Write-Output ("  reference: {0}  (code {1}, fix {2}, tool {3}, total {4} | mean {5}s/answer)" -f `
+    $ref.Mode, $refScore['code'], $refScore['fix'], $refScore['tool'], $refScore['total'], $refMean)
 Write-Output ''
 
 $report = New-Object System.Collections.Generic.List[string]
 $report.Add('# Quality verdict')
 $report.Add('')
-$report.Add("Reference (incumbent): **$($ref.Mode)** - code $($refScore['code']), fix $($refScore['fix']), tool $($refScore['tool']), total $($refScore['total'])")
+$report.Add("Reference (incumbent): **$($ref.Mode)** - code $($refScore['code']), fix $($refScore['fix']), tool $($refScore['tool']), total $($refScore['total']), mean $($refMean)s/answer")
 $report.Add('')
-$report.Add('| model | code | fix | tool | total | tool gate | discordant W/L | p (one-sided) | decision |')
-$report.Add('|---|---|---|---|---|---|---|---|---|')
+$report.Add('| model | code | fix | tool | total | mean s/answer | tool gate | discordant W/L | p (one-sided) | decision |')
+$report.Add('|---|---|---|---|---|---|---|---|---|---|')
 
 $decisions = @()
 foreach ($cPath in $Candidates) {
@@ -121,8 +137,15 @@ foreach ($cPath in $Candidates) {
     $n = $W + $L
     $p = Get-BinomialTail -W $W -N $n
 
+    $candMean = Get-MeanSec -Evidence $cand
+    $valid = [bool]$cand.Valid
+
     $decision = 'keep incumbent (no evidence)'
-    if (-not $gateOk) {
+    if (-not $valid) {
+        # A run whose server died mid-way measures the crash, not the model. Scoring the dead tail
+        # as failures would read as "challenger worse", which is the opposite of what happened.
+        $decision = "EXCLUDED (invalid run: $($cand.ReqFail) request failures - server died mid-run)"
+    } elseif (-not $gateOk) {
         $decision = 'rejected (tool gate failed)'
     } elseif ($W -ge 10 -and $L -le 2) {
         $decision = 'ADOPT (rule met: W >= 10 with L <= 2)'
@@ -137,10 +160,10 @@ foreach ($cPath in $Candidates) {
     $gateLabel = 'pass'
     if (-not $gateOk) { $gateLabel = 'FAIL' }
 
-    Write-Output ("  {0,-14} code {1,-5} fix {2,-5} tool {3,-5} total {4,-6} gate {5,-4} W/L {6}/{7}  p={8:N3}  {9}" -f `
-        $cand.Mode, $cs['code'], $cs['fix'], $cs['tool'], $cs['total'], $gateLabel, $W, $L, $p, $decision)
+    Write-Output ("  {0,-14} code {1,-5} fix {2,-5} tool {3,-5} total {4,-6} mean {5,-7} gate {6,-5} W/L {7}/{8}  p={9:N3}  {10}" -f `
+        $cand.Mode, $cs['code'], $cs['fix'], $cs['tool'], $cs['total'], ("$($candMean)s"), $gateLabel, $W, $L, $p, $decision)
 
-    $report.Add("| $($cand.Mode) | $($cs['code']) | $($cs['fix']) | $($cs['tool']) | $($cs['total']) | $gateLabel | $W/$L | $('{0:N3}' -f $p) | $decision |")
+    $report.Add("| $($cand.Mode) | $($cs['code']) | $($cs['fix']) | $($cs['tool']) | $($cs['total']) | $($candMean)s | $gateLabel | $W/$L | $('{0:N3}' -f $p) | $decision |")
 
     $decisions += [pscustomobject]@{ Mode = $cand.Mode; Decision = $decision; W = $W; L = $L; P = $p; Detail = ($detail -join ' ') }
 }
