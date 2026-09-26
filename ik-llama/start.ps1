@@ -31,12 +31,19 @@ param(
     [string]$Dir    = 'C:\data\llm\ik_llama',
     [string]$ModelDir = 'C:\data\llm\models',
     [string]$ChatTemplate = 'C:\data\git\ai-tools\ik-llama\qwen3-template.j2',
-    [int]$Ctx, [int]$Cram, [int]$Threads = 8, [int]$ThreadsBatch = 16,
+    [int]$Ctx, [int]$Cram, [int]$Threads = 8, [int]$ThreadsBatch = 8,
     [switch]$Background,
-    [string]$LogFile = 'C:\data\llm\llama-server.log'
+    [string]$LogFile = '',
+    [string]$BindAddress = '127.0.0.1',
+    [string]$ApiKey = '',
+    [switch]$AllowNonLoopback
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path (Split-Path $PSScriptRoot -Parent) 'llm\lib\common.ps1')
+if ($BindAddress -ne '127.0.0.1') {
+    if (-not $AllowNonLoopback -or -not $ApiKey) { throw 'non-loopback binding requires -AllowNonLoopback and a non-empty -ApiKey; the previous all-interface dummy-key default exposed the server unnecessarily' }
+}
 
 # ── model table (parity with start.sh probook block) ───────────────
 # Named fields, no positional columns.
@@ -102,7 +109,7 @@ $serverArgs = @(
     '-ctv', 'q8_0'
     '-dt', 0.1
     '--port', $Port
-    '--host', '0.0.0.0'
+    '--host', $BindAddress
     '--jinja'
     '--context-shift', 'on'
     '-rea', 'off'
@@ -112,11 +119,13 @@ if (Test-Path $ChatTemplate) { $serverArgs += @('--chat-template-file', $ChatTem
 if ($sel.Yarn)   { $serverArgs += @('--rope-scaling','yarn','--yarn-orig-ctx','32768','--yarn-beta-fast','32','--yarn-beta-slow','1') }
 if ($sel.Sample) { $serverArgs += @('--temp','0.6','--top-p','0.95','--top-k','20') }
 if ($sel.Mmproj) { $serverArgs += @('--mmproj', (Join-Path $ModelDir $sel.Mmproj)) }
+if ($ApiKey) { $serverArgs += @('--api-key', $ApiKey) }
 
 Write-Host ("Starting {0} on port {1} (ctx={2}, cram={3}MB, threads={4}/{5})..." -f `
     $sel.Name, $Port, $Ctx, $Cram, $Threads, $ThreadsBatch)
 
 if ($Background) {
+    if (-not $LogFile) { $LogFile = New-RunLogPath -Name 'ik-llama-server' }
     $p = Start-Process -FilePath $server -ArgumentList $serverArgs -PassThru -WindowStyle Hidden `
                        -RedirectStandardOutput $LogFile -RedirectStandardError "$LogFile.err"
     Write-Host ("Detached: pid {0}, log {1}" -f $p.Id, $LogFile)

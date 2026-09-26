@@ -22,10 +22,12 @@ param(
     [int]$Ctx = 32768,
     [string]$ServerExe = 'C:\data\llm\llama.cpp-cpu\llama-server.exe',
     [int]$TimeoutSec = 900,
-    [string]$OutFile = 'C:\data\llm\load-test.log'
+    [string]$OutFile = ''
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'lib\common.ps1')
+if (-not $OutFile) { $OutFile = New-RunLogPath -Name 'load-test' }
 $status = "$OutFile.status"
 
 if (-not (Test-Path $Model)) { throw "model not found: $Model" }
@@ -37,47 +39,39 @@ $name = Split-Path $Model -Leaf
 
 $args = @(
     '-m', $Model, '-ngl', '0', '--threads', '8', '--threads-batch', '8', '--parallel', '1',
-    '--ctx-size', "$Ctx", '-ctk', 'q8_0', '-ctv', 'q8_0', '--port', "$Port", '--host', '0.0.0.0',
+    '--ctx-size', "$Ctx", '-ctk', 'q8_0', '-ctv', 'q8_0', '--port', "$Port", '--host', '127.0.0.1',
     '-v', '--jinja'
 )
 $proc = Start-Process -FilePath $ServerExe -ArgumentList $args -PassThru -WindowStyle Hidden `
             -RedirectStandardOutput $OutFile -RedirectStandardError "$OutFile.err" -ErrorAction SilentlyContinue
 if (-not $proc) { throw "failed to start $ServerExe" }
 
-$sw = [Diagnostics.Stopwatch]::StartNew()
-$ready = $false
 $peak = 0
-while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec) {
-    if ($proc.HasExited) { break }
+$health = Wait-ServerHealth -Port $Port -TimeoutSec $TimeoutSec -IntervalSec 3 -Process $proc -OnTick {
+    param($waited)
     $proc.Refresh()
     if ($proc.WorkingSet64 -gt $peak) { $peak = $proc.WorkingSet64 }
-    try {
-        $h = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 5
-        if ($h.status -eq 'ok') { $ready = $true; break }
-    } catch { }
-    "$name : waiting $([Math]::Round($sw.Elapsed.TotalSeconds))s, ws $([Math]::Round($peak / 1GB, 1)) GB" |
+    "$name : waiting ${waited}s, ws $([Math]::Round($peak / 1GB, 1)) GB" |
         Set-Content $status -Encoding UTF8
-    Start-Sleep -Seconds 3
 }
-$sw.Stop()
 
-if ($ready) {
+if ($health.Ok) {
     $proc.Refresh()
     $ws = [Math]::Round($proc.WorkingSet64 / 1GB, 1)
-    $res = "LOADED in $([Math]::Round($sw.Elapsed.TotalSeconds))s, working set $ws GB (peak seen $([Math]::Round($peak / 1GB, 1)) GB)"
+    $res = "LOADED in $($health.Waited)s, working set $ws GB (peak seen $([Math]::Round($peak / 1GB, 1)) GB)"
     $res | Set-Content $status -Encoding UTF8
     $res
     "  health: ok   pid $($proc.Id)"
 } else {
     $why = 'timeout'
     if ($proc.HasExited) { $why = "exited with code $($proc.ExitCode)" }
-    $res = "FAILED: $why after $([Math]::Round($sw.Elapsed.TotalSeconds))s"
+    $res = "FAILED: $why after $($health.Waited)s ($($health.LastErr))"
     $res | Set-Content $status -Encoding UTF8
     $res
     if (Test-Path "$OutFile.err") { "  --- last 12 stderr lines ---"; Get-Content "$OutFile.err" -Tail 12 | ForEach-Object { "  | $_" } }
 }
 
 # stop ONLY the process this script started
-if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+Stop-OwnedProcess -Process $proc | Out-Null
 Start-Sleep -Seconds 2
 "stopped $($proc.Id)"

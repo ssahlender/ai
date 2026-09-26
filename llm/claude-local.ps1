@@ -113,7 +113,7 @@ if (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health") {
     if (-not $DryRun) {
         $env:LOCAL_PROXY_PORT = "$ProxyPort"
         $env:LOCAL_PROXY_UPSTREAM = "http://127.0.0.1:$ServerPort"
-        $log = Join-Path $env:TEMP 'local-proxy.log'
+        $log = New-RunLogPath -Name 'local-proxy'
         Start-Process -FilePath $py -ArgumentList @($ProxyScript) -WindowStyle Hidden `
                       -RedirectStandardOutput $log -RedirectStandardError "$log.err"
         $waited = 0
@@ -146,7 +146,12 @@ if ($needFix) {
                 $json | Add-Member -NotePropertyName env -NotePropertyValue ([pscustomobject]@{}) -Force
             }
             $json.env | Add-Member -NotePropertyName CLAUDE_CODE_ATTRIBUTION_HEADER -NotePropertyValue '0' -Force
-            $json | ConvertTo-Json -Depth 8 | Set-Content $settingsPath -Encoding UTF8
+            $newJson = $json | ConvertTo-Json -Depth 8
+            $tempSettings = "$settingsPath.new"
+            Write-Utf8NoBom -Path $tempSettings -Lines @($newJson)
+            try { Get-Content $tempSettings -Raw | ConvertFrom-Json -ErrorAction Stop | Out-Null }
+            catch { Remove-Item $tempSettings -Force -ErrorAction SilentlyContinue; throw "refusing to write invalid settings JSON: $($_.Exception.Message)" }
+            Move-Item $tempSettings $settingsPath -Force
             Write-Host ("  settings: written {0} (backup at {0}.bak)" -f $settingsPath)
         } else {
             Write-Host ("  settings: would patch {0}" -f $settingsPath)
