@@ -11,10 +11,6 @@
     Which engines live where (and why):
       mainline        C:\data\llm\llama.cpp-cpu   daily engine  (legacy quants / Q4_0)
       ik_llama        C:\data\llm\ik_llama        i-quant specialist (IQ4_NL/IQ4_XS)
-      mainline-vulkan C:\data\llm\llama.cpp       toys only - UNUSABLE for real models
-                                                  here: 512 MiB device-local heap, a
-                                                  ~956 MB allocation fails outright.
-
     Not tracked on purpose: ROCm (no HIP device for gfx1103 on this box).
 
     Engines get separate directories because each ships its own llama.dll / ggml.dll;
@@ -32,6 +28,10 @@
 .PARAMETER PurgeOldBackups
     After a successful install, delete every _backup-* directory except the newest one.
 
+.PARAMETER AllowUnverifiedAsset
+    Permit installation only when GitHub omitted the release sha256 digest. This is opt-in
+    because the previous updater silently installed an unverifiable binary.
+
 .EXAMPLE
     .\update-llm.ps1 -ListOnly
     .\update-llm.ps1
@@ -43,7 +43,8 @@ param(
     [string[]]$Engine = @('mainline', 'ik_llama'),
     [switch]$ListOnly,
     [switch]$Force,
-    [switch]$PurgeOldBackups
+    [switch]$PurgeOldBackups,
+    [switch]$AllowUnverifiedAsset
 )
 
 $ErrorActionPreference = 'Stop'
@@ -64,13 +65,6 @@ $EngineTable = @(
         Pattern = '^ik_llama-(?!cudart\b).+-bin-win-cpu-x64-avx512_vnni_vbmi_bf16\.zip$'
         Dest    = 'C:\data\llm\ik_llama'
         Role    = 'i-quant specialist (IQ4_NL / IQ4_XS)'
-    }
-    [pscustomobject]@{
-        Key     = 'mainline-vulkan'
-        Repo    = 'ggml-org/llama.cpp'
-        Pattern = '^llama-(?!cudart\b).+-bin-win-vulkan-x64\.zip$'
-        Dest    = 'C:\data\llm\llama.cpp'
-        Role    = 'toys only - unusable for real models here (512 MiB heap)'
     }
 )
 
@@ -101,7 +95,7 @@ function Get-LatestAsset {
 }
 
 function Install-Asset {
-    param($Asset, [string]$Dest)
+    param($Asset, [string]$Dest, [switch]$AllowUnverified)
     $marker = Join-Path $Dest '.tag'
     $tmp = Join-Path $env:TEMP ('llmupd-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tmp -Force | Out-Null
@@ -111,6 +105,7 @@ function Install-Asset {
         $sw = [Diagnostics.Stopwatch]::StartNew()
         curl.exe -sS -L --retry 5 --retry-delay 3 -o $zip $Asset.Url
         $sw.Stop()
+        if ($LASTEXITCODE -ne 0) { throw "download failed with curl exit code $LASTEXITCODE" }
         if (-not (Test-Path $zip)) { throw "download failed (no file at $zip)" }
         Write-Host ("    downloaded in {0:N0}s" -f $sw.Elapsed.TotalSeconds)
 
@@ -120,8 +115,18 @@ function Install-Asset {
             if ($want -ne $got) { throw "sha256 mismatch: expected $want, got $got" }
             Write-Host "    sha256 verified"
         } else {
-            Write-Host "    no digest published; sha256 NOT verified"
+            if (-not $AllowUnverified) { throw 'GitHub published no sha256 digest. Re-run with -AllowUnverifiedAsset only after accepting that risk.' }
+            Write-Warning "    no digest published; installing only because -AllowUnverifiedAsset was explicit"
         }
+
+        $stage = Join-Path $tmp 'stage'
+        Expand-Archive -Path $zip -DestinationPath $stage -Force
+        $stagedServer = Get-ChildItem -Path $stage -Filter 'llama-server.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $stagedServer) { throw 'archive contains no llama-server.exe; live engine was left untouched' }
+        $versionText = (& $stagedServer.FullName --version 2>&1 | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -or -not $versionText) { throw 'staged llama-server.exe did not run successfully; live engine was left untouched' }
+        if ($versionText -notmatch [regex]::Escape($Asset.Tag)) { throw "staged build did not report expected release '$($Asset.Tag)'; live engine was left untouched" }
+        Write-Host ("    staged binary accepted: {0}" -f ($versionText -replace "`r?`n", ' '))
 
         $prevTag  = if (Test-Path $marker) { (Get-Content $marker -Raw).Trim() } else { 'unknown' }
         $backup   = Join-Path $Dest ('_backup-' + $prevTag)
@@ -133,6 +138,8 @@ function Install-Asset {
             Write-Host ("    backed up {0} file(s) from '{1}'" -f $existing.Count, $prevTag)
         }
 
+        # Acceptance above happens before this in-place replacement. Keep the rollback copy
+        # until after it succeeds; the old updater wrote .tag before proving the binary ran.
         Expand-Archive -Path $zip -DestinationPath $Dest -Force
         Set-Content -Path $marker -Value $Asset.Tag -NoNewline
 
@@ -151,12 +158,12 @@ function Install-Asset {
 $summary = @()
 foreach ($key in $Engine) {
     $e = $EngineTable | Where-Object { $_.Key -eq $key }
-    if (-not $e) { Write-Host ("!! unknown engine '{0}' - valid: {1}" -f $key, ($EngineTable.Key -join ', ')); continue }
+    if (-not $e) { throw ("unknown engine '{0}' - valid: {1}" -f $key, ($EngineTable.Key -join ', ')) }
 
     Write-Host ("== {0}  ({1})" -f $e.Key, $e.Role)
     Write-Host ("   dir: {0}" -f $e.Dest)
     $asset  = Get-LatestAsset -Repo $e.Repo -Pattern $e.Pattern
-    if (-not $asset) { Write-Host ("   no release asset matched {0}" -f $e.Pattern); continue }
+    if (-not $asset) { throw ("no release asset matched {0} for engine '{1}'" -f $e.Pattern, $e.Key) }
 
     $marker = Join-Path $e.Dest '.tag'
     $haveTag = if (Test-Path $marker) { (Get-Content $marker -Raw).Trim() } else { $null }
@@ -175,7 +182,7 @@ foreach ($key in $Engine) {
         continue
     }
 
-    $backup = Install-Asset -Asset $asset -Dest $e.Dest
+    $backup = Install-Asset -Asset $asset -Dest $e.Dest -AllowUnverified:$AllowUnverifiedAsset
     # Record the variant separately: .tag must stay EXACTLY the release tag, or the
     # up-to-date comparison above never matches (the directory already encodes the variant).
     Set-Content -Path (Join-Path $e.Dest '.variant') -Value $e.Key -NoNewline
