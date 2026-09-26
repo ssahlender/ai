@@ -1,0 +1,115 @@
+<#
+.SYNOPSIS
+    Run one model through a fixed 5-prompt set and save its answers (for a blind A/B).
+
+.DESCRIPTION
+    Starts llama-server for a mode from start-llm.ps1, sends the same five prompts with
+    identical sampling, writes the answers to a file, then stops the server.
+
+    Run it once per mode, then present the two outputs side by side WITHOUT their labels
+    and let the operator pick. The point is quality on real work, which no benchmark
+    measures - the speed figures only say which model is affordable, not which is better.
+
+    Sampling is fixed (temperature 0.2, top_p 0.95, max_tokens 320) and must not be
+    varied between runs, or the comparison is meaningless.
+
+.PARAMETER Mode
+    Mode name from start-llm.ps1 (e.g. gemma4qat, qwen36u35b).
+
+.PARAMETER OutFile
+    Where to write the answers.
+
+.EXAMPLE
+    .\blind-compare.ps1 -Mode gemma4qat   -OutFile gemma.txt
+    .\blind-compare.ps1 -Mode qwen36u35b  -OutFile qwen.txt
+#>
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)][string]$Mode,
+    [Parameter(Mandatory = $true)][string]$OutFile,
+    [int]$Port = 9080,
+    [int]$MaxTokens = 320,
+    [double]$Temperature = 0.2
+)
+
+$ErrorActionPreference = 'Stop'
+$here = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$startScript = Join-Path $here 'start-llm.ps1'
+
+# Same prompts for every model. Covering: infra reasoning, shell scripting, German
+# business writing, arithmetic, and code review.
+$prompts = @(
+    'Explain, in 5 short bullet points, how to safely put one node of a 3-node Proxmox VE cluster into maintenance without causing quorum loss.'
+    'Write a bash one-liner that lists running Docker containers sorted by memory usage, showing only those over 2 GB.'
+    'Schreibe eine kurze, freundliche E-Mail an einen Mieter, der die Miete drei Tage zu spaet bezahlt hat. Auf Deutsch, sachlich, ohne Drohung.'
+    'A language model must read 2.3 GB of weights per generated token, and memory bandwidth is 89.6 GB/s. Show the arithmetic for the theoretical maximum tokens/s, then state which fraction is realistic in practice and why.'
+    'Review this snippet and name the bug plus the fix: for f in $(ls /data/*.json); do jq -r .id $f >> ids.txt; done'
+)
+
+function Test-Port([int]$P) {
+    $c = New-Object System.Net.Sockets.TcpClient
+    try {
+        $a = $c.BeginConnect('127.0.0.1', $P, $null, $null)
+        if (-not $a.AsyncWaitHandle.WaitOne(800)) { return $false }
+        $c.EndConnect($a); return $true
+    } catch { return $false } finally { $c.Close() }
+}
+
+"=== $Mode : starting server ==="
+& powershell -NoProfile -ExecutionPolicy Bypass -File $startScript $Mode -Background -Port $Port | Out-Null
+$waited = 0
+while (-not (Test-Port $Port) -and $waited -lt 300) { Start-Sleep -Seconds 5; $waited += 5 }
+if (-not (Test-Port $Port)) { "FAILED: server did not come up after ${waited}s"; exit 1 }
+"  server up after ~${waited}s"
+
+$sw = [Diagnostics.Stopwatch]::StartNew()
+$results = @()
+for ($i = 0; $i -lt $prompts.Count; $i++) {
+    $n = $i + 1
+    $body = @{
+        model       = $Mode
+        max_tokens  = $MaxTokens
+        temperature = $Temperature
+        top_p       = 0.95
+        messages    = @(@{ role = 'user'; content = $prompts[$i] })
+    } | ConvertTo-Json -Depth 6
+
+    try {
+        $sw2 = [Diagnostics.Stopwatch]::StartNew()
+        $r = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/v1/chat/completions" -Method Post `
+                -ContentType 'application/json' -Body $body -TimeoutSec 600
+        $sw2.Stop()
+        $answer = $r.choices[0].message.content
+        $tps = if ($r.usage.completion_tokens -and $sw2.Elapsed.TotalSeconds -gt 0) {
+                   [Math]::Round($r.usage.completion_tokens / $sw2.Elapsed.TotalSeconds, 2)
+               } else { 'n/a' }
+        "  prompt $n done ($($r.usage.completion_tokens) tok, $tps t/s)"
+        $results += [pscustomobject]@{ n = $n; prompt = $prompts[$i]; answer = $answer; tokens = $r.usage.completion_tokens; tps = $tps }
+    } catch {
+        "  prompt $n FAILED: $($_.Exception.Message)"
+        $results += [pscustomobject]@{ n = $n; prompt = $prompts[$i]; answer = "ERROR: $($_.Exception.Message)"; tokens = 0; tps = 'n/a' }
+    }
+}
+$sw.Stop()
+
+# stop the server we started
+Get-Process -Name llama-server -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+
+$md = New-Object System.Text.StringBuilder
+[void]$md.AppendLine("# Answers: $Mode")
+[void]$md.AppendLine("")
+[void]$md.AppendLine("total wall time: $([Math]::Round($sw.Elapsed.TotalSeconds,1))s")
+[void]$md.AppendLine("")
+foreach ($r in $results) {
+    [void]$md.AppendLine("## Prompt $($r.n)")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("> $($r.prompt)")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine("**Answer** ($($r.tokens) tokens, $($r.tps) t/s)")
+    [void]$md.AppendLine("")
+    [void]$md.AppendLine((($r.answer -replace "`r`n", "`n").Trim()))
+    [void]$md.AppendLine("")
+}
+$md.ToString() | Set-Content $OutFile -Encoding UTF8
+"=== wrote $OutFile ($([Math]::Round($sw.Elapsed.TotalSeconds,1))s total) ==="
