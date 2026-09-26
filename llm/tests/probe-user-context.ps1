@@ -48,7 +48,12 @@ Write-Report "=== uv-managed python / uv / uvx in this account ==="
 foreach ($rel in @('.local\bin\python3.11.exe', '.local\bin\uv.exe', '.local\bin\uvx.exe')) {
     $full = Join-Path $env:USERPROFILE $rel
     if (Test-Path $full) {
-        Write-Report ("{0} -> {1}" -f $rel, ((& $full --version 2>&1 | Out-String).Trim()))
+        # Do not start several large binaries from a remote context.  A previous probe did
+        # exactly that and destabilised its WinRM session; metadata proves discovery safely.
+        $item = Get-Item $full
+        $version = $item.VersionInfo.FileVersion
+        if (-not $version) { $version = 'unknown file version' }
+        Write-Report ("{0} -> present ({1} bytes; version {2})" -f $rel, $item.Length, $version)
     } else {
         Write-Report ("{0} -> MISSING" -f $rel)
     }
@@ -59,14 +64,8 @@ Write-Report "=== PATH as seen by this account ==="
 Write-Report (($env:PATH -split ';' | Where-Object { $_ } | ForEach-Object { "  $_" }) -join "`n")
 
 Write-Report ""
-Write-Report "=== can this account's python import what the proxies need? ==="
-$py = Join-Path $env:USERPROFILE '.local\bin\python3.11.exe'
-if (Test-Path $py) {
-    $code = "import sys, json, urllib.request; print('py', sys.version.split()[0]); print('ok')"
-    Write-Report ((& $py -c $code 2>&1 | Out-String).Trim())
-} else {
-    Write-Report "  (no uv-managed python found)"
-}
+Write-Report "=== proxy prerequisite ==="
+Write-Report "  metadata-only probe: Python discovery above is non-invasive; run an explicit local import test separately."
 
 Write-Report ""
 Write-Report "=== llama-server already running? ==="
