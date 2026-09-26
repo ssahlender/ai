@@ -1,20 +1,25 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
+
+# llm/bench/ -> llm/lib/common.ps1 (Invoke-NativeToFile, New-RunLogPath)
+. (Join-Path (Split-Path $PSScriptRoot -Parent) "lib\common.ps1")
+
 $base = "C:\data\llm"
 $ik = "$base\ik_llama\llama-bench.exe"
 $ml = "$base\llama.cpp-cpu\llama-bench.exe"
 $inc = "$base\models\Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf"
 $gem = "$base\models\gemma-4-26B_q4_0-it.gguf"
-$log = "$base\bench-ab.txt"
-if (Test-Path $log) { Remove-Item $log -Force }
+# Run output belongs in logs\, and a timestamped name means a re-run keeps the previous numbers
+# instead of destroying them.
+$log = New-RunLogPath -Name "bench-ab" -LlmRoot $base
 
 function Run-One($exe, $model, $tag, $extra) {
     $ts = Get-Date -Format "HH:mm:ss"
     $cmdArgs = @("-m", $model, "-ngl", "0", "-t", "8") + $extra
-    & $exe @cmdArgs *> "$base\_ab_tmp.txt"
-    if ($LASTEXITCODE -ne 0) {
+    $code = Invoke-NativeToFile -Exe $exe -Arguments $cmdArgs -LogPath "$base\_ab_tmp.txt"
+    if ($code -ne 0) {
         $detail = (Get-Content "$base\_ab_tmp.txt" -Tail 20 | Out-String).Trim()
-        throw "benchmark '$tag' failed with exit code $LASTEXITCODE. No partial result is being reported. $detail"
+        throw "benchmark '$tag' failed with exit code $code. No partial result is being reported. $detail"
     }
     $line = (Get-Content "$base\_ab_tmp.txt" | Select-String -Pattern "\|\s+\S+\s+\|.*\|\s+(pp\d+|tg\d+)\s+\|" | ForEach-Object { $_.Line.Trim() })
     if (-not $line) { throw "benchmark '$tag' produced no parseable metrics. No partial result is being reported." }

@@ -48,6 +48,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Same directory: lib\common.ps1 provides Get-NativeOutput. The staged-binary acceptance check
+# runs `llama-server --version`, which writes to stderr - merged into the success stream under
+# 'Stop' that raises NativeCommandError and aborts the update mid-flight.
+. (Join-Path $PSScriptRoot 'lib\common.ps1')
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $headers = @{ Accept = 'application/vnd.github+json'; 'User-Agent' = 'update-llm-ps1' }
 
@@ -123,7 +128,7 @@ function Install-Asset {
         Expand-Archive -Path $zip -DestinationPath $stage -Force
         $stagedServer = Get-ChildItem -Path $stage -Filter 'llama-server.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
         if (-not $stagedServer) { throw 'archive contains no llama-server.exe; live engine was left untouched' }
-        $versionText = (& $stagedServer.FullName --version 2>&1 | Out-String).Trim()
+        $versionText = (Get-NativeOutput -Exe $stagedServer.FullName -Arguments @('--version')).Trim()
         if ($LASTEXITCODE -ne 0 -or -not $versionText) { throw 'staged llama-server.exe did not run successfully; live engine was left untouched' }
         if ($versionText -notmatch [regex]::Escape($Asset.Tag)) { throw "staged build did not report expected release '$($Asset.Tag)'; live engine was left untouched" }
         Write-Host ("    staged binary accepted: {0}" -f ($versionText -replace "`r?`n", ' '))
