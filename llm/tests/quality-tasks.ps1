@@ -98,6 +98,30 @@ function Get-CodeDenyReason {
     return ''
 }
 
+function Get-CodeCandidates {
+    # Candidate solutions to execute, in the order the model offered them.
+    #
+    # Fenced blocks first: models routinely hand back two or three ALTERNATIVES in one answer, and
+    # concatenating them punishes formatting instead of capability - the same class of error arena
+    # #22 found in the vendor harness (a model marked down for a tool the harness never exposed).
+    # If there are no fences, the whole answer is the single candidate. Capped so a rambling answer
+    # cannot turn into a dozen executions.
+    param([string]$Text, [int]$Max = 3)
+    $out = @()
+    if (-not $Text -or $Text.Trim() -eq '') { return $out }
+    $m = [regex]::Matches($Text, '(?s)```[ \t]*(?i)(powershell|ps1|ps|bash|sh|text)?[ \t]*\r?\n(.*?)```')
+    if ($m.Count -eq 0) { return @($Text) }
+    foreach ($x in $m) {
+        $body = $x.Groups[2].Value
+        if ($body.Trim() -eq '') { continue }
+        if ($body.Length -gt 2000) { $body = $body.Substring(0, 2000) }
+        $out += $body
+        if ($out.Count -ge $Max) { break }
+    }
+    if ($out.Count -eq 0) { return @($Text) }
+    return $out
+}
+
 function Assert-ExecOutput {
     # Compares the normalized stdout of the executed answer against the expected value.
     param(
