@@ -126,8 +126,8 @@ function New-QualityHardFixture {
     # The distractor is deliberate: lowercase "error" appears in prose many times, so a model that
     # greps case-insensitively finds noise and must reason about which line is the real one.
     $log = New-Object System.Collections.Generic.List[string]
-    for ($i = 0; $i -lt 1400; $i++) {
-        if ($i -eq 940) {
+    for ($i = 0; $i -lt 700; $i++) {
+        if ($i -eq 470) {
             $log.Add('2026-09-27 03:14:22 ERROR request failed request_id=req-8f4c2b91 upstream timeout')
         } elseif ($i % 97 -eq 0) {
             $log.Add(('2026-09-27 03:{0:d2}:11 INFO  request {1} completed with no error observed' -f ($i % 60), $i))
@@ -135,7 +135,7 @@ function New-QualityHardFixture {
             $log.Add(('2026-09-27 03:{0:d2}:07 INFO  handler step {1} finished ok in {2}ms' -f ($i % 60), $i, (7 + ($i % 40))))
         }
     }
-    Write-FixtureFile -Path (Join-Path $root 'big\app-12k.log') -Lines $log.ToArray()
+    Write-FixtureFile -Path (Join-Path $root 'big\app.log') -Lines $log.ToArray()
 
     # ---- B2: a ~15k-token config dump where one setting appears three times ----
     $cfg = New-Object System.Collections.Generic.List[string]
@@ -320,9 +320,9 @@ function Get-QualityHardTaskList {
         # and the model that replies 'I will read the file' looks like it failed. Five tasks were
         # unanswerable on the first hard run for exactly this reason.
         @{ Id = 'hard-ctx-log'; Family = 'context'; MaxTokens = 300
-           Prompt = 'Read big/app-12k.log. Exactly one line is an ERROR (uppercase) line. Reply with only the request_id value from that line.
+           Prompt = 'Read big/app.log. Exactly one line is an ERROR (uppercase) line. Reply with only the request_id value from that line.
 '
-           ContextFile = 'big/app-12k.log'; Check = 'Assert-AnswerExact'; Expect = 'req-8f4c2b91' }
+           ContextFile = 'big/app.log'; Check = 'Assert-AnswerExact'; Expect = 'req-8f4c2b91' }
 
         @{ Id = 'hard-ctx-config'; Family = 'context'; MaxTokens = 300
            Prompt = 'Read big/config-dump.txt. The setting max_connections appears in more than one section. Reply with only the single numeric value that is actually in effect, following the rule stated in the header of the file.'
