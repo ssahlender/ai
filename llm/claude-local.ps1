@@ -52,20 +52,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
-
-function Test-PortOpen([int]$Port) {
-    $client = New-Object System.Net.Sockets.TcpClient
-    try {
-        $async = $client.BeginConnect('127.0.0.1', $Port, $null, $null)
-        if (-not $async.AsyncWaitHandle.WaitOne(800)) { return $false }
-        $client.EndConnect($async)
-        return $true
-    } catch {
-        return $false
-    } finally {
-        $client.Close()
-    }
-}
+. (Join-Path $here 'lib\common.ps1')
 
 function Resolve-Python {
     $candidates = @(
@@ -82,8 +69,10 @@ function Resolve-Python {
 Write-Host ("claude-local: mode={0} stem={1} server={2} proxy={3}" -f $Mode, $ModelStem, $ServerPort, $ProxyPort)
 
 # ── 1) llama-server on 9080 ────────────────────────────────────────
-if (Test-PortOpen $ServerPort) {
-    Write-Host ("  server : already listening on {0}" -f $ServerPort)
+if (Test-ServerHealth -Port $ServerPort) {
+    Write-Host ("  server : healthy model already serving on {0}" -f $ServerPort)
+} elseif (Test-PortOpen -Port $ServerPort) {
+    throw "port $ServerPort is listening, but /health is not ok. Refusing to wire Claude Code to an unloaded or different server."
 } elseif ($NoStart) {
     throw "nothing listening on $ServerPort and -NoStart was given"
 } else {
@@ -92,16 +81,15 @@ if (Test-PortOpen $ServerPort) {
     Write-Host ("  server : starting '{0}' via start-llm.ps1 -Background" -f $Mode)
     if (-not $DryRun) {
         & powershell -NoProfile -ExecutionPolicy Bypass -File $starter $Mode -Background -Port $ServerPort
-        $waited = 0
-        while (-not (Test-PortOpen $ServerPort) -and $waited -lt 180) { Start-Sleep -Seconds 3; $waited += 3 }
-        if (-not (Test-PortOpen $ServerPort)) { throw "llama-server did not come up on $ServerPort" }
-        Write-Host ("  server : up after ~{0}s" -f $waited)
+        $health = Wait-ServerHealth -Port $ServerPort -TimeoutSec 180 -IntervalSec 3
+        if (-not $health.Ok) { throw "llama-server did not become healthy on $ServerPort after $($health.Waited)s ($($health.LastErr))" }
+        Write-Host ("  server : healthy after ~{0}s" -f $health.Waited)
     }
 }
 
 # ── 2) local-proxy.py on 9081 ──────────────────────────────────────
-if (Test-PortOpen $ProxyPort) {
-    Write-Host ("  proxy  : already listening on {0}" -f $ProxyPort)
+if (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health") {
+    Write-Host ("  proxy  : HTTP endpoint already serving on {0}" -f $ProxyPort)
 } elseif ($NoStart) {
     throw "nothing listening on $ProxyPort and -NoStart was given"
 } else {
@@ -129,8 +117,8 @@ if (Test-PortOpen $ProxyPort) {
         Start-Process -FilePath $py -ArgumentList @($ProxyScript) -WindowStyle Hidden `
                       -RedirectStandardOutput $log -RedirectStandardError "$log.err"
         $waited = 0
-        while (-not (Test-PortOpen $ProxyPort) -and $waited -lt 30) { Start-Sleep -Seconds 1; $waited += 1 }
-        if (-not (Test-PortOpen $ProxyPort)) { throw "local-proxy did not come up on $ProxyPort (see $log.err)" }
+        while (-not (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health") -and $waited -lt 30) { Start-Sleep -Seconds 1; $waited += 1 }
+        if (-not (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health")) { throw "local-proxy did not expose an HTTP endpoint on $ProxyPort (see $log.err)" }
         Write-Host ("  proxy  : up, log {0}" -f $log)
     }
 }

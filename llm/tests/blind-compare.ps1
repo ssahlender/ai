@@ -34,6 +34,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $here = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+. (Join-Path (Split-Path -Parent $here) 'lib\common.ps1')
 # start-llm.ps1 sits in llm\, this script in llm\tests\: probe BOTH instead of assuming a
 # sibling, otherwise -File gets a path that does not exist and the launcher silently fails.
 $startScript = @(
@@ -52,15 +53,6 @@ $prompts = @(
     'Review this snippet and name the bug plus the fix: for f in $(ls /data/*.json); do jq -r .id $f >> ids.txt; done'
 )
 
-function Test-Port([int]$P) {
-    $c = New-Object System.Net.Sockets.TcpClient
-    try {
-        $a = $c.BeginConnect('127.0.0.1', $P, $null, $null)
-        if (-not $a.AsyncWaitHandle.WaitOne(800)) { return $false }
-        $c.EndConnect($a); return $true
-    } catch { return $false } finally { $c.Close() }
-}
-
 # Write the header and status BEFORE anything slow happens. A model load takes minutes and a
 # long operation over WinRM can die with WSManFault 1359, so results are written as they arrive.
 "# Answers: $Mode" | Set-Content $OutFile -Encoding UTF8
@@ -72,13 +64,12 @@ function Test-Port([int]$P) {
 # and swallowing it turns a hard failure into a silent 300s wait for a port that never opens.
 & powershell -NoProfile -ExecutionPolicy Bypass -File $startScript $Mode -Background -Port $Port 2>&1 |
     ForEach-Object { "  [start] $_" }
-$waited = 0
-while (-not (Test-Port $Port) -and $waited -lt 300) { Start-Sleep -Seconds 5; $waited += 5 }
-if (-not (Test-Port $Port)) {
-    "FAILED: server did not come up after ${waited}s" | Set-Content "$OutFile.status" -Encoding UTF8
-    "FAILED: server did not come up after ${waited}s"; exit 1
+$health = Wait-ServerHealth -Port $Port -TimeoutSec 300 -IntervalSec 5
+if (-not $health.Ok) {
+    "FAILED: server did not become healthy after $($health.Waited)s ($($health.LastErr))" | Set-Content "$OutFile.status" -Encoding UTF8
+    "FAILED: server did not become healthy after $($health.Waited)s ($($health.LastErr))"; exit 1
 }
-"  server up after ~${waited}s"
+"  server healthy after ~$($health.Waited)s"
 
 $sw = [Diagnostics.Stopwatch]::StartNew()
 for ($i = 0; $i -lt $prompts.Count; $i++) {
