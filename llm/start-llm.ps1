@@ -92,6 +92,22 @@ $ModeTable = @(
         Ctx    = 65536; Cram = 0
         Template = $null; Mmproj = $null
     }
+    [pscustomobject]@{
+        Short  = 'katcoder25'
+        Name   = 'Kwaipilot KAT-Coder V2.5 Dev Q3_K_M (verified download)'
+        Engine = 'mainline'
+        File   = 'Kwaipilot_KAT-Coder-V2.5-Dev-Q3_K_M.gguf'
+        Ctx    = 32768; Cram = 0
+        Template = $null; Mmproj = $null
+    }
+    [pscustomobject]@{
+        Short  = 'ornith15'
+        Name   = 'Ornith 1.5 35B-A3B Q3_K_M (verified download)'
+        Engine = 'mainline'
+        File   = 'Ornith-1.5-35B-A3B-Q3_K_M.gguf'
+        Ctx    = 32768; Cram = 0
+        Template = $null; Mmproj = $null
+    }
 )
 
 $engineDirs = @{ 'mainline' = $MainlineDir; 'ik_llama' = $IkLlamaDir }
@@ -125,7 +141,7 @@ if (-not $sel) { throw "Unknown mode: $Mode (run with no arguments to list modes
 
 $server    = Resolve-EngineServer $sel.Engine
 $modelPath = Join-Path $ModelDir $sel.File
-if (-not (Test-Path $modelPath)) { throw "Model file not found: $modelPath" }
+if (-not (Test-Path $modelPath)) { throw "Mode '$Mode' requires GGUF '$($sel.File)', but it is missing at $modelPath. Download or copy that model before starting." }
 if (-not $Ctx) { $Ctx = $sel.Ctx }
 
 $running = Get-Process -Name 'llama-server' -ErrorAction SilentlyContinue
