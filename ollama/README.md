@@ -40,8 +40,6 @@ not just a different wrapper around the same weights. ~18 GB on disk.
 |---|---|
 | `start.sh` | Start the daily-driver `ollama serve` (flash-attention on, q8_0 KV cache) |
 | `stop.sh` | Stop it |
-| `start-graphify.sh` | Start the extraction-only instance on :11438 (ctx 16384, 1 parallel slot, 5 min keep-alive) |
-| `stop-graphify.sh` | Stop only that instance; the daily driver is never touched |
 | `setup-agent.sh` | Wire OpenCode + Pi provider config |
 
 ### Quick start
@@ -88,7 +86,10 @@ extraction/matching task with 100% correct results — see
 fix, different (single-turn, short) workload — the long-context/memory
 tradeoffs from the coding-agent testing don't apply there.
 
-## Using this ollama from another host (e.g. graphify on a separate machine)
+## Client-side notes (measured Sept 2026, kept as history)
+
+*Graphify was retired 2026-09-26; the findings below are measurements of this ollama instance's
+`/v1` behaviour and are kept because they describe the server, not the client.*
 
 `start.sh` binds `OLLAMA_HOST=127.0.0.1` on purpose — an ollama endpoint has no
 authentication, so it never listens on the LAN. Another host reaches it over an SSH
@@ -161,10 +162,9 @@ here, not faster. Judge a variant by whether `graph.json` exists and how many ch
 never by how many tokens it generated; the variants that produced *nothing* generated more tokens than
 the one that worked.
 
-**The extraction instance does not survive a reboot.** `start-graphify.sh` starts a detached process and
-installs no LaunchAgent, so after a restart re-run it before expecting local extractions to work:
-`cd <this repo>/ollama && ./start-graphify.sh`. (The daily-driver instance on the default port is
-unaffected — it is started by ollama itself.)
+**The retired extraction instance did not survive a reboot.** Its `start-graphify.sh` started a detached
+process and installed no LaunchAgent, so it had to be re-run after every restart. The scripts are gone
+(archived 2026-09-26); the daily-driver instance on the default port is unaffected — ollama itself starts it.
 
 ## Local model verdicts (extraction use, measured)
 

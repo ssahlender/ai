@@ -15,7 +15,6 @@ fi
 PI_PACKAGES=(
   context-mode
   @sherif-fanous/pi-rtk
-  @gaodes/pi-graphify
 )
 
 for package in "${PI_PACKAGES[@]}"; do
