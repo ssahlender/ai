@@ -81,6 +81,23 @@ function Invoke-ProcessCapture {
     return @{ ExitCode = $p.ExitCode; Out = $outTask.Result; Err = $errTask.Result; TimedOut = $false }
 }
 
+function Get-EffectivePrompt {
+    # A task that says 'read <file>' must actually RECEIVE the file. With no tools and no content, the
+    # prompt is unanswerable and the model is scored zero for something no model could do. ContextFile
+    # inlines the fixture (that is the long-context and precision families' whole point).
+    param($Task)
+    $p = "$($Task.Prompt)".TrimEnd()
+    if ($Task.ContextFile) {
+        $cf = Join-Path $script:FixtureDir $Task.ContextFile
+        if (Test-Path $cf) {
+            $p = $p + "`n`n----- BEGIN " + $Task.ContextFile + " -----`n" + (Get-Content $cf -Raw) + "`n----- END " + $Task.ContextFile + " -----"
+        } else {
+            $p = $p + "`n`n[fixture " + $Task.ContextFile + " NOT FOUND]"
+        }
+    }
+    return $p
+}
+
 function Invoke-Chat {
     param(
         [array]$Messages,
@@ -202,7 +219,7 @@ function Invoke-ToolTask {
     # A real agentic loop: send, answer each tool call from the mocks, re-send, until the model
     # stops calling tools or we hit the turn cap. Judged on the calls it made AND its final text.
     param($Task, [int]$Seed)
-    $messages = @(@{ role = 'user'; content = $Task.Prompt })
+    $messages = @(@{ role = 'user'; content = (Get-EffectivePrompt -Task $Task) })
     $calls = @()
     $final = ''
     $ms = 0
@@ -317,7 +334,7 @@ try {
                 }
                 $calls = @($r.Calls | ForEach-Object { @{ name = $_.Name; arguments = $_.Arguments } })
             } else {
-                $r = Invoke-Chat -Messages @(@{ role = 'user'; content = $t.Prompt }) -Tools $null -MaxTokens $t.MaxTokens -Seed $rep
+                $r = Invoke-Chat -Messages @(@{ role = 'user'; content = (Get-EffectivePrompt -Task $t) }) -Tools $null -MaxTokens $t.MaxTokens -Seed $rep
                 $ms = $r.Ms
                 $err = $r.Err
                 if (-not $r.Ok) {

@@ -311,18 +311,22 @@ function Get-QualityHardTaskList {
            Check = 'Assert-SuiteTest' }
 
         # ---------- B: long-context retrieval ----------
+        # ContextFile makes the runner inline the fixture into the prompt. WITHOUT it these tasks say
+        # 'Read <file>' while supplying neither the content nor a tool, so no model can answer them -
+        # and the model that replies 'I will read the file' looks like it failed. Five tasks were
+        # unanswerable on the first hard run for exactly this reason.
         @{ Id = 'hard-ctx-log'; Family = 'context'; MaxTokens = 300
            Prompt = 'Read big/app-12k.log. Exactly one line is an ERROR (uppercase) line. Reply with only the request_id value from that line.
 '
-           Check = 'Assert-AnswerExact'; Expect = 'req-8f4c2b91' }
+           ContextFile = 'big/app-12k.log'; Check = 'Assert-AnswerExact'; Expect = 'req-8f4c2b91' }
 
         @{ Id = 'hard-ctx-config'; Family = 'context'; MaxTokens = 300
            Prompt = 'Read big/config-dump.txt. The setting max_connections appears in more than one section. Reply with only the single numeric value that is actually in effect, following the rule stated in the header of the file.'
-           Check = 'Assert-AnswerExact'; Expect = '512' }
+           ContextFile = 'big/config-dump.txt'; Check = 'Assert-AnswerExact'; Expect = '512' }
 
         @{ Id = 'hard-ctx-changelog'; Family = 'context'; MaxTokens = 300
            Prompt = 'Read big/CHANGELOG.txt and reply with only the version that introduced retry on 429 responses.'
-           Check = 'Assert-AnswerExact'; Expect = 'v3.4.2' }
+           ContextFile = 'big/CHANGELOG.txt'; Check = 'Assert-AnswerExact'; Expect = 'v3.4.2' }
 
         # ---------- C: tool chains with a fatal intermediate ----------
         @{ Id = 'hard-tool-newest-report'; Family = 'tool'; MaxTokens = 400
@@ -346,12 +350,12 @@ function Get-QualityHardTaskList {
         # ---------- D: instruction precision ----------
         @{ Id = 'hard-precision-json'; Family = 'precision'; MaxTokens = 300
            Prompt = 'Read sum.txt, in which every line has the form "key: value". Reply with ONLY a JSON object containing exactly the keys name, count and total, with count and total as numbers and the values taken from the file. No prose, no code fence.'
-           Check = 'Assert-JsonShape'
+           ContextFile = 'sum.txt'; Check = 'Assert-JsonShape'
            Expect = @{ name = 'atlas'; count = '7'; total = '1284' } }
 
         @{ Id = 'hard-precision-oneline'; Family = 'precision'; MaxTokens = 400
            Prompt = 'Read editme.txt. Exactly one line is incorrect: the retry count is wrong. Reply with ONLY the complete corrected file content - every other line must be byte-identical to the original, and nothing may be added or removed.'
            Check = 'Assert-OneLineChanged'
-           Expect = 'retries=3'; OriginalFile = 'editme.txt' }
+           ContextFile = 'editme.txt'; Expect = 'retries=3'; OriginalFile = 'editme.txt' }
     )
 }
