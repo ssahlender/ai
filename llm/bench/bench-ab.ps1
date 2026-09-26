@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 $base = "C:\data\llm"
 $ik = "$base\ik_llama\llama-bench.exe"
@@ -12,7 +12,12 @@ function Run-One($exe, $model, $tag, $extra) {
     $ts = Get-Date -Format "HH:mm:ss"
     $cmdArgs = @("-m", $model, "-ngl", "0", "-t", "8") + $extra
     & $exe @cmdArgs *> "$base\_ab_tmp.txt"
+    if ($LASTEXITCODE -ne 0) {
+        $detail = (Get-Content "$base\_ab_tmp.txt" -Tail 20 | Out-String).Trim()
+        throw "benchmark '$tag' failed with exit code $LASTEXITCODE. No partial result is being reported. $detail"
+    }
     $line = (Get-Content "$base\_ab_tmp.txt" | Select-String -Pattern "\|\s+\S+\s+\|.*\|\s+(pp\d+|tg\d+)\s+\|" | ForEach-Object { $_.Line.Trim() })
+    if (-not $line) { throw "benchmark '$tag' produced no parseable metrics. No partial result is being reported." }
     $out = "[" + $ts + "] " + $tag
     Write-Output $out
     Add-Content $log $out

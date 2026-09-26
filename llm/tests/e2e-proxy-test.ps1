@@ -1,70 +1,66 @@
-# E2E: does the Claude Code chain work? llama-server + local-proxy, tiny model.
-# Proves: (a) llama-server answers /v1/messages (what claude actually sends),
-#         (b) the proxy relays it, (c) the proxy caps max_tokens=32000.
-$ErrorActionPreference = "Continue"
+<# Proves both Claude-compatible and OpenAI-compatible proxy calls. Failures are assertions,
+   not informational output: the previous test printed failures but returned exit code 0. #>
+[CmdletBinding()]
+param(
+    [string]$ModelPath = '',
+    [int]$ServerPort = 9080,
+    [int]$ProxyPort = 9081
+)
 
-$py     = "$env:USERPROFILE\.local\bin\python3.11.exe"
-$llama  = "C:\data\llm\llama.cpp-cpu\llama-server.exe"
-$model  = "C:\data\llm\models\tiny-stories260K.gguf"
-$proxy  = "C:\data\git\ai-tools\ik-llama\local-proxy.py"
-foreach ($p in @($py, $llama, $model, $proxy)) { if (-not (Test-Path $p)) { "MISSING: $p"; exit 1 } }
-"binaries ok"
+$ErrorActionPreference = 'Stop'
+$here = $PSScriptRoot
+. (Join-Path (Split-Path -Parent $here) 'lib\common.ps1')
+$root = Get-LlmRoot
+if (-not $ModelPath) { $ModelPath = Join-Path $root 'models\tinystories-260k-q8_0.gguf' }
+$py = Join-Path $env:USERPROFILE '.local\bin\python3.11.exe'
+$llama = Join-Path $root 'llama.cpp-cpu\llama-server.exe'
+$proxy = Join-Path (Split-Path (Split-Path $here -Parent) -Parent) 'ik-llama\local-proxy.py'
 
-function Wait-Port([int]$Port, [int]$Seconds) {
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    while ($sw.Elapsed.TotalSeconds -lt $Seconds) {
-        $c = New-Object System.Net.Sockets.TcpClient
-        try { $c.Connect('127.0.0.1', $Port); $c.Close(); return $true } catch { $c.Close(); Start-Sleep -Milliseconds 500 }
+foreach ($p in @($py, $llama, $proxy)) { if (-not (Test-Path $p)) { throw "required file missing: $p" } }
+if (-not (Test-Path $ModelPath)) {
+    $modelUrl = 'https://huggingface.co/afrideva/TinyStories-260K-GGUF/resolve/main/tinystories-260k-q8_0.gguf'
+    $modelDir = Split-Path $ModelPath -Parent
+    if (-not (Test-Path $modelDir)) { New-Item -ItemType Directory -Path $modelDir -Force | Out-Null }
+    Write-Host "test model missing; downloading the fixed public tiny model to $ModelPath"
+    Invoke-WebRequest -Uri $modelUrl -OutFile $ModelPath -UseBasicParsing
+    if (-not (Test-Path $ModelPath) -or (Get-Item $ModelPath).Length -eq 0) { throw "tiny-model download failed: $ModelPath" }
+}
+if (Test-PortOpen -Port $ServerPort -or Test-PortOpen -Port $ProxyPort) { throw 'test ports are occupied; refusing to disturb a server this test did not start' }
+
+$srv = $null
+$prx = $null
+$failed = $false
+try {
+    $srvLog = New-RunLogPath -Name 'e2e-server' -LlmRoot $root
+    $srv = Start-Process -FilePath $llama -ArgumentList @('-m', $ModelPath, '--host', '127.0.0.1', '--port', "$ServerPort", '-c', '512', '-ngl', '0') -PassThru -WindowStyle Hidden -RedirectStandardOutput $srvLog -RedirectStandardError "$srvLog.err"
+    $health = Wait-ServerHealth -Port $ServerPort -TimeoutSec 60 -IntervalSec 1 -Process $srv
+    if (-not $health.Ok) { throw "server did not become healthy ($($health.LastErr)); see $srvLog.err" }
+
+    $env:LOCAL_PROXY_PORT = "$ProxyPort"
+    $env:LOCAL_PROXY_UPSTREAM = "http://127.0.0.1:$ServerPort"
+    $proxyLog = New-RunLogPath -Name 'e2e-proxy' -LlmRoot $root
+    $prx = Start-Process -FilePath $py -ArgumentList @($proxy) -PassThru -WindowStyle Hidden -RedirectStandardOutput $proxyLog -RedirectStandardError "$proxyLog.err"
+    $waited = 0
+    while (-not (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health") -and $waited -lt 30) { Start-Sleep -Seconds 1; $waited++ }
+    if (-not (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health")) { throw "proxy did not expose HTTP; see $proxyLog.err" }
+
+    foreach ($path in @('/v1/messages', '/v1/chat/completions')) {
+        try {
+            $body = '{"model":"tiny","max_tokens":32000,"messages":[{"role":"user","content":"hi"}]}'
+            $response = Invoke-RestMethod -Uri "http://127.0.0.1:$ProxyPort$path" -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 90
+            if (-not $response) { throw 'empty response' }
+            Write-Host "PASS $path"
+        } catch {
+            $failed = $true
+            Write-Error "FAIL $path : $($_.Exception.Message)"
+        }
     }
-    return $false
-}
-
-# ── llama-server on 9080 (tiny model: loads instantly) ─────────────
-$srvOut = "$env:TEMP\e2e-srv.log"
-$srv = Start-Process -FilePath $llama `
-        -ArgumentList @("-m", $model, "--host", "127.0.0.1", "--port", "9080", "-c", "512", "-ngl", "0") `
-        -PassThru -WindowStyle Hidden -RedirectStandardOutput $srvOut -RedirectStandardError "$srvOut.err"
-if (-not (Wait-Port 9080 60)) { "SERVER FAILED to bind 9080"; Get-Content "$srvOut.err" -Tail 15; exit 1 }
-"server up on 9080 (pid $($srv.Id))"
-
-# ── local-proxy on 9081 ────────────────────────────────────────────
-$env:LOCAL_PROXY_PORT = "9081"
-$env:LOCAL_PROXY_UPSTREAM = "http://127.0.0.1:9080"
-$pxOut = "$env:TEMP\e2e-prx.log"
-$prx = Start-Process -FilePath $py -ArgumentList @($proxy) `
-        -PassThru -WindowStyle Hidden -RedirectStandardOutput $pxOut -RedirectStandardError "$pxOut.err"
-if (-not (Wait-Port 9081 30)) { "PROXY FAILED to bind 9081"; Get-Content "$pxOut.err" -Tail 15; Stop-Process -Id $srv.Id -Force; exit 1 }
-"proxy up on 9081 (pid $($prx.Id))"
-
-# ── THE test: what claude sends, max_tokens=32000 ──────────────────
-$body = '{"model":"tiny","max_tokens":32000,"messages":[{"role":"user","content":"Once upon a time"}]}'
-"--- POST /v1/messages via proxy (max_tokens=32000) ---"
-try {
-    $r = Invoke-RestMethod -Uri "http://127.0.0.1:9081/v1/messages" -Method Post `
-            -ContentType "application/json" -Body $body -TimeoutSec 90
-    $txt = ($r.content | Where-Object { $_.type -eq 'text' } | Select-Object -First 1).text
-    "  RESPONSE OK (anthropic shape): " + ($txt -replace "`r?`n", " ").Substring(0, [Math]::Min(120, $txt.Length))
 } catch {
-    "  /v1/messages FAILED: " + $_.Exception.Message
+    $failed = $true
+    Write-Error $_
+} finally {
+    if ($prx) { Stop-OwnedProcess -Process $prx | Out-Null }
+    if ($srv) { Stop-OwnedProcess -Process $srv | Out-Null }
 }
-
-"--- POST /v1/chat/completions via proxy ---"
-try {
-    $b2 = '{"model":"tiny","max_tokens":32000,"messages":[{"role":"user","content":"hi"}]}'
-    $r2 = Invoke-RestMethod -Uri "http://127.0.0.1:9081/v1/chat/completions" -Method Post `
-            -ContentType "application/json" -Body $b2 -TimeoutSec 90
-    "  RESPONSE OK (openai shape): " + (($r2.choices[0].message.content -replace "`r?`n", " "))
-} catch {
-    "  /v1/chat/completions FAILED: " + $_.Exception.Message
-}
-
-"--- did the proxy cap max_tokens? ---"
-foreach ($f in @($pxOut, "$pxOut.err")) {
-    if (Test-Path $f) { Get-Content $f | Where-Object { $_ -match 'capped|max_tokens|port=' } | ForEach-Object { "  $_" } }
-}
-
-# ── cleanup ────────────────────────────────────────────────────────
-Stop-Process -Id $prx.Id -Force -ErrorAction SilentlyContinue
-Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
-"cleanup: server+proxy stopped; 9080 free = $(-not (Wait-Port 9080 2)); 9081 free = $(-not (Wait-Port 9081 2))"
+if ($failed) { exit 1 }
+Write-Host 'PASS proxy E2E assertions'
