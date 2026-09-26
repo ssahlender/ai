@@ -23,6 +23,11 @@ if (-not (Test-Path $fixtureDir)) { Write-Output "fixture dir missing: $fixtureD
 $null = New-QualityHardFixture -Dir $fixtureDir
 $tasks = @(Get-QualityHardTaskList)
 $fail = 0
+$sizeFail = 0
+# A fixture that does not FIT the context is as unanswerable as a missing one, and the symptom is an
+# instant HTTP 400 rather than anything that looks like a harness problem. Estimate at ~3.6 chars/token
+# (measured: 44 KB -> 12180 tokens) and keep a margin below the 32 K window.
+$ctxBudget = 20000
 
 function Report {
     param([string]$Id, [bool]$Ok, [string]$Detail)
@@ -41,6 +46,18 @@ foreach ($t in $tasks) {
     $ok = $true
     $detail = ''
     $check = "$($t.Check)"
+
+    if ($t.ContextFile) {
+        $cf = Join-Path $fixtureDir $t.ContextFile
+        if (Test-Path $cf) {
+            $len = (Get-Item $cf).Length
+            $estTok = [Math]::Round(($len / 3.6), 0)
+            if ($estTok -gt $ctxBudget) {
+                $sizeFail++
+                Write-Output ("  FAIL " + $t.Id.PadRight(24) + "context budget: ~" + $estTok + " tokens (" + [Math]::Round($len/1KB,1) + " KB) exceeds " + $ctxBudget + " of the 32 K window - the server rejects it with 400")
+            }
+        }
+    }
 
     switch ($check) {
         'Assert-AnswerExact' {
@@ -111,10 +128,10 @@ foreach ($t in $tasks) {
 
 Write-Output ""
 $total = $tasks.Count
-if ($fail -eq 0) {
-    Write-Output "HARD-TASK ANSWERABILITY: PASS ($total/$total tasks have what they need)"
+if ($fail -eq 0 -and $sizeFail -eq 0) {
+    Write-Output "HARD-TASK ANSWERABILITY: PASS ($total/$total tasks have what they need and fit)"
     exit 0
 } else {
-    Write-Output "HARD-TASK ANSWERABILITY: FAIL ($fail of $total tasks unanswerable)"
+    Write-Output "HARD-TASK ANSWERABILITY: FAIL ($fail of $total tasks unanswerable, $sizeFail oversized)"
     exit 1
 }
