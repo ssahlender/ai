@@ -52,7 +52,10 @@ param(
     [string]$LogFile = '',
     [string]$BindAddress = '127.0.0.1',
     [string]$ApiKey = '',
-    [switch]$AllowNonLoopback
+    [switch]$AllowNonLoopback,
+    # Appended verbatim to llama-server's arguments. Kept generic on purpose: serving flags that change
+    # results (e.g. --no-reasoning-preserve) must be explicit at the call site, not baked into a mode.
+    [string[]]$ExtraArgs
 )
 
 $ErrorActionPreference = 'Stop'
@@ -195,6 +198,7 @@ switch ($sel.Engine) {
 }
 if ($sel.Mmproj) { $serverArgs += @('--mmproj', (Join-Path $ModelDir $sel.Mmproj)) }
 if ($ApiKey) { $serverArgs += @('--api-key', $ApiKey) }
+if ($ExtraArgs) { $serverArgs += $ExtraArgs }
 
 if ($DryRun) {
     Write-Host ""

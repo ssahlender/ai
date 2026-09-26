@@ -18,6 +18,10 @@ param(
     # base = the round-1 12-task set (kept reproducible); hard = round 2, which is the one that can
     # actually separate capable models. Round 1 was passed 12/12 by both candidates.
     [ValidateSet('base', 'hard')][string]$TaskSet = 'base',
+    # Passed straight through to start-llm.ps1. Exists so the same model can be served with and without
+    # --no-reasoning-preserve: several Qwen templates prepend reasoning tokens by default, which roughly
+    # doubles time-per-answer, and that flag turned out to be the measured cause of a 2x slowdown.
+    [string[]]$ServerArgs,
     [string]$FixtureDir,
     [string]$LlmRoot,
     [string]$OutDir,
@@ -265,7 +269,7 @@ $exitCode = 0
 $taskCount = 0
 $results = @()
 try {
-    $startOut = (& $startScript -Mode $Mode -Background -Port $Port 2>&1 | Out-String)
+    $startOut = (& $startScript -Mode $Mode -Background -Port $Port -ExtraArgs $ServerArgs 2>&1 | Out-String)
     foreach ($l in @($startOut.Trim() -split "`n")) {
         if ($l.Trim()) { Write-Host ("  start: " + $l.Trim()) }
     }
@@ -389,6 +393,7 @@ $doc = [ordered]@{
     temperature = 0
     fixtureDir  = $FixtureDir
     taskSet     = $TaskSet
+    serverArgs  = ($ServerArgs -join ' ')
     taskCount   = $taskCount
     summary     = $familySummary
     results     = $results
