@@ -89,11 +89,11 @@ $ref = Import-Evidence -Path $Reference
 $refScore = Get-FamilyScore -Evidence $ref
 $refTool = [int]("$($refScore['tool'])".Split('/')[0])
 
-Write-Host ''
-Write-Host "=== quality verdict ==="
-Write-Host ("  reference: {0}  (code {1}, fix {2}, tool {3}, total {4})" -f `
+Write-Output ''
+Write-Output "=== quality verdict ==="
+Write-Output ("  reference: {0}  (code {1}, fix {2}, tool {3}, total {4})" -f `
     $ref.Mode, $refScore['code'], $refScore['fix'], $refScore['tool'], $refScore['total'])
-Write-Host ''
+Write-Output ''
 
 $report = New-Object System.Collections.Generic.List[string]
 $report.Add('# Quality verdict')
@@ -137,7 +137,7 @@ foreach ($cPath in $Candidates) {
     $gateLabel = 'pass'
     if (-not $gateOk) { $gateLabel = 'FAIL' }
 
-    Write-Host ("  {0,-14} code {1,-5} fix {2,-5} tool {3,-5} total {4,-6} gate {5,-4} W/L {6}/{7}  p={8:N3}  {9}" -f `
+    Write-Output ("  {0,-14} code {1,-5} fix {2,-5} tool {3,-5} total {4,-6} gate {5,-4} W/L {6}/{7}  p={8:N3}  {9}" -f `
         $cand.Mode, $cs['code'], $cs['fix'], $cs['tool'], $cs['total'], $gateLabel, $W, $L, $p, $decision)
 
     $report.Add("| $($cand.Mode) | $($cs['code']) | $($cs['fix']) | $($cs['tool']) | $($cs['total']) | $gateLabel | $W/$L | $('{0:N3}' -f $p) | $decision |")
@@ -159,6 +159,6 @@ $outDir = Get-RunLogDir -LlmRoot (Get-LlmRoot -Override $LlmRoot)
 $outPath = Join-Path $outDir "quality-verdict-$stamp.md"
 Write-Utf8NoBom -Path $outPath -Lines $report.ToArray()
 
-Write-Host ''
-Write-Host "  report: $outPath"
-Write-Host '  NOTE: 12 paired tasks support a decision about this box, not a benchmark claim.'
+Write-Output ''
+Write-Output "  report: $outPath"
+Write-Output '  NOTE: 12 paired tasks support a decision about this box, not a benchmark claim.'
