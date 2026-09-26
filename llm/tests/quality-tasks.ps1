@@ -93,9 +93,23 @@ function Get-CodeDenyReason {
     foreach ($r in $rules) {
         if ($Code -match [regex]::Escape($r)) { return "denylisted construct: $r" }
     }
-    if ($Code -match '>' ) { return 'denylisted construct: output redirection' }
+    # Output redirection used to be denied outright, which scored IDIOMATIC answers zero. That is a
+    # false failure: it measures the harness, not the model. Redirecting to a relative name inside the
+    # fixture directory is harmless, so only a redirect that leaves the fixture (drive path or UNC) is
+    # denied, alongside the destructive constructs above.
+    if ($Code -match '>{1,2}\s*[A-Za-z]:') { return 'denylisted construct: redirection to a drive path' }
+    if ($Code -match '>{1,2}\s*\\\\') { return 'denylisted construct: redirection to a UNC path' }
     if ($Code -match '(?i)-Path\s+[A-Za-z]:') { return 'denylisted construct: absolute drive path' }
     return ''
+}
+
+function Test-CodeParses {
+    # A candidate that is not valid PowerShell must be SKIPPED, not executed and counted as a model
+    # failure. With reasoning enabled, a model's answer often opens with a fenced reasoning block:
+    # running that as code produced grammar errors that looked like bad answers but were bad inputs.
+    param([string]$Code)
+    if (-not "$Code".Trim()) { return $false }
+    try { $null = [scriptblock]::Create($Code); return $true } catch { return $false }
 }
 
 function Get-CodeCandidates {

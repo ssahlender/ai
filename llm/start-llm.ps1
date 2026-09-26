@@ -55,7 +55,12 @@ param(
     [switch]$AllowNonLoopback,
     # Appended verbatim to llama-server's arguments. Kept generic on purpose: serving flags that change
     # results (e.g. --no-reasoning-preserve) must be explicit at the call site, not baked into a mode.
-    [string[]]$ExtraArgs
+    [string[]]$ExtraArgs,
+    # Suppress chain-of-thought generation. --reasoning-preserve (and --no-reasoning-preserve) only
+    # governs whether reasoning is kept in the HISTORY, which is why it changes nothing about
+    # time-per-answer. `--reasoning off` is the switch that stops the model thinking, and it is the
+    # mainline equivalent of ik_llama's -rea off.
+    [switch]$NoThinking
 )
 
 $ErrorActionPreference = 'Stop'
@@ -199,6 +204,7 @@ switch ($sel.Engine) {
 if ($sel.Mmproj) { $serverArgs += @('--mmproj', (Join-Path $ModelDir $sel.Mmproj)) }
 if ($ApiKey) { $serverArgs += @('--api-key', $ApiKey) }
 if ($ExtraArgs) { $serverArgs += $ExtraArgs }
+if ($NoThinking) { $serverArgs += @('--reasoning', 'off') }
 
 if ($DryRun) {
     Write-Host ""
