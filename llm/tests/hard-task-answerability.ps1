@@ -58,9 +58,12 @@ foreach ($t in $tasks) {
                 $content = Read-Fixture $t.ContextFile
                 if ($null -eq $content) { $ok = $false; $detail = "fixture missing: $($t.ContextFile)" }
                 else {
+                    # Expect is a HASHTABLE here: .PSObject.Properties would enumerate IsReadOnly, Keys,
+                    # Count and friends instead of the expected values. Iterate the keys.
                     $missing = @()
-                    foreach ($k in $t.Expect.PSObject.Properties) {
-                        if ($content -notlike "*$($k.Value)*") { $missing += "$($k.Name)=$($k.Value)" }
+                    foreach ($k in @($t.Expect.Keys)) {
+                        $v = $t.Expect[$k]
+                        if ($content -notlike "*$v*") { $missing += "$k=$v" }
                     }
                     if ($missing.Count) { $ok = $false; $detail = "values not in file: " + ($missing -join ', ') }
                     else { $detail = "$($t.ContextFile) has all expected values" }
