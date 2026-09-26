@@ -243,7 +243,7 @@ function Get-QualityTaskList {
         @{ Id = 'fix-empty-array'; Family = 'fix'; MaxTokens = 500
            Prompt = "This PowerShell function throws when given an empty array:`n`nfunction Get-First { param([array]`$Items) return `$Items[0] }`n`nReturn the corrected function with the same name and signature, which must return `$null (not an error and not an empty string) when the array is empty."
            Check = 'Assert-ExecOutput'
-           AppendTest = '$r = Get-First @(); if (`$null -eq $r) { Write-Output EMPTY-OK } else { Write-Output (GOT + $r) }'
+           AppendTest = '$r = Get-First @(); if ($null -eq $r) { Write-Output EMPTY-OK } else { Write-Output GOT-OTHER }'
            Expect = 'EMPTY-OK' }
 
         # ---------- family: tool (the agentic gate; judged on call structure) ----------
