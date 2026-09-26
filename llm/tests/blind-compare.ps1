@@ -60,6 +60,9 @@ $prompts = @(
 "starting server ($startScript)" | Set-Content "$OutFile.status" -Encoding UTF8
 
 "=== $Mode : starting server ($startScript) ==="
+# A comparison owns its port for its whole lifetime.  The old name-wide cleanup could kill
+# unrelated servers; an occupied port now fails before any work rather than measuring another mode.
+if (Test-PortOpen -Port $Port) { throw "port $Port is already occupied; refusing to compare against a server this run did not start" }
 # Do NOT pipe this to Out-Null: if the launcher cannot be found, that error is the only clue,
 # and swallowing it turns a hard failure into a silent 300s wait for a port that never opens.
 & powershell -NoProfile -ExecutionPolicy Bypass -File $startScript $Mode -Background -Port $Port 2>&1 |
@@ -111,8 +114,10 @@ for ($i = 0; $i -lt $prompts.Count; $i++) {
 }
 $sw.Stop()
 
-# stop the server we started
-Get-Process -Name llama-server -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+# Stop only the explicitly identified listener for this run.  This is deliberately loud: it
+# never enumerates and kills every process named llama-server.
+$stopped = Stop-ServerOnPort -Port $Port -Confirm
+if (-not $stopped -or -not $stopped.Stopped) { throw "cleanup failed: port $Port listener was not stopped" }
 Start-Sleep -Seconds 2
 
 "complete ($([Math]::Round($sw.Elapsed.TotalSeconds,1))s)" | Set-Content "$OutFile.status" -Encoding UTF8
