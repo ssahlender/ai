@@ -25,41 +25,45 @@ currently-installed model) are both already in `tools/update-all.sh`'s
 
 ## Model
 
-The daily driver is the same model the x86 box settled on, pulled through
-Ollama's HuggingFace integration so provenance stays visible in the tag:
+Lower quant, deliberately. The 4-bit tier of this model needs ~19 GB, which does
+not fit this machine's *measured* ceiling: a 17.6 GB GGUF OOM'd at 8K context
+here, the memory guard aborts at 16.9 GB, and IQ4_XS (17.44 GiB) ran at
+17 %/83 % CPU/GPU with 5.9 GB of swap. `UD-Q2_K_XL` (13 GB) is the quant this
+repo already recorded as the working choice on this Mac, and it runs entirely on
+the GPU.
 
 ```bash
-# 19 GB on disk (weights + vision projector). Ollama verifies the sha256 itself.
-ollama pull hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:IQ4_XS
+# 13 GB. Ollama verifies the sha256 itself.
+ollama pull hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
 
 # Short name carrying the context the server actually allocates.
 # Blobs are shared with the tag above, so this costs no extra disk.
 ollama create qwen36-35b-a3b -f - <<'EOF'
-FROM hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:IQ4_XS
-PARAMETER num_ctx 16384
+FROM hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
+PARAMETER num_ctx 32768
 PARAMETER temperature 0.7
 EOF
 ```
 
-Use **`qwen36-35b-a3b`** in OpenCode, Pi and every API call. Repo, file, exact
-bytes and SHA-256 are recorded in `../llm/MODELS.md`.
+Use **`qwen36-35b-a3b`** in OpenCode, Pi and every API call.
 
-Measured 2026-09-27 on this Mac:
+### What the lower quant bought (measured 2026-09-27, same machine)
 
-| | value |
-|---|---:|
-| cold load | 17.8 s |
-| decode | 26.3 tok/s (80-token sample) |
-| prefill | 23.1 tok/s |
-| CPU/GPU split | 17 % / 83 % |
-| resident | 19 GB model, ~18.1 GiB wired |
+| | IQ4_XS (19 GB) | **UD-Q2_K_XL (13 GB)** |
+|---|---:|---:|
+| decode | 26.3 tok/s | **30.9 tok/s** |
+| prefill | 23.1 tok/s | **90.3 tok/s** |
+| CPU/GPU split | 17 % / 83 % | **0 % / 100 %** |
+| wired | ~18.1 GiB | 15.1 GiB |
+| swap in use | 5.9 GB | 2.4 GB |
+| memory free | 8 % | 32 % |
 
-**This is a 24 GB machine and the model occupies 19 GB of it.** With a desktop
-session running, loading it pushes ~4-5 GB into swap and `memory_pressure`
-falls to single digits. It is comfortable only in server posture — close the
-apps before a session. The former 18 GB `qwen3.8:27b-mlx` and both unused
-`unsloth/Qwen3.6` quants were removed on the same day: 246 → 271 GiB free.
+Smaller is also faster here, because the whole model fits in GPU-wired memory
+instead of spilling a third of itself onto the CPU. Context is pinned at 32768,
+affordable now that the weights are 13 GB rather than 19.
 
+The removed 4-bit tier, the former `qwen3.8:27b-mlx` and the unused `UD-Q3_K_XL`
+are all gone: 246 → 278 GiB free on this machine.
 ## Scripts
 
 | Script | Purpose |
@@ -84,7 +88,8 @@ Model shortname in OpenCode/Pi: `ollama/qwen36-35b-a3b`. Default port `11434`
 ### Current model: `qwen36-35b-a3b` (measured 2026-09-27)
 
 Thinking is **on** by default, and the switch that controls it differs by
-endpoint. Trivial prompt, `max_tokens` 300, same loaded model:
+endpoint. Trivial prompt, `max_tokens` 300 (table measured on the 4-bit tier;
+the two working switches were re-verified on the current quant):
 
 | request | `reasoning` bytes | completion tokens | `content` |
 |---|---:|---:|---|

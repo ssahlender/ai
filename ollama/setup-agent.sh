@@ -13,7 +13,7 @@ OPENCODE_COMPACTION_RESERVED="${OPENCODE_COMPACTION_RESERVED:-10000}"
 
 # shortname|display name|ollama model tag|context window
 MODES=(
-  "qwen36-35b-a3b|Qwen3.6-35B-A3B Uncensored (Ollama)|qwen36-35b-a3b|16384"
+  "qwen36-35b-a3b|Qwen3.6-35B-A3B (Ollama, UD-Q2_K_XL 13 GB)|qwen36-35b-a3b|32768"
 )
 
 _py=$(mktemp)
