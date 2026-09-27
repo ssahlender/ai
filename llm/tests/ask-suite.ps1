@@ -22,7 +22,7 @@
     Port of the already-running server. Default 9080.
 
 .EXAMPLE
-    .\ask-suite.ps1 -Label gemma4qat -OutFile C:\data\llm\blind-gemma.txt
+    .\ask-suite.ps1 -Label qwen36u35b_ml -OutFile C:\data\llm\blind-incumbent.txt
 #>
 [CmdletBinding()]
 param(

@@ -4,6 +4,12 @@ $base = "C:\data\llm"
 $exe  = "$base\llama.cpp-cpu\llama-cli.exe"
 $m    = "$base\models\gemma-4-26B_q4_0-it.gguf"
 $mtp  = "$base\models\mtp-gemma-4-26B-A4B-it-F16.gguf"
+# These three files were removed 2026-09-27 (gemma's provenance was unverified). Refuse loudly.
+foreach ($p in @($exe, $m, $mtp)) {
+    if (-not (Test-Path $p)) {
+        throw "bench-mtp.ps1 needs $p, which is not on disk. Nothing is measured. llm/MODELS.md records what each file was and where to fetch it."
+    }
+}
 $prompt = "Explain in detail how a bicycle works, step by step."
 
 $common = @("-m", $m, "-ngl", "0", "-t", "8", "-n", "128", "--temp", "0", "-st", "-p", $prompt)
