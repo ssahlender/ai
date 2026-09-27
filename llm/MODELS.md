@@ -15,8 +15,20 @@ Verify a downloaded file (PowerShell):
 (Get-FileHash .\FILE.gguf -Algorithm SHA256).Hash.ToLower()     # must equal the hash
 ```
 
-Download a file (resumable, verified): `llm/tests/fetch-model.ps1`
+Download a file (resumable, verified): `llm/fetch-model.ps1`
+(`llm/tests/download-model.ps1` is a thin wrapper over it, kept because other paths referred to it.)
 Base URL pattern: `https://huggingface.co/<repo>/resolve/main/<file>`
+
+## Installed right now (2026-09-27)
+
+| host | runtime | model | size |
+|---|---|---|---|
+| ProBook `pmon-probook` (Windows) | mainline llama.cpp CPU, `C:\data\llm\llama.cpp-cpu` | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf` | 18.42 GiB |
+| MacBook Air M4 `pmon-macbookair` | Ollama (`ollama serve`) | `qwen36-35b-a3b` = `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` (13 GB) | 11.45 GiB |
+
+Nothing else is installed on either host. No GGUF lives on the Mac — Ollama owns its models — and
+the ProBook's ik_llama engine directory was removed the same day, so the surviving engine there is
+mainline (mode `qwen36u35b_ml`).
 
 ---
 

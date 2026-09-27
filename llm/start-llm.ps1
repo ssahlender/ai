@@ -11,12 +11,14 @@
     ship their own llama.dll / ggml.dll — mixing them in one folder loads the wrong
     kernels. Models are shared.
 
-    Measured on this machine (2026-09-26; details live in the host-local skill):
+    One model is installed here: the incumbent IQ4_NL, served by mainline (mode qwen36u35b_ml).
+    Measured on this machine (2026-09-26) and kept as history - both entries below are RETIRED
+    as of 2026-09-27 (the gemma file was deleted, the ik_llama engine directory removed):
       mainline b11201 CPU + gemma4qat   -> pp8 48.1 / pp128 72.7 / tg 17.8-19.4   <- BEST
       ik_llama b5311     + qwen36u35b   -> pp8 19.2 / pp128 60.1 / tg 12.5-15.8
     Engine choice follows the QUANT FAMILY, not taste:
       legacy quants (Q4_0, Q4_K_M ...) -> mainline llama.cpp
-      i-quants     (IQ4_NL, IQ4_XS ...) -> ik_llama
+      i-quants     (IQ4_NL, IQ4_XS ...) -> ik_llama   (mainline is the only engine left here)
 
     Speculative decoding is MEASURED DEAD on this machine (MTP 12-26% slower at k=2/4,
     n-gram neutral). Do not add --spec-* flags here.
@@ -77,73 +79,28 @@ if ($BindAddress -ne '127.0.0.1') {
 # table and corrupting the model path.
 $ModeTable = @(
     [pscustomobject]@{
-        Short  = 'gemma4qat'
-        Name   = 'Gemma 4 26B-A4B QAT Q4_0  <- BEST measured combo'
-        Engine = 'mainline'
-        File   = 'gemma-4-26B_q4_0-it.gguf'
-        Ctx    = 32768; Cram = 0
-        Template = $null; Mmproj = $null
-    }
-    [pscustomobject]@{
-        Short  = 'qwen36u35b'
-        Name   = 'Qwen3.6 35B-A3B Uncensored IQ4_NL (i-quant -> ik_llama)'
-        Engine = 'ik_llama'
-        File   = 'Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf'
-        Ctx    = 32768; Cram = 8192
-        Template = 'C:\data\git\ai-tools\ik-llama\qwen3-template.j2'; Mmproj = $null
-    }
-    [pscustomobject]@{
-        Short  = 'qwen3coder30b'
-        Name   = 'Qwen3-Coder 30B-A3B Q4_K_M (legacy quant -> mainline; NOT downloaded yet)'
-        Engine = 'mainline'
-        File   = 'Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf'
-        Ctx    = 65536; Cram = 0
-        Template = $null; Mmproj = $null
-    }
-    [pscustomobject]@{
         Short  = 'qwen36u35b_ml'
-        Name   = 'Qwen3.6 35B-A3B Uncensored IQ4_NL on MAINLINE (round-2 reference)'
+        Name   = 'Qwen3.6 35B-A3B Uncensored IQ4_NL on mainline (the only model on this box)'
         Engine = 'mainline'
         File   = 'Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf'
-        Ctx    = 32768; Cram = 0
-        Template = $null; Mmproj = $null
-    }
-    [pscustomobject]@{
-        Short  = 'qwen38distill'
-        Name   = 'Qwen3.8 35B-A3B Distill IQ4_XS (round-2 candidate, verified download)'
-        Engine = 'mainline'
-        File   = 'Qwen3.8-35B-A3B-Distill-IQ4_XS.gguf'
-        Ctx    = 32768; Cram = 0
-        Template = $null; Mmproj = $null
-    }
-    [pscustomobject]@{
-        Short  = 'qwen36u35b_xs'
-        Name   = 'Qwen3.6 35B-A3B Uncensored IQ4_XS (matched-quant control for the round-2 comparison)'
-        Engine = 'mainline'
-        File   = 'Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf'
-        Ctx    = 32768; Cram = 0
-        Template = $null; Mmproj = $null
-    }
-    [pscustomobject]@{
-        Short  = 'ornith15'
-        Name   = 'Ornith 1.5 35B-A3B Q4_K_M (different base: claims repo-level gains over the incumbent)'
-        Engine = 'mainline'
-        File   = 'Ornith-1.5-35B-Q4_K_M.gguf'
-        # Hybrid/recurrent architecture: serve it with --no-context-shift at the call site. Upstream #28425
-        # (open) aborts on a PARTIAL context trim for these architectures, which the default context-shift
-        # behaviour can request; a full trim is safe.
-        Ctx    = 32768; Cram = 0
-        Template = $null; Mmproj = $null
-    }
-    [pscustomobject]@{
-        Short  = 'agentworld35b'
-        Name   = 'Qwen AgentWorld 35B-A3B UD-IQ4_XS (round-2 candidate, verified download)'
-        Engine = 'mainline'
-        File   = 'Qwen-AgentWorld-35B-A3B-UD-IQ4_XS.gguf'
         Ctx    = 32768; Cram = 0
         Template = $null; Mmproj = $null
     }
 )
+
+# RETIRED MODES (2026-09-27). Each of these named a GGUF that is no longer on this box, so as a
+# live entry it could only ever report [MISSING] and clutter -ListOnly. Kept here as the recipe:
+# fetch the file first (llm/MODELS.md records repo, file and SHA-256), then restore the block.
+#   gemma4qat      mainline  gemma-4-26B_q4_0-it.gguf                                    (deleted: provenance unverified)
+#   qwen36u35b     ik_llama  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf  (same file, retired engine)
+#   qwen3coder30b  mainline  Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf                    (never downloaded)
+#   qwen38distill  mainline  Qwen3.8-35B-A3B-Distill-IQ4_XS.gguf                         (deleted)
+#   qwen36u35b_xs  mainline  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf  (deleted)
+#   ornith15       mainline  Ornith-1.5-35B-Q4_K_M.gguf                                  (deleted)
+#   agentworld35b  mainline  Qwen-AgentWorld-35B-A3B-UD-IQ4_XS.gguf                      (deleted)
+# The ik_llama engine directory went with them; `update-llm.ps1 -Engine ik_llama` restores it.
+# The bare block for the one surviving engine+model pair is above; the incumbent's i-quant mode
+# used `Ctx = 32768; Cram = 8192` and `Template = 'C:\data\git\ai-tools\ik-llama\qwen3-template.j2'`.
 
 $engineDirs = @{ 'mainline' = $MainlineDir; 'ik_llama' = $IkLlamaDir }
 

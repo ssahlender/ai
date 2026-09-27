@@ -1,3 +1,6 @@
+# OBSOLETE (2026-09-27): the MTP drafter was gemma-4-26B-specific and both that model and the
+# ik_llama engine are gone from this box. Kept as the record of the measurement (MTP was 12-26%
+# slower at k=2/4); the guard below refuses rather than running half a spec-decode test.
 $ErrorActionPreference = "Continue"
 $ProgressPreference = "SilentlyContinue"
 $base = "C:\data\llm"

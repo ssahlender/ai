@@ -134,7 +134,7 @@ function Invoke-Chat {
 }
 
 function Get-MessageText {
-    # Reasoning models (Ornith-1.5 has reasoning-preserve ON by default) may return an empty
+    # Reasoning models (some templates preserve reasoning by default) may return an empty
     # content field with the work in reasoning_content. Scoring only `content` would fail such a
     # model for a packaging difference rather than a capability one, so fall back - and the raw
     # fields are kept in the evidence so this choice is auditable.
