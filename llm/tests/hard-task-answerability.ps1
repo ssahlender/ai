@@ -24,6 +24,7 @@ $null = New-QualityHardFixture -Dir $fixtureDir
 $tasks = @(Get-QualityHardTaskList)
 $fail = 0
 $sizeFail = 0
+$deriveWarn = 0
 # A fixture that does not FIT the context is as unanswerable as a missing one, and the symptom is an
 # instant HTTP 400 rather than anything that looks like a harness problem. Estimate at ~3.6 chars/token
 # (measured: 44 KB -> 12180 tokens) and keep a margin below the 32 K window.
@@ -34,6 +35,20 @@ function Report {
     $mark = 'FAIL'
     if ($Ok) { $mark = 'ok  ' }
     Write-Output ("  $mark " + $Id.PadRight(24) + $Detail)
+}
+# Every expected literal should be reachable from what the model is GIVEN: the prompt text or an
+# inlined file (tasks that offer Tools can fetch files themselves, so they are exempt). A check can
+# recognise a correct answer perfectly and still be measuring nothing if the answer was unreachable -
+# that is how 'retries=3' shipped in a file whose only retry value was 5: both models invented a
+# number and were scored as failures for it.
+function Get-ExpectedLiterals {
+    param($Task)
+    $out = @()
+    if ($null -eq $Task.Expect) { return $out }
+    if ($Task.Expect -is [hashtable]) {
+        foreach ($k in @($Task.Expect.Keys)) { $out += "$($Task.Expect[$k])" }
+    } else { $out += "$($Task.Expect)" }
+    return $out
 }
 function Read-Fixture {
     param([string]$Rel)
@@ -55,6 +70,27 @@ foreach ($t in $tasks) {
             if ($estTok -gt $ctxBudget) {
                 $sizeFail++
                 Write-Output ("  FAIL " + $t.Id.PadRight(24) + "context budget: ~" + $estTok + " tokens (" + [Math]::Round($len/1KB,1) + " KB) exceeds " + $ctxBudget + " of the 32 K window - the server rejects it with 400")
+            }
+        }
+    }
+
+    # Derivability: skip when tools are offered (the model reads files itself).
+    $hasTools = ($t.Tools -and @($t.Tools).Count -gt 0)
+    if (-not $hasTools) {
+        $fileText = ''
+        if ($t.ContextFile) { $fileText = Read-Fixture $t.ContextFile }
+        if ($null -eq $fileText) { $fileText = '' }
+        foreach ($lit in (Get-ExpectedLiterals $t)) {
+            if (-not $lit) { continue }
+            $inPrompt = ("$($t.Prompt)" -like "*$lit*")
+            $inFile = ($fileText -like "*$lit*")
+            if (-not $inPrompt -and -not $inFile) {
+                if ($fileText -match '(?i)policy') {
+                    $detail += " | '$lit' derivable from the stated policy"
+                } else {
+                    $deriveWarn++
+                    Write-Output ("  WARN " + $t.Id.PadRight(24) + "expected '$lit' is in neither the prompt nor the fixture - verify it is derivable")
+                }
             }
         }
     }
@@ -129,6 +165,7 @@ foreach ($t in $tasks) {
 Write-Output ""
 $total = $tasks.Count
 if ($fail -eq 0 -and $sizeFail -eq 0) {
+    if ($deriveWarn -gt 0) { Write-Output "  ($deriveWarn derivability warning(s) - review before trusting results)" }
     Write-Output "HARD-TASK ANSWERABILITY: PASS ($total/$total tasks have what they need and fit)"
     exit 0
 } else {
