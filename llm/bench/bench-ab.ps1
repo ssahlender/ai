@@ -9,6 +9,13 @@ $ik = "$base\ik_llama\llama-bench.exe"
 $ml = "$base\llama.cpp-cpu\llama-bench.exe"
 $inc = "$base\models\Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf"
 $gem = "$base\models\gemma-4-26B_q4_0-it.gguf"
+# gemma and ik_llama were removed 2026-09-27, so most of this A/B's inputs are gone. Refuse
+# loudly rather than fail inside llama-bench with an unhelpful loader error.
+foreach ($p in @($ik, $ml, $inc, $gem)) {
+    if (-not (Test-Path $p)) {
+        throw "bench-ab.ps1 needs $p, which is not on disk. No partial comparison is reported. llm/MODELS.md records what each file was and where to fetch it."
+    }
+}
 # Run output belongs in logs\, and a timestamped name means a re-run keeps the previous numbers
 # instead of destroying them.
 $log = New-RunLogPath -Name "bench-ab" -LlmRoot $base

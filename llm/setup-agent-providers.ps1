@@ -58,6 +58,14 @@ if (-not (Test-Path $StartScript)) { throw "start-llm.ps1 not found: $StartScrip
 # Each mode is a [pscustomobject]@{ Short=...; File=...; Ctx=... } block; parse those
 # fields rather than sourcing the launcher (sourcing it would run its launch logic).
 $text  = Get-Content $StartScript -Raw
+# Engine directories also come from the launcher, so the two scripts cannot disagree.
+$engineDirs = @{
+    'mainline' = [regex]::Match($text, "\$MainlineDir\s*=\s*'([^']+)'").Groups[1].Value
+    'ik_llama' = [regex]::Match($text, "\$IkLlamaDir\s*=\s*'([^']+)'").Groups[1].Value
+}
+foreach ($k in $engineDirs.Keys) {
+    if (-not $engineDirs[$k]) { throw "could not read the '$k' engine directory out of $StartScript; refusing to generate a provider config that may point at a missing engine" }
+}
 $table = [regex]::Match($text, '(?s)\$ModeTable\s*=\s*@\((.*?)\n\)')
 if (-not $table.Success) { throw "could not locate `$ModeTable in $StartScript" }
 
@@ -68,13 +76,18 @@ foreach ($block in [regex]::Matches($table.Groups[1].Value, '(?s)\[pscustomobjec
     $file  = [regex]::Match($body, "File\s*=\s*'([^']+)'").Groups[1].Value
     $ctx   = [regex]::Match($body, 'Ctx\s*=\s*(\d+)').Groups[1].Value
     $name  = [regex]::Match($body, "Name\s*=\s*'([^']+)'").Groups[1].Value
-    if (-not $short -or -not $file -or -not $ctx -or -not $name) {
+    $eng   = [regex]::Match($body, "Engine\s*=\s*'([^']+)'").Groups[1].Value
+    if (-not $short -or -not $file -or -not $ctx -or -not $name -or -not $eng) {
         throw "mode-table parse failed for a mode block in $StartScript; refusing to generate an incomplete provider config"
     }
     if ($short -and $file) {
         $modes += [pscustomobject]@{
-            Short = $short; File = $file; Ctx = [int]$ctx; Name = $name
-            Exists = Test-Path (Join-Path $ModelDir $file)
+            Short = $short; File = $file; Ctx = [int]$ctx; Name = $name; Engine = $eng
+            # A mode needs BOTH its GGUF and its engine's llama-server.exe. Checking only the
+            # model used to advertise modes whose engine had been removed, which then fail at
+            # launch. Same two-state check start-llm.ps1 -ListOnly performs.
+            EngineOk = Test-Path (Join-Path $engineDirs[$eng] 'llama-server.exe')
+            Exists   = (Test-Path (Join-Path $ModelDir $file)) -and (Test-Path (Join-Path $engineDirs[$eng] 'llama-server.exe'))
         }
     }
 }
@@ -91,7 +104,7 @@ foreach ($m in $modes) {
         }
         Write-Host ("  + {0,-14} ctx {1,-6} {2}" -f $m.Short, $m.Ctx, $m.File)
     } else {
-        Write-Host ("  - {0,-14} SKIPPED (file not present)" -f $m.Short)
+        Write-Host ("  - {0,-14} SKIPPED (model and/or its engine not present)" -f $m.Short)
     }
 }
 

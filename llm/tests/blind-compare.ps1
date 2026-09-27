@@ -14,13 +14,13 @@
     varied between runs, or the comparison is meaningless.
 
 .PARAMETER Mode
-    Mode name from start-llm.ps1 (e.g. gemma4qat, qwen36u35b).
+    Mode name from start-llm.ps1 (e.g. qwen36u35b_ml; -ListOnly lists which are complete).
 
 .PARAMETER OutFile
     Where to write the answers.
 
 .EXAMPLE
-    .\blind-compare.ps1 -Mode gemma4qat   -OutFile gemma.txt
+    .\blind-compare.ps1 -Mode qwen36u35b_ml -OutFile incumbent.txt
     .\blind-compare.ps1 -Mode qwen36u35b  -OutFile qwen.txt
 #>
 [CmdletBinding()]

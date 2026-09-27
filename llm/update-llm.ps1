@@ -17,7 +17,8 @@
     mixing them loads the wrong kernels. Models are shared in C:\data\llm\models.
 
 .PARAMETER Engine
-    One or more engine keys, or 'all'. Default: mainline, ik_llama (the working pair).
+    One or more engine keys, or 'all'. Default: mainline. ik_llama was removed 2026-09-27
+    (the keeper runs on mainline); pass -Engine ik_llama to bring it back, or -Engine all.
 
 .PARAMETER ListOnly
     Resolve and report what is installed vs available; download nothing.
@@ -40,7 +41,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string[]]$Engine = @('mainline', 'ik_llama'),
+    [string[]]$Engine = @('mainline'),
     [switch]$ListOnly,
     [switch]$Force,
     [switch]$PurgeOldBackups,
