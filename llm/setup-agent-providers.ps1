@@ -29,7 +29,7 @@
 
 .NOTES
     Start a server first (.\start-llm.ps1 <mode> -Background), then pick the model in
-    OpenCode as ik-llama/<shortname>.
+    OpenCode as llamacpp/<shortname>.
 #>
 [CmdletBinding()]
 param(
@@ -39,7 +39,7 @@ param(
     [string]$ModelDir    = 'C:\data\llm\models',
     [string]$ConfigPath  = (Join-Path $env:USERPROFILE '.config\opencode\opencode.json'),
     [string]$BaseUrl     = 'http://127.0.0.1:9080/v1',
-    [string]$ProviderKey = 'ik-llama',
+    [string]$ProviderKey = 'llamacpp',   # named for the engine that actually serves, not ik_llama which was retired 2026-09-27
     [int]$OutputLimit    = 8192,
     [switch]$Force,
     [switch]$DryRun
