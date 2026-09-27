@@ -29,11 +29,13 @@ function New-QualityHardFixture {
     # Four self-contained mini projects for family A, one per task, so a task can never be passed by
     # collateral damage to another task's files.
     #
-    # INTEGRITY: each test.ps1 is stored under test.canonical.ps1 and REPLACED from that copy by the
-    # checker before it runs. Without that, the cheapest way to make a test pass is to rewrite the
-    # test - which would measure obedience, not correctness.
+    # INTEGRITY: canonical tests live beside, not inside, the candidate-writable fixture.  The
+    # checker restores test.ps1 from there before it runs; rewriting test.ps1 (or an obsolete
+    # in-fixture test.canonical.ps1) therefore cannot make a task pass.
     param([Parameter(Mandatory = $true)][string]$Dir)
     $root = $Dir
+    $canonicalRoot = Join-Path (Split-Path $root -Parent) ((Split-Path $root -Leaf) + '.canonical')
+    if (-not (Test-Path $canonicalRoot)) { New-Item -ItemType Directory -Path $canonicalRoot -Force | Out-Null }
 
     # ---- A1: rename a function, and both call sites with it ----
     $a1lib = @(
@@ -51,13 +53,16 @@ function New-QualityHardFixture {
         'if (-not (Get-Command Get-Sum -ErrorAction SilentlyContinue)) { Write-Output "TEST-FAIL Get-Sum is not defined"; exit 1 }'
         '$items = @([pscustomobject]@{ amount = 10 }, [pscustomobject]@{ amount = 32 })'
         'if ((Get-Sum -Items $items) -ne 42) { Write-Output "TEST-FAIL wrong total"; exit 1 }'
+        '$main = & (Join-Path $PSScriptRoot "main.ps1")'
+        'if ("$main" -ne "a=42 b=8") { Write-Output "TEST-FAIL call sites were not renamed"; exit 1 }'
         'Write-Output "TEST-PASS"'
         'exit 0'
     )
     Write-FixtureFile -Path (Join-Path $root 'mini1\lib.ps1') -Lines $a1lib
     Write-FixtureFile -Path (Join-Path $root 'mini1\main.ps1') -Lines $a1main
     Write-FixtureFile -Path (Join-Path $root 'mini1\test.ps1') -Lines $a1test
-    Write-FixtureFile -Path (Join-Path $root 'mini1\test.canonical.ps1') -Lines $a1test
+    Remove-Item (Join-Path $root 'mini1\test.canonical.ps1') -Force -ErrorAction SilentlyContinue
+    Write-FixtureFile -Path (Join-Path $canonicalRoot 'mini1\test.ps1') -Lines $a1test
 
     # ---- A2: add a parameter with a default, then use it in one caller ----
     $a2lib = @(
@@ -77,7 +82,8 @@ function New-QualityHardFixture {
     Write-FixtureFile -Path (Join-Path $root 'mini2\lib.ps1') -Lines $a2lib
     Write-FixtureFile -Path (Join-Path $root 'mini2\main.ps1') -Lines $a2main
     Write-FixtureFile -Path (Join-Path $root 'mini2\test.ps1') -Lines $a2test
-    Write-FixtureFile -Path (Join-Path $root 'mini2\test.canonical.ps1') -Lines $a2test
+    Remove-Item (Join-Path $root 'mini2\test.canonical.ps1') -Force -ErrorAction SilentlyContinue
+    Write-FixtureFile -Path (Join-Path $canonicalRoot 'mini2\test.ps1') -Lines $a2test
 
     # ---- A3: a defect that spans two files (arguments swapped at the call site) ----
     $a3lib = @(
@@ -98,7 +104,8 @@ function New-QualityHardFixture {
     Write-FixtureFile -Path (Join-Path $root 'mini3\lib.ps1') -Lines $a3lib
     Write-FixtureFile -Path (Join-Path $root 'mini3\main.ps1') -Lines $a3main
     Write-FixtureFile -Path (Join-Path $root 'mini3\test.ps1') -Lines $a3test
-    Write-FixtureFile -Path (Join-Path $root 'mini3\test.canonical.ps1') -Lines $a3test
+    Remove-Item (Join-Path $root 'mini3\test.canonical.ps1') -Force -ErrorAction SilentlyContinue
+    Write-FixtureFile -Path (Join-Path $canonicalRoot 'mini3\test.ps1') -Lines $a3test
 
     # ---- A4: a constant lives in one file and a dependent computation ignores it ----
     $a4lib = @(
@@ -120,7 +127,8 @@ function New-QualityHardFixture {
     Write-FixtureFile -Path (Join-Path $root 'mini4\lib.ps1') -Lines $a4lib
     Write-FixtureFile -Path (Join-Path $root 'mini4\main.ps1') -Lines $a4main
     Write-FixtureFile -Path (Join-Path $root 'mini4\test.ps1') -Lines $a4test
-    Write-FixtureFile -Path (Join-Path $root 'mini4\test.canonical.ps1') -Lines $a4test
+    Remove-Item (Join-Path $root 'mini4\test.canonical.ps1') -Force -ErrorAction SilentlyContinue
+    Write-FixtureFile -Path (Join-Path $canonicalRoot 'mini4\test.ps1') -Lines $a4test
 
     # ---- B1: a ~12k-token log with exactly one uppercase ERROR line, buried ----
     # The distractor is deliberate: lowercase "error" appears in prose many times, so a model that
@@ -213,14 +221,14 @@ function Assert-AnswerExact {
 }
 
 function Assert-SuiteTest {
-    # Family A: run the task's test.ps1, replacing it from the canonical copy first so the test itself
-    # cannot be the thing that was edited.
+    # Family A: restore test.ps1 from the canonical copy outside the candidate-writable fixture.
     param(
         [Parameter(Mandatory = $true)][string]$FixtureDir,
         [Parameter(Mandatory = $true)][string]$SubDir
     )
     $dir = Join-Path $FixtureDir $SubDir
-    $canon = Join-Path $dir 'test.canonical.ps1'
+    $canonRoot = Join-Path (Split-Path $FixtureDir -Parent) ((Split-Path $FixtureDir -Leaf) + '.canonical')
+    $canon = Join-Path $canonRoot (Join-Path $SubDir 'test.ps1')
     $live = Join-Path $dir 'test.ps1'
     if (-not (Test-Path $canon)) { return @{ Pass = $false; Reason = "canonical test missing in $SubDir" } }
     Copy-Item $canon $live -Force
@@ -263,18 +271,32 @@ function Assert-OneLineChanged {
         [Parameter(Mandatory = $true)][string]$OriginalPath,
         [Parameter(Mandatory = $true)][string]$ExpectLine
     )
-    $orig = @(Get-Content $OriginalPath)
-    $cand = @(("$Answer" -split "`r?`n") | ForEach-Object { $_.TrimEnd() } | Where-Object { $_ -ne '' })
-    $o = @($orig | ForEach-Object { $_.TrimEnd() } | Where-Object { $_ -ne '' })
+    # Preserve empty lines and each line ending.  The contract says byte-identical, so trimming
+    # whitespace or normalising newlines would enforce a weaker, different task.
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $origText = [IO.File]::ReadAllText($OriginalPath, $utf8)
+    $splitLines = {
+        param([string]$Text)
+        $lines = New-Object System.Collections.Generic.List[string]
+        foreach ($m in [regex]::Matches($Text, '(?s).*?(?:\r\n|\n|\r|\z)')) {
+            if ($m.Value.Length -gt 0) { $lines.Add($m.Value) }
+        }
+        return $lines.ToArray()
+    }
+    $cand = @(& $splitLines "$Answer")
+    $o = @(& $splitLines $origText)
     if ($cand.Count -ne $o.Count) {
-        return @{ Pass = $false; Reason = "expected $($o.Count) lines, got $($cand.Count) - the whole file was rewritten" }
+        return @{ Pass = $false; Reason = "expected $($o.Count) lines, got $($cand.Count) - line count or final newline changed" }
     }
     $diff = @()
     for ($i = 0; $i -lt $o.Count; $i++) { if ($cand[$i] -ne $o[$i]) { $diff += $i } }
     if ($diff.Count -eq 0) { return @{ Pass = $false; Reason = 'nothing was changed' } }
     if ($diff.Count -gt 1) { return @{ Pass = $false; Reason = "$($diff.Count) lines changed, exactly 1 allowed" } }
-    if ($cand[$diff[0]] -ne $ExpectLine) {
-        return @{ Pass = $false; Reason = "line $($diff[0]+1) is [$($cand[$diff[0]])], expected [$ExpectLine]" }
+    $old = $o[$diff[0]]
+    $eol = ''
+    if ($old.EndsWith("`r`n")) { $eol = "`r`n" } elseif ($old.EndsWith("`n")) { $eol = "`n" } elseif ($old.EndsWith("`r")) { $eol = "`r" }
+    if ($cand[$diff[0]] -ne ($ExpectLine + $eol)) {
+        return @{ Pass = $false; Reason = "line $($diff[0]+1) is not the expected replacement with its original line ending" }
     }
     return @{ Pass = $true; Reason = 'exactly the incorrect line was corrected' }
 }

@@ -37,8 +37,12 @@ function Import-Evidence {
         if (-not $outcomes.ContainsKey($key)) { $outcomes[$key] = @() }
         $outcomes[$key] += [bool]$r.pass
         $families[$key] = "$($r.family)"
-        if (-not $ms.ContainsKey($key)) { $ms[$key] = @() }
-        $ms[$key] += [int]$r.ms
+        # A failed HTTP request has a timeout/error duration, not an answer duration.  Retain the
+        # failure in ReqFail for validity, but do not mix it into the speed figure.
+        if ("$($r.reason)" -notlike 'request failed*') {
+            if (-not $ms.ContainsKey($key)) { $ms[$key] = @() }
+            $ms[$key] += [int]$r.ms
+        }
     }
     $final = @{}
     foreach ($k in $outcomes.Keys) {
@@ -56,6 +60,7 @@ function Import-Evidence {
         Families = $families
         Ms       = $ms
         ReqFail  = $reqFail
+        TimingExcluded = $reqFail
         Valid    = $valid
         Doc      = $doc
     }
@@ -70,6 +75,12 @@ function Get-MeanSec {
     foreach ($k in $Evidence.Ms.Keys) { $all += $Evidence.Ms[$k] }
     if ($all.Count -eq 0) { return 0 }
     return [Math]::Round((($all | Measure-Object -Sum).Sum) / $all.Count / 1000, 1)
+}
+
+function Get-TimingNote {
+    param($Evidence)
+    if ($Evidence.TimingExcluded -eq 0) { return '0 failed-request timings excluded' }
+    return "$($Evidence.TimingExcluded) failed-request timing(s) excluded"
 }
 
 function Get-BinomialTail {
@@ -104,22 +115,30 @@ $ref = Import-Evidence -Path $Reference
 $refScore = Get-FamilyScore -Evidence $ref
 $refTool = [int]("$($refScore['tool'])".Split('/')[0])
 $refMean = Get-MeanSec -Evidence $ref
+$refTimingNote = Get-TimingNote -Evidence $ref
 
 Write-Output ''
 Write-Output "=== quality verdict ==="
-Write-Output ("  reference: {0}  (code {1}, fix {2}, tool {3}, total {4} | mean {5}s/answer)" -f `
-    $ref.Mode, $refScore['code'], $refScore['fix'], $refScore['tool'], $refScore['total'], $refMean)
+Write-Output ("  reference: {0}  (code {1}, fix {2}, tool {3}, total {4} | mean {5}s/answer; {6})" -f `
+    $ref.Mode, $refScore['code'], $refScore['fix'], $refScore['tool'], $refScore['total'], $refMean, $refTimingNote)
 Write-Output ''
 
 $report = New-Object System.Collections.Generic.List[string]
 $report.Add('# Quality verdict')
 $report.Add('')
-$report.Add("Reference (incumbent): **$($ref.Mode)** - code $($refScore['code']), fix $($refScore['fix']), tool $($refScore['tool']), total $($refScore['total']), mean $($refMean)s/answer")
+$report.Add("Reference (incumbent): **$($ref.Mode)** - code $($refScore['code']), fix $($refScore['fix']), tool $($refScore['tool']), total $($refScore['total']), mean $($refMean)s/answer ($refTimingNote)")
 $report.Add('')
 $report.Add('| model | code | fix | tool | total | mean s/answer | tool gate | discordant W/L | p (one-sided) | decision |')
 $report.Add('|---|---|---|---|---|---|---|---|---|---|')
 
 $decisions = @()
+if (-not $ref.Valid) {
+    $reason = "EXCLUDED (invalid reference run: $($ref.ReqFail) request failures - server died mid-run)"
+    Write-Output "  reference $reason"
+    $report.Add('')
+    $report.Add("**$($ref.Mode)** - $reason")
+    $report.Add('No candidate comparison or adoption decision is valid until the reference is re-run.')
+} else {
 foreach ($cPath in $Candidates) {
     $cand = Import-Evidence -Path $cPath
     $cs = Get-FamilyScore -Evidence $cand
@@ -160,12 +179,14 @@ foreach ($cPath in $Candidates) {
     $gateLabel = 'pass'
     if (-not $gateOk) { $gateLabel = 'FAIL' }
 
-    Write-Output ("  {0,-14} code {1,-5} fix {2,-5} tool {3,-5} total {4,-6} mean {5,-7} gate {6,-5} W/L {7}/{8}  p={9:N3}  {10}" -f `
-        $cand.Mode, $cs['code'], $cs['fix'], $cs['tool'], $cs['total'], ("$($candMean)s"), $gateLabel, $W, $L, $p, $decision)
+    $timingNote = Get-TimingNote -Evidence $cand
+    Write-Output ("  {0,-14} code {1,-5} fix {2,-5} tool {3,-5} total {4,-6} mean {5,-7} ({6}) gate {7,-5} W/L {8}/{9}  p={10:N3}  {11}" -f `
+        $cand.Mode, $cs['code'], $cs['fix'], $cs['tool'], $cs['total'], ("$($candMean)s"), $timingNote, $gateLabel, $W, $L, $p, $decision)
 
-    $report.Add("| $($cand.Mode) | $($cs['code']) | $($cs['fix']) | $($cs['tool']) | $($cs['total']) | $($candMean)s | $gateLabel | $W/$L | $('{0:N3}' -f $p) | $decision |")
+    $report.Add("| $($cand.Mode) | $($cs['code']) | $($cs['fix']) | $($cs['tool']) | $($cs['total']) | $($candMean)s ($timingNote) | $gateLabel | $W/$L | $('{0:N3}' -f $p) | $decision |")
 
     $decisions += [pscustomobject]@{ Mode = $cand.Mode; Decision = $decision; W = $W; L = $L; P = $p; Detail = ($detail -join ' ') }
+}
 }
 
 $report.Add('')

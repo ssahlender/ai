@@ -25,6 +25,8 @@ $cases = @(
     @{ code = "Get-Content 'big/app-12k.log' | Select-String 'ERROR'";      deny = $false; why = 'the context task' }
     @{ code = "Get-CimInstance Win32_OperatingSystem | Select-Object -First 1"; deny = $false; why = 'harmless read' }
     @{ code = "\$n = 0; foreach (\$l in Get-Content 'x.txt') { \$n++ }";     deny = $false; why = 'plain computation' }
+    @{ code = "# curl; net user; HKLM; shutdown`nSet-Content -Path 'out.txt' -Value 'x'"; deny = $false; why = 'dangerous words in a comment are prose' }
+    @{ code = "\$note = 'curl net user HKLM shutdown'; Set-Content -Path 'out.txt' -Value \$note"; deny = $false; why = 'dangerous words in a data string are not commands' }
     # --- must be DENIED: effects outside the fixture or system-level ----------
     @{ code = "Set-Content -Path 'C:\Windows\x.txt' -Value 'x'";            deny = $true;  why = 'write to a drive path' }
     @{ code = "Out-File '..\..\outside.txt'";                               deny = $true;  why = 'write climbing out of the fixture' }
@@ -36,6 +38,9 @@ $cases = @(
     @{ code = "Set-ExecutionPolicy Bypass";                                 deny = $true;  why = 'policy change' }
     @{ code = "schtasks /create /tn x /tr y";                               deny = $true;  why = 'scheduled task creation' }
     @{ code = "'data' | Set-Content 'C:\data\out.txt'";                     deny = $true;  why = 'write outside via pipeline' }
+    @{ code = "\$p = 'C:\x'; Set-Content \$p -Value 'x'";                    deny = $true;  why = 'variable-held write path fails closed' }
+    @{ code = "'x' > ~/outside.txt";                                            deny = $true;  why = 'home-directory redirect fails closed' }
+    @{ code = "'x' > \$env:TEMP\\outside.txt";                                deny = $true;  why = 'environment redirect fails closed' }
 )
 
 $fail = 0
