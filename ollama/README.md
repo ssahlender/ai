@@ -10,6 +10,19 @@ the fewest quirks and best throughput of the three:
 | Raw `mlx_lm.server` | 6.5-6.6 | Open unpatched issue: unbounded KV-cache growth can crash on long sessions |
 | oMLX | ~6.4 | Real memory-safety net, but needed per-use `--memory-guard-gb` tuning and repeatedly rejected requests even at generous ceilings |
 
+## Verified working (2026-09-27)
+
+End-to-end against the live model (`qwen36-35b-a3b`, ctx 32768), thinking suppressed in both cases:
+
+| endpoint | request | result |
+|---|---|---|
+| `/api/generate` | `"think": false` | `"Mac local model works."` · `done_reason: stop` · 6 tokens |
+| `/v1/chat/completions` | `"reasoning_effort": "none"` | `"Mac local model works."` · `finish_reason: stop` · 6 tokens |
+
+`ollama/start.sh` now resolves the `ollama` binary itself (PATH, then `/opt/homebrew/bin`,
+`/usr/local/bin`), so it also works from ssh or launchd where Homebrew is not on PATH — the same
+failure mode that made `../ik-llama/start.sh` report "llama-server not found" over ssh.
+
 ## Install / update
 
 Already fully wired into the shared `tools/` scripts:
