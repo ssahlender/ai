@@ -7,7 +7,10 @@ try {
     $planted = 'X:\sample\fixtures'
     @{ mode = 'model'; fixtureDir = $planted; results = @(@{ id = 'task'; reason = "parse error at $planted\\gen.ps1"; answer = "see $planted\\answer.txt" }) } | ConvertTo-Json -Depth 6 | Set-Content $source
     $raw = Get-Content $source -Raw
-    if ($raw -notmatch [regex]::Escape($planted)) { throw 'FAIL: negative control did not contain the planted path' }
+    # JSON escapes backslashes, so the raw file holds the planted path with doubled
+    # separators. Collapse them before matching, or this assertion can never be satisfied
+    # and the negative control silently proves nothing.
+    if ($raw.Replace('\\', '\') -notmatch [regex]::Escape($planted)) { throw 'FAIL: negative control did not contain the planted path' }
     $dest = Join-Path $root 'published'
     & (Join-Path $PSScriptRoot 'publish-quality-evidence.ps1') -Source $source -Destination $dest | Out-Null
     $published = Get-Content (Join-Path $dest (Split-Path $source -Leaf)) -Raw
