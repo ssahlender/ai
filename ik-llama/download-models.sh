@@ -23,15 +23,17 @@ is_bad_download() {
 }
 
 download_if_missing() {
-  local repo="$1" file="$2"
+  local repo="$1" file="$2" want="${3:-}"
   local dest="$MODELS_DIR/$file"
   if [ -f "$dest" ]; then
     if is_bad_download "$dest"; then
       echo "Removing invalid partial/error download: $file"
       rm -f "$dest"
+    elif [ -n "$want" ] && [ "$(wc -c < "$dest" | tr -d ' ')" != "$want" ]; then
+      echo "Wrong size for $file, re-downloading"
+      rm -f "$dest"
     else
       echo "Already present: $file"
-      return
     fi
   fi
 
@@ -53,6 +55,18 @@ download_if_missing() {
     rm -f "$tmp"
     echo "Downloaded file looks like an error page, not a GGUF: $file" >&2
     exit 1
+  fi
+
+  # is_bad_download only catches a download under 1 MB. A truncation above that passes
+  # silently, and a half-written 17 GB of weights LOADS and then produces nonsense -
+  # which reads as a broken model rather than as a broken download.
+  if [ -n "$want" ]; then
+    local got; got=$(wc -c < "$tmp" | tr -d ' ')
+    if [ "$got" != "$want" ]; then
+      rm -f "$tmp"
+      echo "Size mismatch for $file: expected $want bytes, got $got" >&2
+      exit 1
+    fi
   fi
 
   mv "$tmp" "$dest"
@@ -85,14 +99,11 @@ case "$MACHINE" in
     ;;
 
   macbook-air)
-    MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
-    mkdir -p "$MODELS_DIR"
-
-    download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive  Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf
-    download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf
-    download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf
-    download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
-    download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF                Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf
+        # ONE model, matching the x86 reference. IQ4_XS (17.44 GiB) is the 4-bit tier that
+        # leaves room for a desktop session in 24 GB of unified memory; IQ4_NL is 1 GiB larger.
+        # Sizes are exact: an unverified 17 GB download that loads is worse than one that errors.
+        download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf  18728777856
+        download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf  899283072
     ;;
 
   *) usage ;;
