@@ -15,6 +15,16 @@ try {
     @{ mode = 'candidate'; stamp = 'test'; results = @(@{ id = 'code-a'; family = 'code'; pass = $true; reason = 'output matched'; ms = 2000 }) } | ConvertTo-Json -Depth 5 | Set-Content $cand
     $out = & (Join-Path $PSScriptRoot 'quality-verdict.ps1') -Reference $ref -Candidates $cand -LlmRoot $root 2>&1 | Out-String
     if ($out -notmatch 'invalid reference run: 4 request failures') { throw 'FAIL: invalid reference was scored instead of excluded' }
-    if ($out -notmatch 'mean 1s/answer; 4 failed-request timing\(s\) excluded') { throw 'FAIL: failed-request durations entered the reference mean' }
+    if ($out -notmatch 'mean 1s/answer, median 1s/answer \(completed requests\); 4 failed-request timing\(s\) excluded') { throw 'FAIL: failed-request durations entered the reference timing summary' }
+    $stableRef = Join-Path $root 'stable-reference.json'; $stableCand = Join-Path $root 'stable-candidate.json'
+    $stable = @(
+        @{ id = 'a'; family = 'code'; pass = $true; reason = 'output matched'; ms = 1000 },
+        @{ id = 'b'; family = 'code'; pass = $true; reason = 'output matched'; ms = 2000 },
+        @{ id = 'c'; family = 'fix'; pass = $true; reason = 'output matched'; ms = 44200 }
+    )
+    @{ mode = 'stable-reference'; stamp = 'test'; results = $stable } | ConvertTo-Json -Depth 5 | Set-Content $stableRef
+    @{ mode = 'stable-candidate'; stamp = 'test'; results = $stable } | ConvertTo-Json -Depth 5 | Set-Content $stableCand
+    $stableOut = & (Join-Path $PSScriptRoot 'quality-verdict.ps1') -Reference $stableRef -Candidates $stableCand -LlmRoot $root 2>&1 | Out-String
+    if ($stableOut -notmatch 'mean 15\.7s/answer, median 2s/answer') { throw 'FAIL: mean and median completed-answer times were not reported correctly' }
     Write-Output 'QUALITY-VERDICT SELFTEST: PASS'
 } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }

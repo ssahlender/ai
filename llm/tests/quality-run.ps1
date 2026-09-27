@@ -33,12 +33,16 @@ param(
     # caught by the SYSTEM task's own cap.
     [int]$TimeoutSec = 1200,
     [int]$CodeTimeoutMs = 60000,
+    # Test seam for harness-integrity-selftest: exercises the real task loop without a model
+    # server. It is deliberately a literal answer, never a model mode or production default.
+    [string]$MockAnswer,
     [switch]$KeepServer
 )
 
 $ErrorActionPreference = 'Continue'
 . (Join-Path (Split-Path $PSScriptRoot -Parent) 'lib\common.ps1')
 . (Join-Path $PSScriptRoot 'quality-tasks.ps1')
+$script:MockAnswerIsSet = $PSBoundParameters.ContainsKey('MockAnswer')
 
 $llmRoot = Get-LlmRoot -Override $LlmRoot
 if (-not $FixtureDir) { $FixtureDir = Join-Path $env:ProgramData 'llm-quality-fixtures' }
@@ -110,6 +114,9 @@ function Invoke-Chat {
         [int]$MaxTokens = 400,
         [int]$Seed = 1
     )
+    if ($script:MockAnswerIsSet) {
+        return @{ Ok = $true; Response = @{ choices = @(@{ message = @{ content = $MockAnswer } }) }; Ms = 0; Err = '' }
+    }
     $body = [ordered]@{
         model       = 'local'
         messages    = $Messages
@@ -281,7 +288,7 @@ function Invoke-TaskCheck {
 
 # ------------------------------------------------------------------ start the server
 $startScript = Join-Path (Split-Path $PSScriptRoot -Parent) 'start-llm.ps1'
-if (Test-PortOpen -Port $Port) {
+if (-not $PSBoundParameters.ContainsKey('MockAnswer') -and (Test-PortOpen -Port $Port)) {
     throw "port $Port is already in use - refusing to run against a server this script did not start. Stop it first."
 }
 
@@ -294,15 +301,19 @@ $exitCode = 0
 $taskCount = 0
 $results = @()
 try {
-    $startOut = (& $startScript -Mode $Mode -Background -Port $Port -ExtraArgs $ServerArgs -NoThinking:$NoThinking 2>&1 | Out-String)
-    foreach ($l in @($startOut.Trim() -split "`n")) {
-        if ($l.Trim()) { Write-Host ("  start: " + $l.Trim()) }
+    if ($PSBoundParameters.ContainsKey('MockAnswer')) {
+        Write-Host '  mock answer: harness self-test only'
+    } else {
+        $startOut = (& $startScript -Mode $Mode -Background -Port $Port -ExtraArgs $ServerArgs -NoThinking:$NoThinking 2>&1 | Out-String)
+        foreach ($l in @($startOut.Trim() -split "`n")) {
+            if ($l.Trim()) { Write-Host ("  start: " + $l.Trim()) }
+        }
+        $ready = Wait-ServerHealth -Port $Port -TimeoutSec 420 -IntervalSec 3
+        if (-not $ready.Ok) {
+            throw "model '$Mode' never became healthy on port $Port after $($ready.Waited)s (exited: $($ready.Exited))"
+        }
+        Write-Host "  model healthy after $($ready.Waited)s"
     }
-    $ready = Wait-ServerHealth -Port $Port -TimeoutSec 420 -IntervalSec 3
-    if (-not $ready.Ok) {
-        throw "model '$Mode' never became healthy on port $Port after $($ready.Waited)s (exited: $($ready.Exited))"
-    }
-    Write-Host "  model healthy after $($ready.Waited)s"
 
     $tasks = @(Get-QualityTaskList)
     if ($TaskSet -eq 'hard') { $tasks = @(Get-QualityHardTaskList) }
@@ -406,7 +417,7 @@ try {
     Write-Host ("  ABORTED: " + $_.Exception.Message)
     $exitCode = 1
 } finally {
-    if (-not $KeepServer) {
+    if (-not $KeepServer -and -not $PSBoundParameters.ContainsKey('MockAnswer')) {
         $null = Stop-ServerOnPort -Port $Port -Confirm
     }
 }

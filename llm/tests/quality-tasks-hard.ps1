@@ -130,6 +130,14 @@ function New-QualityHardFixture {
     Remove-Item (Join-Path $root 'mini4\test.canonical.ps1') -Force -ErrorAction SilentlyContinue
     Write-FixtureFile -Path (Join-Path $canonicalRoot 'mini4\test.ps1') -Lines $a4test
 
+    # The canonical files are outside the candidate work tree, but record their expected hashes as
+    # well: a candidate that edits the live test must be reported as tampering, not merely receive
+    # the ordinary result of a restored test.
+    foreach ($subDir in @('mini1', 'mini2', 'mini3', 'mini4')) {
+        $canonicalTest = Join-Path $canonicalRoot (Join-Path $subDir 'test.ps1')
+        (Get-FileHash -Algorithm SHA256 -LiteralPath $canonicalTest).Hash | Set-Content (Join-Path $canonicalRoot (Join-Path $subDir 'test.ps1.sha256')) -NoNewline
+    }
+
     # ---- B1: a ~12k-token log with exactly one uppercase ERROR line, buried ----
     # The distractor is deliberate: lowercase "error" appears in prose many times, so a model that
     # greps case-insensitively finds noise and must reason about which line is the real one.
@@ -229,9 +237,14 @@ function Assert-SuiteTest {
     $dir = Join-Path $FixtureDir $SubDir
     $canonRoot = Join-Path (Split-Path $FixtureDir -Parent) ((Split-Path $FixtureDir -Leaf) + '.canonical')
     $canon = Join-Path $canonRoot (Join-Path $SubDir 'test.ps1')
+    $hashFile = Join-Path $canonRoot (Join-Path $SubDir 'test.ps1.sha256')
     $live = Join-Path $dir 'test.ps1'
     if (-not (Test-Path $canon)) { return @{ Pass = $false; Reason = "canonical test missing in $SubDir" } }
+    if (-not (Test-Path $hashFile)) { return @{ Pass = $false; Reason = "canonical test hash missing in $SubDir" } }
+    $expectedHash = (Get-Content -LiteralPath $hashFile -Raw).Trim()
+    $actualHash = if (Test-Path $live) { (Get-FileHash -Algorithm SHA256 -LiteralPath $live).Hash } else { '' }
     Copy-Item $canon $live -Force
+    if ($actualHash -ne $expectedHash) { return @{ Pass = $false; Reason = "fixture test tampering detected in $SubDir" } }
 
     $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     $r = Invoke-ProcessCapture -Exe $exe -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $live) `
@@ -271,8 +284,8 @@ function Assert-OneLineChanged {
         [Parameter(Mandatory = $true)][string]$OriginalPath,
         [Parameter(Mandatory = $true)][string]$ExpectLine
     )
-    # Preserve empty lines and each line ending.  The contract says byte-identical, so trimming
-    # whitespace or normalising newlines would enforce a weaker, different task.
+    # Preserve empty lines, but normalize EOLs: the task requires one semantic line replacement,
+    # not the source platform's newline convention.
     $utf8 = New-Object System.Text.UTF8Encoding($false)
     $origText = [IO.File]::ReadAllText($OriginalPath, $utf8)
     $splitLines = {
@@ -283,8 +296,8 @@ function Assert-OneLineChanged {
         }
         return $lines.ToArray()
     }
-    $cand = @(& $splitLines "$Answer")
-    $o = @(& $splitLines $origText)
+    $cand = @(& $splitLines ("$Answer" -replace "`r`n?", "`n"))
+    $o = @(& $splitLines ($origText -replace "`r`n?", "`n"))
     if ($cand.Count -ne $o.Count) {
         return @{ Pass = $false; Reason = "expected $($o.Count) lines, got $($cand.Count) - line count or final newline changed" }
     }
@@ -292,11 +305,8 @@ function Assert-OneLineChanged {
     for ($i = 0; $i -lt $o.Count; $i++) { if ($cand[$i] -ne $o[$i]) { $diff += $i } }
     if ($diff.Count -eq 0) { return @{ Pass = $false; Reason = 'nothing was changed' } }
     if ($diff.Count -gt 1) { return @{ Pass = $false; Reason = "$($diff.Count) lines changed, exactly 1 allowed" } }
-    $old = $o[$diff[0]]
-    $eol = ''
-    if ($old.EndsWith("`r`n")) { $eol = "`r`n" } elseif ($old.EndsWith("`n")) { $eol = "`n" } elseif ($old.EndsWith("`r")) { $eol = "`r" }
-    if ($cand[$diff[0]] -ne ($ExpectLine + $eol)) {
-        return @{ Pass = $false; Reason = "line $($diff[0]+1) is not the expected replacement with its original line ending" }
+    if ($cand[$diff[0]] -ne ($ExpectLine + "`n")) {
+        return @{ Pass = $false; Reason = "line $($diff[0]+1) is not the expected replacement" }
     }
     return @{ Pass = $true; Reason = 'exactly the incorrect line was corrected' }
 }
@@ -381,7 +391,7 @@ function Get-QualityHardTaskList {
            Expect = @{ name = 'atlas'; count = '7'; total = '1284' } }
 
         @{ Id = 'hard-precision-oneline'; Family = 'precision'; MaxTokens = 400
-           Prompt = 'Read editme.txt. Exactly one line violates the policy stated in the file header: the retry count is wrong. Reply with ONLY the complete corrected file content - every other line must be byte-identical to the original, and nothing may be added or removed.'
+           Prompt = 'Read editme.txt. Exactly one line violates the policy stated in the file header: the retry count is wrong. Reply with ONLY the complete corrected file content. Preserve every other line, including empty lines; LF and CRLF line endings are treated as equivalent. Nothing may be added or removed.'
            Check = 'Assert-OneLineChanged'
            ContextFile = 'editme.txt'; Expect = 'retries=3'; OriginalFile = 'editme.txt' }
     )

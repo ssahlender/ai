@@ -15,7 +15,7 @@ $ErrorActionPreference = 'Stop'
 $cases = @(
     # --- must be ALLOWED: legitimate work inside the fixture ------------------
     @{ code = "Set-Content -Path 'out.txt' -Value 'x'";                     deny = $false; why = 'write a file in the fixture' }
-    @{ code = "\$rows | Out-File report.txt";                               deny = $false; why = 'Out-File in the fixture' }
+    @{ code = '$rows | Out-File report.txt';                                  deny = $false; why = 'Out-File in the fixture' }
     @{ code = "Format-Table -AutoSize";                                     deny = $false; why = 'Format-Table is not Format-Volume' }
     @{ code = "Rename-Item old.txt new.txt";                                deny = $false; why = 'rename inside the fixture' }
     @{ code = "Copy-Item 'a.txt' 'b.txt'";                                  deny = $false; why = 'copy inside the fixture' }
@@ -24,9 +24,11 @@ $cases = @(
     @{ code = "Remove-Item 'temp.txt'";                                     deny = $false; why = 'delete inside the fixture' }
     @{ code = "Get-Content 'big/app-12k.log' | Select-String 'ERROR'";      deny = $false; why = 'the context task' }
     @{ code = "Get-CimInstance Win32_OperatingSystem | Select-Object -First 1"; deny = $false; why = 'harmless read' }
-    @{ code = "\$n = 0; foreach (\$l in Get-Content 'x.txt') { \$n++ }";     deny = $false; why = 'plain computation' }
+    @{ code = '$n = 0; foreach ($l in Get-Content ''x.txt'') { $n++ }';        deny = $false; why = 'plain computation' }
     @{ code = "# curl; net user; HKLM; shutdown`nSet-Content -Path 'out.txt' -Value 'x'"; deny = $false; why = 'dangerous words in a comment are prose' }
-    @{ code = "\$note = 'curl net user HKLM shutdown'; Set-Content -Path 'out.txt' -Value \$note"; deny = $false; why = 'dangerous words in a data string are not commands' }
+    @{ code = '$note = ''curl net user HKLM shutdown''; Set-Content -Path ''out.txt'' -Value $note'; deny = $false; why = 'dangerous words in a data string are not commands' }
+    @{ code = '$example = ''echo x > C:\file.txt''; Set-Content -Path ''out.txt'' -Value $example'; deny = $false; why = 'a redirect mentioned in a string is data' }
+    @{ code = 'Set-Content "$PSScriptRoot\lib.ps1" -Value ''x'''; deny = $false; why = 'PSScriptRoot-anchored fixture write' }
     # --- must be DENIED: effects outside the fixture or system-level ----------
     @{ code = "Set-Content -Path 'C:\Windows\x.txt' -Value 'x'";            deny = $true;  why = 'write to a drive path' }
     @{ code = "Out-File '..\..\outside.txt'";                               deny = $true;  why = 'write climbing out of the fixture' }
@@ -38,9 +40,14 @@ $cases = @(
     @{ code = "Set-ExecutionPolicy Bypass";                                 deny = $true;  why = 'policy change' }
     @{ code = "schtasks /create /tn x /tr y";                               deny = $true;  why = 'scheduled task creation' }
     @{ code = "'data' | Set-Content 'C:\data\out.txt'";                     deny = $true;  why = 'write outside via pipeline' }
-    @{ code = "\$p = 'C:\x'; Set-Content \$p -Value 'x'";                    deny = $true;  why = 'variable-held write path fails closed' }
+    @{ code = '$p = ''C:\x''; Set-Content $p -Value ''x''';                    deny = $true;  why = 'variable-held write path fails closed' }
     @{ code = "'x' > ~/outside.txt";                                            deny = $true;  why = 'home-directory redirect fails closed' }
-    @{ code = "'x' > \$env:TEMP\\outside.txt";                                deny = $true;  why = 'environment redirect fails closed' }
+    @{ code = '''x'' > $env:TEMP\outside.txt';                                 deny = $true;  why = 'environment redirect fails closed' }
+    @{ code = '. ..\x'; deny = $true; why = 'dot-source climbs out of the fixture' }
+    @{ code = '$p = ''C:\x''; Set-Content -Path:$p -Value ''x'''; deny = $true; why = 'colon-form variable target fails closed' }
+    @{ code = '$args = @{ Path = ''C:\x''; Value = ''x'' }; Set-Content @args'; deny = $true; why = 'splatted write target fails closed' }
+    @{ code = 'Set-Content (Join-Path ''..'' ''x'') -Value ''x'''; deny = $true; why = 'parenthesised write target fails closed' }
+    @{ code = 'iex "Set-Content ''C:\x'' -Value ''x''"'; deny = $true; why = 'Invoke-Expression alias is denied' }
 )
 
 $fail = 0

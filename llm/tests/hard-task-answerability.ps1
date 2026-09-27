@@ -111,7 +111,7 @@ foreach ($t in $tasks) {
                 } else {
                     $deriveFail++
                     $ok = $false
-                    $detail += " | expected '$lit' is neither present nor derivable from the stated policy"
+                    $detail += " | expectation '$lit' is not derivable from the stated policy"
                 }
             }
         }
