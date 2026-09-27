@@ -3,7 +3,7 @@
 #   quality-verdict.ps1 -Reference <incumbent.json> -Candidates <a.json>,<b.json>
 #
 # Nothing here is a judgement call: task outcomes come from the checks in quality-tasks.ps1, and the
-# decision rule was pre-registered in arena issue #23 before any quality number existed:
+# decision rule was fixed in advance of any measurement, before any quality number existed:
 #
 #   * A challenger must clear the tool-calling gate (>= 2 of 3 tool tasks pass; a model that cannot
 #     emit valid tool calls is unusable for agent work whatever else it does).
