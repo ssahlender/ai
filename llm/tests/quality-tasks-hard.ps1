@@ -188,6 +188,7 @@ function New-QualityHardFixture {
     Write-FixtureFile -Path (Join-Path $root 'sum.txt') -Lines @('name: atlas', 'count: 7', 'total: 1284')
     Write-FixtureFile -Path (Join-Path $root 'editme.txt') -Lines @(
         '# retry configuration',
+        '# policy: retries must equal attempts - 1',
         'enabled=true',
         'attempts=4',
         'retries=5',
@@ -358,7 +359,7 @@ function Get-QualityHardTaskList {
            Expect = @{ name = 'atlas'; count = '7'; total = '1284' } }
 
         @{ Id = 'hard-precision-oneline'; Family = 'precision'; MaxTokens = 400
-           Prompt = 'Read editme.txt. Exactly one line is incorrect: the retry count is wrong. Reply with ONLY the complete corrected file content - every other line must be byte-identical to the original, and nothing may be added or removed.'
+           Prompt = 'Read editme.txt. Exactly one line violates the policy stated in the file header: the retry count is wrong. Reply with ONLY the complete corrected file content - every other line must be byte-identical to the original, and nothing may be added or removed.'
            Check = 'Assert-OneLineChanged'
            ContextFile = 'editme.txt'; Expect = 'retries=3'; OriginalFile = 'editme.txt' }
     )
