@@ -125,6 +125,17 @@ $ModeTable = @(
         Template = $null; Mmproj = $null
     }
     [pscustomobject]@{
+        Short  = 'ornith15'
+        Name   = 'Ornith 1.5 35B-A3B Q4_K_M (different base: claims repo-level gains over the incumbent)'
+        Engine = 'mainline'
+        File   = 'Ornith-1.5-35B-Q4_K_M.gguf'
+        # Hybrid/recurrent architecture: serve it with --no-context-shift at the call site. Upstream #28425
+        # (open) aborts on a PARTIAL context trim for these architectures, which the default context-shift
+        # behaviour can request; a full trim is safe.
+        Ctx    = 32768; Cram = 0
+        Template = $null; Mmproj = $null
+    }
+    [pscustomobject]@{
         Short  = 'agentworld35b'
         Name   = 'Qwen AgentWorld 35B-A3B UD-IQ4_XS (round-2 candidate, verified download)'
         Engine = 'mainline'
