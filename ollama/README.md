@@ -81,13 +81,32 @@ Model shortname in OpenCode/Pi: `ollama/qwen36-35b-a3b`. Default port `11434`
 
 ## Reasoning / thinking
 
-### Current model: `qwen36-35b-a3b`
+### Current model: `qwen36-35b-a3b` (measured 2026-09-27)
 
-`think` works on the native `/api/generate` API. Verified 2026-09-27 with
-`"think": false`: a clean one-line answer came back and the `thinking` field was
-empty, with no `think` block leaking into the response text. The advice below to
-avoid the native API was specific to Qwen3.8's template and its `xhigh` default —
-it is not a general limitation of ollama.
+Thinking is **on** by default, and the switch that controls it differs by
+endpoint. Trivial prompt, `max_tokens` 300, same loaded model:
+
+| request | `reasoning` bytes | completion tokens | `content` |
+|---|---:|---:|---|
+| nothing set | 441 | 132 | `OK` |
+| `"reasoning_effort": "low"` | 338 | 98 | `OK` |
+| `"think": false` | 762 | 225 | `OK` |
+| `"reasoning_effort": "none"` | **0** | **2** | `OK` |
+
+- **`/v1/chat/completions`** (what OpenCode and Pi use): the working switch is
+  `"reasoning_effort": "none"`. `"think": false` is **ignored** on this endpoint —
+  it made the model think *more* (225 vs 132 tokens), so do not reach for it here.
+- **native `/api/generate`**: `"think": false` **does** work — verified with an
+  empty `thinking` field and no `think` block in the response text.
+
+**One real trap:** with a small `max_tokens` the model spends the entire budget
+inside `reasoning` and returns an empty `content` with `finish_reason: "length"`.
+Observed at `max_tokens: 16`. Nothing was broken except the budget. Keep the 8192
+output limit the provider configs set.
+
+Thinking is cheap at this speed (~132 tokens ≈ 5 s at the measured 26 tok/s), so
+leaving it on is fine; set `reasoning_effort: none` per request when latency
+matters.
 
 ### History: the `reasoning_effort` quirk (Qwen3.8, removed 2026-09-27)
 
