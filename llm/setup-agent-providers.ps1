@@ -59,9 +59,13 @@ if (-not (Test-Path $StartScript)) { throw "start-llm.ps1 not found: $StartScrip
 # fields rather than sourcing the launcher (sourcing it would run its launch logic).
 $text  = Get-Content $StartScript -Raw
 # Engine directories also come from the launcher, so the two scripts cannot disagree.
+# Single-quoted on purpose: in a double-quoted PowerShell string `$MainlineDir` would be
+# expanded as a variable before the regex ran, leaving a pattern that matches nothing.
+$reMainlineDir = '\$MainlineDir\s*=\s*''([^'']+)'''
+$reIkLlamaDir  = '\$IkLlamaDir\s*=\s*''([^'']+)'''
 $engineDirs = @{
-    'mainline' = [regex]::Match($text, "\$MainlineDir\s*=\s*'([^']+)'").Groups[1].Value
-    'ik_llama' = [regex]::Match($text, "\$IkLlamaDir\s*=\s*'([^']+)'").Groups[1].Value
+    'mainline' = [regex]::Match($text, $reMainlineDir).Groups[1].Value
+    'ik_llama' = [regex]::Match($text, $reIkLlamaDir).Groups[1].Value
 }
 foreach ($k in $engineDirs.Keys) {
     if (-not $engineDirs[$k]) { throw "could not read the '$k' engine directory out of $StartScript; refusing to generate a provider config that may point at a missing engine" }
