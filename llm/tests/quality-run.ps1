@@ -31,7 +31,7 @@ param(
     # HTTP client timeout per request. 300 was too short: a 12 K-token context task prefills in ~4-5 min
     # on this CPU and was aborted mid-flight, which recorded as a model failure. A genuine hang is still
     # caught by the SYSTEM task's own cap.
-    [int]$TimeoutSec = 900,
+    [int]$TimeoutSec = 1200,
     [int]$CodeTimeoutMs = 60000,
     [switch]$KeepServer
 )
