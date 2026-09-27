@@ -99,6 +99,8 @@ case "$MACHINE" in
     ;;
 
   macbook-air)
+    MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
+    mkdir -p "$MODELS_DIR"
         # ONE model, matching the x86 reference. IQ4_XS (17.44 GiB) is the 4-bit tier that
         # leaves room for a desktop session in 24 GB of unified memory; IQ4_NL is 1 GiB larger.
         # Sizes are exact: an unverified 17 GB download that loads is worse than one that errors.
