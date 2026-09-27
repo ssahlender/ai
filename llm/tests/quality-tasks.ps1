@@ -94,11 +94,16 @@ function Get-CodeWithoutComments {
     return ((@($tokens | Where-Object { "$($_.Kind)" -notmatch 'Comment' } | ForEach-Object { $_.Text }) -join ' '))
 }
 
-function Test-FixtureRelativeLiteral {
+function Test-FixtureWriteTarget {
+    # A generated program runs with its fixture as the working directory.  A relative literal and
+    # a path visibly anchored to $PSScriptRoot can therefore be proven safe without evaluating the
+    # program.  Everything else fails closed: static inspection cannot establish its destination.
     param([string]$Target)
     $t = "$Target".Trim()
     if ($t.Length -ge 2 -and (($t.StartsWith("'") -and $t.EndsWith("'")) -or ($t.StartsWith('"') -and $t.EndsWith('"')))) { $t = $t.Substring(1, $t.Length - 2) }
     if (-not $t) { return $false }
+    if ($t -match '^\$\{?PSScriptRoot\}?[\\/][^\\/].*$') { return $true }
+    if ($t -match '(^|[\\/])\.\.([\\/]|$)') { return $false }
     if ($t -match '^(\$|~|[A-Za-z]:|\\|/|\.\.[\\/])') { return $false }
     return $true
 }
@@ -111,14 +116,25 @@ function Get-WriteTargetDenyReason {
     $targetParams = @('path', 'literalpath', 'destination', 'filepath', 'outputpath')
     foreach ($command in @($ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.CommandAst] }, $true))) {
         if ($command.CommandElements.Count -eq 0) { continue }
-        $name = "$($command.CommandElements[0].Extent.Text)".Trim("'\"").ToLowerInvariant()
+        $name = "$($command.CommandElements[0].Extent.Text)".Trim([char]39, [char]34).ToLowerInvariant()
+        # Dot-sourcing an escaped path is execution outside the fixture even though it is not a
+        # writer cmdlet.  The hard tasks have no legitimate need for it.
+        if ($name -eq '.' -and $command.CommandElements.Count -gt 1) {
+            $source = "$($command.CommandElements[1].Extent.Text)"
+            if (-not (Test-FixtureWriteTarget -Target $source)) { return "denylisted construct: dot-source target is not fixture-local [$source]" }
+        }
         if ($writers -notcontains $name) { continue }
         $elements = @($command.CommandElements | Select-Object -Skip 1)
         $targets = @()
         for ($i = 0; $i -lt $elements.Count; $i++) {
             if ($elements[$i] -is [System.Management.Automation.Language.CommandParameterAst]) {
                 $p = "$($elements[$i].ParameterName)".ToLowerInvariant()
-                if ($targetParams -contains $p -and $i + 1 -lt $elements.Count) { $targets += $elements[$i + 1] }
+                if ($targetParams -contains $p) {
+                    # -Path:value is represented as an argument on the parameter AST, whereas
+                    # -Path value consumes the following command element.
+                    if ($elements[$i].Argument) { $targets += $elements[$i].Argument }
+                    elseif ($i + 1 -lt $elements.Count) { $targets += $elements[$i + 1] }
+                }
             }
         }
         if ($targets.Count -eq 0) {
@@ -130,15 +146,15 @@ function Get-WriteTargetDenyReason {
         }
         foreach ($target in $targets) {
             $text = "$($target.Extent.Text)"
-            if (-not (Test-FixtureRelativeLiteral -Target $text)) { return "denylisted construct: write target is not a fixture-relative literal [$text]" }
+            if (-not (Test-FixtureWriteTarget -Target $text)) { return "denylisted construct: write target is not demonstrably fixture-local [$text]" }
         }
     }
-    # Redirection is a write too.  Its target must be a literal relative name; variables, ~ and
-    # environment expansions fail closed because their resolved location cannot be proven safe here.
-    $codeWithoutComments = Get-CodeWithoutComments -Code $Code
+    # Redirection is a write too. Strip strings as well as comments before looking for its syntax:
+    # a quoted example of a redirect is data, not an operation.
+    $codeWithoutComments = Get-CodeWithoutCommentsOrStrings -Code $Code
     foreach ($m in [regex]::Matches($codeWithoutComments, '(?m)>{1,2}\s*([^\s;|]+)')) {
         $target = $m.Groups[1].Value
-        if (-not (Test-FixtureRelativeLiteral -Target $target)) { return "denylisted construct: redirection target is not a fixture-relative literal [$target]" }
+        if (-not (Test-FixtureWriteTarget -Target $target)) { return "denylisted construct: redirection target is not demonstrably fixture-local [$target]" }
     }
     return ''
 }
@@ -163,7 +179,7 @@ function Get-CodeDenyReason {
         'reg add', 'reg delete', 'reg import', 'Set-ExecutionPolicy',
         'Set-Service', 'New-Service', 'Stop-Service', 'Start-Service',
         'Set-ItemProperty', 'New-ItemProperty', 'Remove-ItemProperty',
-        'Set-CimInstance', 'Invoke-Expression', 'Invoke-Command',
+        'Set-CimInstance', 'Invoke-Expression', 'iex', 'Invoke-Command',
         'Invoke-WebRequest', 'Invoke-RestMethod', 'curl', 'wget',
         'Start-Process', 'Start-Job', 'Start-ThreadJob', 'Stop-Process',
         'Set-Location C:', 'Set-Location D:', 'cd C:', 'cd D:', 'HKLM', 'HKCU'

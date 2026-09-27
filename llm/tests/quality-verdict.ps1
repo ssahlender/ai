@@ -77,6 +77,19 @@ function Get-MeanSec {
     return [Math]::Round((($all | Measure-Object -Sum).Sum) / $all.Count / 1000, 1)
 }
 
+function Get-MedianSec {
+    # Median completed-answer time is resistant to an isolated prefill or tool outlier in a 12-task
+    # run. Use the same completed-request population as the mean.
+    param($Evidence)
+    $all = @()
+    foreach ($k in $Evidence.Ms.Keys) { $all += $Evidence.Ms[$k] }
+    if ($all.Count -eq 0) { return 0 }
+    $sorted = @($all | Sort-Object)
+    $mid = [int][Math]::Floor($sorted.Count / 2)
+    $value = if ($sorted.Count % 2) { $sorted[$mid] } else { ($sorted[$mid - 1] + $sorted[$mid]) / 2 }
+    return [Math]::Round($value / 1000, 1)
+}
+
 function Get-TimingNote {
     param($Evidence)
     if ($Evidence.TimingExcluded -eq 0) { return '0 failed-request timings excluded' }
@@ -115,20 +128,21 @@ $ref = Import-Evidence -Path $Reference
 $refScore = Get-FamilyScore -Evidence $ref
 $refTool = [int]("$($refScore['tool'])".Split('/')[0])
 $refMean = Get-MeanSec -Evidence $ref
+$refMedian = Get-MedianSec -Evidence $ref
 $refTimingNote = Get-TimingNote -Evidence $ref
 
 Write-Output ''
 Write-Output "=== quality verdict ==="
-Write-Output ("  reference: {0}  (code {1}, fix {2}, tool {3}, total {4} | mean {5}s/answer; {6})" -f `
-    $ref.Mode, $refScore['code'], $refScore['fix'], $refScore['tool'], $refScore['total'], $refMean, $refTimingNote)
+Write-Output ("  reference: {0}  (code {1}, fix {2}, tool {3}, total {4} | mean {5}s/answer, median {6}s/answer (completed requests); {7})" -f `
+    $ref.Mode, $refScore['code'], $refScore['fix'], $refScore['tool'], $refScore['total'], $refMean, $refMedian, $refTimingNote)
 Write-Output ''
 
 $report = New-Object System.Collections.Generic.List[string]
 $report.Add('# Quality verdict')
 $report.Add('')
-$report.Add("Reference (incumbent): **$($ref.Mode)** - code $($refScore['code']), fix $($refScore['fix']), tool $($refScore['tool']), total $($refScore['total']), mean $($refMean)s/answer ($refTimingNote)")
+$report.Add("Reference (incumbent): **$($ref.Mode)** - code $($refScore['code']), fix $($refScore['fix']), tool $($refScore['tool']), total $($refScore['total']), mean $($refMean)s/answer, median $($refMedian)s/answer (both across completed requests; $refTimingNote)")
 $report.Add('')
-$report.Add('| model | code | fix | tool | total | mean s/answer | tool gate | discordant W/L | p (one-sided) | decision |')
+$report.Add('| model | code | fix | tool | total | mean / median s per completed answer | tool gate | discordant W/L | p (one-sided) | decision |')
 $report.Add('|---|---|---|---|---|---|---|---|---|---|')
 
 $decisions = @()
@@ -157,6 +171,7 @@ foreach ($cPath in $Candidates) {
     $p = Get-BinomialTail -W $W -N $n
 
     $candMean = Get-MeanSec -Evidence $cand
+    $candMedian = Get-MedianSec -Evidence $cand
     $valid = [bool]$cand.Valid
 
     $decision = 'keep incumbent (no evidence)'
@@ -180,10 +195,10 @@ foreach ($cPath in $Candidates) {
     if (-not $gateOk) { $gateLabel = 'FAIL' }
 
     $timingNote = Get-TimingNote -Evidence $cand
-    Write-Output ("  {0,-14} code {1,-5} fix {2,-5} tool {3,-5} total {4,-6} mean {5,-7} ({6}) gate {7,-5} W/L {8}/{9}  p={10:N3}  {11}" -f `
-        $cand.Mode, $cs['code'], $cs['fix'], $cs['tool'], $cs['total'], ("$($candMean)s"), $timingNote, $gateLabel, $W, $L, $p, $decision)
+    Write-Output ("  {0,-14} code {1,-5} fix {2,-5} tool {3,-5} total {4,-6} mean {5}s/answer, median {6}s/answer (completed requests; {7}) gate {8,-5} W/L {9}/{10}  p={11:N3}  {12}" -f `
+        $cand.Mode, $cs['code'], $cs['fix'], $cs['tool'], $cs['total'], $candMean, $candMedian, $timingNote, $gateLabel, $W, $L, $p, $decision)
 
-    $report.Add("| $($cand.Mode) | $($cs['code']) | $($cs['fix']) | $($cs['tool']) | $($cs['total']) | $($candMean)s ($timingNote) | $gateLabel | $W/$L | $('{0:N3}' -f $p) | $decision |")
+    $report.Add("| $($cand.Mode) | $($cs['code']) | $($cs['fix']) | $($cs['tool']) | $($cs['total']) | $($candMean)s / $($candMedian)s ($timingNote) | $gateLabel | $W/$L | $('{0:N3}' -f $p) | $decision |")
 
     $decisions += [pscustomobject]@{ Mode = $cand.Mode; Decision = $decision; W = $W; L = $L; P = $p; Detail = ($detail -join ' ') }
 }
