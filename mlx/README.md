@@ -223,10 +223,13 @@ indefinitely, and revisit if `--max-kv-size` lands on the server.
 - Ollama's multi-turn caching behavior under a realistic ~4K-token shared
   prefix (matching the oMLX test above) hasn't been checked — only tested with
   short Q&A turns so far. Worth confirming it doesn't hit a similar memory wall.
-- Not yet decided: keep `qwen36u27b` (llama.cpp/GGUF, `../ik-llama/`) as the
-  OpenCode daily driver and treat MLX/Ollama/oMLX as second options, or switch
-  the daily driver over and update `../ik-llama/README.md`'s Mac table
-  accordingly. Candidates ranked by what's known so far:
+- **Decided 2026-09-27: Ollama is the daily driver** (`../ollama/`), running
+  `qwen36-35b-a3b` = `UD-Q2_K_XL` (13 GB / 11.45 GiB). The lower quant is the
+  point: the 4-bit tier (~19 GB) does not fit this machine — a 17.6 GB model
+  OOM'd at 8K context here and the memory guard aborts at 16.9 GB. At 13 GB the
+  whole model sits in GPU-wired memory, which is also why it prefills ~4x faster.
+  The `qwen36u27b` llama.cpp/GGUF path below (`../ik-llama/`) is the alternative,
+  not the default. Candidates, ranked as they stood when this closed:
   - **Ollama** — fastest raw generation (~10-12 tok/s), proven caching on short
     turns, multi-turn-at-scale behavior not yet checked.
   - **oMLX** — same speed as raw MLX (~6.4 tok/s), proven crash-safety, caching
