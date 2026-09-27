@@ -11,20 +11,23 @@
 #
 # Exit 0 = every task has what it needs to be answered.
 
+[CmdletBinding()]
+param([switch]$RegressionFixture, [string]$FixtureDir)
+
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'quality-tasks.ps1')
 . (Join-Path $PSScriptRoot 'quality-tasks-hard.ps1')
 
 $fixtureDir = 'C:\ProgramData\llm-quality-fixtures'
 if ($env:FIXTURE_DIR) { $fixtureDir = $env:FIXTURE_DIR }
-if (-not (Test-Path $fixtureDir)) { Write-Output "fixture dir missing: $fixtureDir (run the suite once first)"; exit 1 }
+if ($FixtureDir) { $fixtureDir = $FixtureDir }
 
 # Build/refresh the fixtures, then take the real task list the runner uses.
 $null = New-QualityHardFixture -Dir $fixtureDir
 $tasks = @(Get-QualityHardTaskList)
 $fail = 0
 $sizeFail = 0
-$deriveWarn = 0
+$deriveFail = 0
 # A fixture that does not FIT the context is as unanswerable as a missing one, and the symptom is an
 # instant HTTP 400 rather than anything that looks like a harness problem. Estimate at ~3.6 chars/token
 # (measured: 44 KB -> 12180 tokens) and keep a margin below the 32 K window.
@@ -56,6 +59,24 @@ function Read-Fixture {
     if (-not (Test-Path $p)) { return $null }
     return (Get-Content $p -Raw)
 }
+function Test-DerivableExpectation {
+    # The one expected value intentionally absent from the fixture is retries=3.  It is derivable
+    # only if the stated arithmetic policy and the stated attempts value actually produce it.
+    param([string]$Expected, [string]$Text)
+    if ($Expected -notmatch '^retries=(\d+)$') { return $false }
+    if ($Text -notmatch '(?im)^\s*#\s*policy:\s*retries\s+must\s+equal\s+attempts\s*-\s*1\s*$') { return $false }
+    if ($Text -notmatch '(?im)^\s*attempts=(\d+)\s*$') { return $false }
+    return ([int]$Matches[1] - 1 -eq [int]$Expected.Split('=')[1])
+}
+
+if ($RegressionFixture) {
+    # Deliberately contradict the policy-derived expectation.  The self-test invokes this mode and
+    # requires the validator to fail, proving derivability is a gate rather than a warning.
+    $edit = Join-Path $fixtureDir 'editme.txt'
+    $text = Get-Content $edit -Raw
+    $text = $text -replace 'retries must equal attempts - 1', 'retries must equal attempts'
+    [IO.File]::WriteAllText($edit, $text, (New-Object System.Text.UTF8Encoding($false)))
+}
 
 foreach ($t in $tasks) {
     $ok = $true
@@ -85,11 +106,12 @@ foreach ($t in $tasks) {
             $inPrompt = ("$($t.Prompt)" -like "*$lit*")
             $inFile = ($fileText -like "*$lit*")
             if (-not $inPrompt -and -not $inFile) {
-                if ($fileText -match '(?i)policy') {
+                if (Test-DerivableExpectation -Expected $lit -Text $fileText) {
                     $detail += " | '$lit' derivable from the stated policy"
                 } else {
-                    $deriveWarn++
-                    Write-Output ("  WARN " + $t.Id.PadRight(24) + "expected '$lit' is in neither the prompt nor the fixture - verify it is derivable")
+                    $deriveFail++
+                    $ok = $false
+                    $detail += " | expected '$lit' is neither present nor derivable from the stated policy"
                 }
             }
         }
@@ -164,11 +186,10 @@ foreach ($t in $tasks) {
 
 Write-Output ""
 $total = $tasks.Count
-if ($fail -eq 0 -and $sizeFail -eq 0) {
-    if ($deriveWarn -gt 0) { Write-Output "  ($deriveWarn derivability warning(s) - review before trusting results)" }
+if ($fail -eq 0 -and $sizeFail -eq 0 -and $deriveFail -eq 0) {
     Write-Output "HARD-TASK ANSWERABILITY: PASS ($total/$total tasks have what they need and fit)"
     exit 0
 } else {
-    Write-Output "HARD-TASK ANSWERABILITY: FAIL ($fail of $total tasks unanswerable, $sizeFail oversized)"
+    Write-Output "HARD-TASK ANSWERABILITY: FAIL ($fail of $total tasks unanswerable, $sizeFail oversized, $deriveFail non-derivable expectations)"
     exit 1
 }

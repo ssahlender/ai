@@ -72,6 +72,77 @@ function Get-CodeFromAnswer {
     return $Text
 }
 
+function Get-CodeWithoutCommentsOrStrings {
+    # Keywords in a comment or a data string are not an attempted operation.  Use PowerShell's
+    # tokenizer rather than a regex so escaped quotes and here-strings cannot turn prose into code.
+    param([string]$Code)
+    $tokens = $null; $errors = $null
+    [System.Management.Automation.Language.Parser]::ParseInput($Code, [ref]$tokens, [ref]$errors) | Out-Null
+    $parts = @()
+    foreach ($token in @($tokens)) {
+        $kind = "$($token.Kind)"
+        if ($kind -match 'Comment|String|HereString') { continue }
+        $parts += $token.Text
+    }
+    return ($parts -join ' ')
+}
+
+function Get-CodeWithoutComments {
+    param([string]$Code)
+    $tokens = $null; $errors = $null
+    [System.Management.Automation.Language.Parser]::ParseInput($Code, [ref]$tokens, [ref]$errors) | Out-Null
+    return ((@($tokens | Where-Object { "$($_.Kind)" -notmatch 'Comment' } | ForEach-Object { $_.Text }) -join ' '))
+}
+
+function Test-FixtureRelativeLiteral {
+    param([string]$Target)
+    $t = "$Target".Trim()
+    if ($t.Length -ge 2 -and (($t.StartsWith("'") -and $t.EndsWith("'")) -or ($t.StartsWith('"') -and $t.EndsWith('"')))) { $t = $t.Substring(1, $t.Length - 2) }
+    if (-not $t) { return $false }
+    if ($t -match '^(\$|~|[A-Za-z]:|\\|/|\.\.[\\/])') { return $false }
+    return $true
+}
+
+function Get-WriteTargetDenyReason {
+    param([string]$Code)
+    $tokens = $null; $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseInput($Code, [ref]$tokens, [ref]$errors)
+    $writers = @('set-content', 'add-content', 'out-file', 'new-item', 'set-item', 'remove-item', 'copy-item', 'move-item', 'rename-item', 'clear-content', 'export-csv', 'export-clixml', 'tee-object')
+    $targetParams = @('path', 'literalpath', 'destination', 'filepath', 'outputpath')
+    foreach ($command in @($ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.CommandAst] }, $true))) {
+        if ($command.CommandElements.Count -eq 0) { continue }
+        $name = "$($command.CommandElements[0].Extent.Text)".Trim("'\"").ToLowerInvariant()
+        if ($writers -notcontains $name) { continue }
+        $elements = @($command.CommandElements | Select-Object -Skip 1)
+        $targets = @()
+        for ($i = 0; $i -lt $elements.Count; $i++) {
+            if ($elements[$i] -is [System.Management.Automation.Language.CommandParameterAst]) {
+                $p = "$($elements[$i].ParameterName)".ToLowerInvariant()
+                if ($targetParams -contains $p -and $i + 1 -lt $elements.Count) { $targets += $elements[$i + 1] }
+            }
+        }
+        if ($targets.Count -eq 0) {
+            # In the ordinary positional forms the first argument is a target.  For copy/move/rename
+            # the destination is a target too, so inspect both rather than allowing a variable escape.
+            $positional = @($elements | Where-Object { -not ($_ -is [System.Management.Automation.Language.CommandParameterAst]) })
+            if ($positional.Count -gt 0) { $targets += $positional[0] }
+            if ($name -in @('copy-item', 'move-item', 'rename-item') -and $positional.Count -gt 1) { $targets += $positional[1] }
+        }
+        foreach ($target in $targets) {
+            $text = "$($target.Extent.Text)"
+            if (-not (Test-FixtureRelativeLiteral -Target $text)) { return "denylisted construct: write target is not a fixture-relative literal [$text]" }
+        }
+    }
+    # Redirection is a write too.  Its target must be a literal relative name; variables, ~ and
+    # environment expansions fail closed because their resolved location cannot be proven safe here.
+    $codeWithoutComments = Get-CodeWithoutComments -Code $Code
+    foreach ($m in [regex]::Matches($codeWithoutComments, '(?m)>{1,2}\s*([^\s;|]+)')) {
+        $target = $m.Groups[1].Value
+        if (-not (Test-FixtureRelativeLiteral -Target $target)) { return "denylisted construct: redirection target is not a fixture-relative literal [$target]" }
+    }
+    return ''
+}
+
 function Get-CodeDenyReason {
     # Policy gate: we EXECUTE generated code, so anything with a side effect outside the fixture
     # directory scores zero instead of running. Failing closed is the point - a destructive answer
@@ -84,6 +155,7 @@ function Get-CodeDenyReason {
     # multifile tasks REQUIRE editing files, so those tasks were impossible to pass for ANY model,
     # and the deny reason then read like a model failure. Legitimate in-fixture writes are handled by
     # the path rule below, which is what the policy above actually intends.
+    $codeOnly = Get-CodeWithoutCommentsOrStrings -Code $Code
     $rules = @(
         'Format-Volume', 'Format-Partition', 'Clear-Disk', 'Initialize-Disk', 'Erase ',
         'Stop-Computer', 'Restart-Computer', 'shutdown', 'schtasks', 'net user', 'net localgroup',
@@ -97,17 +169,13 @@ function Get-CodeDenyReason {
         'Set-Location C:', 'Set-Location D:', 'cd C:', 'cd D:', 'HKLM', 'HKCU'
     )
     foreach ($r in $rules) {
-        if ($Code -match [regex]::Escape($r)) { return "denylisted construct: $r" }
+        if ($codeOnly -match [regex]::Escape($r)) { return "denylisted construct: $r" }
     }
     # Output redirection used to be denied outright, which scored IDIOMATIC answers zero. That is a
     # false failure: it measures the harness, not the model. Redirecting to a relative name inside the
     # fixture directory is harmless, so only a redirect that leaves the fixture is denied.
-    if ($Code -match '>{1,2}\s*[A-Za-z]:') { return 'denylisted construct: redirection to a drive path' }
-    if ($Code -match '>{1,2}\s*\\\\') { return 'denylisted construct: redirection to a UNC path' }
-    # Write verbs are fine INSIDE the fixture - that is the point of the multifile family - so they are
-    # denied only when the target leaves it (drive-absolute, UNC, or climbing out with ..\).
-    $writeVerbs = 'Set-Content|Add-Content|Out-File|New-Item|Set-Item|Remove-Item|Copy-Item|Move-Item|Rename-Item|Clear-Content|Export-Csv|Export-Clixml|Tee-Object'
-    if ($Code -match "(?i)($writeVerbs)[^\r\n]*([A-Za-z]:|\\\\|\.\.[\\/])") { return 'denylisted construct: write outside the fixture' }
+    $writeDeny = Get-WriteTargetDenyReason -Code $Code
+    if ($writeDeny) { return $writeDeny }
     return ''
 }
 

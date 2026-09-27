@@ -46,11 +46,13 @@ if (-not $OutDir) { $OutDir = Get-RunLogDir -LlmRoot $llmRoot }
 $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
 $resultPath = Join-Path $OutDir ("quality-$Mode-$stamp.json")
 
-if ($TaskSet -eq 'hard') {
-    . (Join-Path $PSScriptRoot 'quality-tasks-hard.ps1')
-    $null = New-QualityHardFixture -Dir $FixtureDir
-} else {
-    $null = New-QualityFixture -Dir $FixtureDir
+if ($TaskSet -eq 'hard') { . (Join-Path $PSScriptRoot 'quality-tasks-hard.ps1') }
+
+function Reset-QualityFixture {
+    # A candidate executes in this directory.  Rebuild it before every replicate and before every
+    # alternative candidate, otherwise an earlier partial edit can make a later answer look correct.
+    if ($TaskSet -eq 'hard') { return (New-QualityHardFixture -Dir $FixtureDir) }
+    return (New-QualityFixture -Dir $FixtureDir)
 }
 
 function Invoke-ProcessCapture {
@@ -264,7 +266,7 @@ function Invoke-TaskCheck {
             return (& $Task.Check -Answer $Answer -Expect $Task.Expect)
         }
         'Assert-OneLineChanged' {
-            return (& $Task.Check -Answer $Answer -OriginalPath (Join-Path $FixtureDir "$($Task.OriginalFile)") -Expect "$($Task.Expect)")
+            return (& $Task.Check -Answer $Answer -OriginalPath (Join-Path $FixtureDir "$($Task.OriginalFile)") -ExpectLine "$($Task.Expect)")
         }
         'Assert-ToolTask' {
             return (& $Task.Check -Answer $Answer -Calls @($Calls) -Expect $Task.Expect)
@@ -318,6 +320,7 @@ try {
     foreach ($t in $tasks) {
         for ($rep = 1; $rep -le $Replicates; $rep++) {
             Write-Host ("  [{0,-4}] {1,-20} rep {2}/{3}" -f $t.Family, $t.Id, $rep, $Replicates)
+            $null = Reset-QualityFixture
             $check = @{ Pass = $false; Reason = 'not run' }
             $text = ''
             $calls = @()
@@ -361,6 +364,9 @@ try {
                         $workDir = $FixtureDir
                         if ($t.PSObject.Properties.Name -contains 'SubDir' -and $t.SubDir) { $workDir = Join-Path $FixtureDir $t.SubDir }
                         foreach ($cand in $cands) {
+                            # Get-CodeCandidates may return several alternatives from one answer.
+                            # Each must be assessed against the same pristine fixture.
+                            $null = Reset-QualityFixture
                             $deny = Get-CodeDenyReason -Code $cand
                             if ($deny) { $denied = $deny; continue }
                             # Skip candidates that are not even valid PowerShell (typically a fenced
