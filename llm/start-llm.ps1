@@ -117,6 +117,14 @@ $ModeTable = @(
         Template = $null; Mmproj = $null
     }
     [pscustomobject]@{
+        Short  = 'qwen36u35b_xs'
+        Name   = 'Qwen3.6 35B-A3B Uncensored IQ4_XS (matched-quant control for the round-2 comparison)'
+        Engine = 'mainline'
+        File   = 'Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf'
+        Ctx    = 32768; Cram = 0
+        Template = $null; Mmproj = $null
+    }
+    [pscustomobject]@{
         Short  = 'agentworld35b'
         Name   = 'Qwen AgentWorld 35B-A3B UD-IQ4_XS (round-2 candidate, verified download)'
         Engine = 'mainline'
