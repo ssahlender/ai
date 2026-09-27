@@ -25,14 +25,40 @@ currently-installed model) are both already in `tools/update-all.sh`'s
 
 ## Model
 
+The daily driver is the same model the x86 box settled on, pulled through
+Ollama's HuggingFace integration so provenance stays visible in the tag:
+
 ```bash
-ollama pull qwen3.8:27b-mlx
+# 19 GB on disk (weights + vision projector). Ollama verifies the sha256 itself.
+ollama pull hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:IQ4_XS
+
+# Short name carrying the context the server actually allocates.
+# Blobs are shared with the tag above, so this costs no extra disk.
+ollama create qwen36-35b-a3b -f - <<'EOF'
+FROM hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:IQ4_XS
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.7
+EOF
 ```
 
-Same model family as the MLX daily-driver candidate (`../mlx/README.md`),
-but note: Ollama's `qwen3.8:27b-mlx` uses **nvfp4** quantization, not the
-same 4-bit format as `mlx-community/Qwen3.8-27B-4bit` — a different build,
-not just a different wrapper around the same weights. ~18 GB on disk.
+Use **`qwen36-35b-a3b`** in OpenCode, Pi and every API call. Repo, file, exact
+bytes and SHA-256 are recorded in `../llm/MODELS.md`.
+
+Measured 2026-09-27 on this Mac:
+
+| | value |
+|---|---:|
+| cold load | 17.8 s |
+| decode | 26.3 tok/s (80-token sample) |
+| prefill | 23.1 tok/s |
+| CPU/GPU split | 17 % / 83 % |
+| resident | 19 GB model, ~18.1 GiB wired |
+
+**This is a 24 GB machine and the model occupies 19 GB of it.** With a desktop
+session running, loading it pushes ~4-5 GB into swap and `memory_pressure`
+falls to single digits. It is comfortable only in server posture — close the
+apps before a session. The former 18 GB `qwen3.8:27b-mlx` and both unused
+`unsloth/Qwen3.6` quants were removed on the same day: 246 → 271 GiB free.
 
 ## Scripts
 
@@ -49,10 +75,24 @@ not just a different wrapper around the same weights. ~18 GB on disk.
 ./setup-agent.sh
 ```
 
-Model shortname in OpenCode/Pi: `ollama/qwen38-27b`. Default port `11434`
-(override with `OLLAMA_HOST_PORT`).
+Model shortname in OpenCode/Pi: `ollama/qwen36-35b-a3b`. Default port `11434`
+(override with `OLLAMA_HOST_PORT`). The provider config is **generated** by
+`setup-agent.sh` from its `MODES` array — change the model there, not in the JSON.
 
-## The one real quirk: `reasoning_effort`
+## Reasoning / thinking
+
+### Current model: `qwen36-35b-a3b`
+
+`think` works on the native `/api/generate` API. Verified 2026-09-27 with
+`"think": false`: a clean one-line answer came back and the `thinking` field was
+empty, with no `think` block leaking into the response text. The advice below to
+avoid the native API was specific to Qwen3.8's template and its `xhigh` default —
+it is not a general limitation of ollama.
+
+### History: the `reasoning_effort` quirk (Qwen3.8, removed 2026-09-27)
+
+Kept because it explains why that model was unusable at ~2.7 tok/s and why its
+replacement was not affected.
 
 Qwen3.8's chat template defaults to `reasoning_effort: xhigh` and burns most
 of its token budget on `<think>` before answering. The fix is confirmed and
