@@ -48,6 +48,14 @@ case "$MACHINE" in
   macbook-air)
     SERVER="${IK_LLAMA_SERVER:-}"
     [ -z "$SERVER" ] && SERVER="$(command -v llama-server 2>/dev/null || echo '')"
+        # Non-interactive shells (ssh, launchd) do not inherit Homebrew's PATH, so
+        # `command -v` alone fails even though llama.cpp is installed. Probe the standard
+        # prefixes before giving up.
+        if [ -z "$SERVER" ]; then
+          for c in /opt/homebrew/bin/llama-server /usr/local/bin/llama-server "$HOME/.local/bin/llama-server"; do
+            [ -x "$c" ] && { SERVER="$c"; break; }
+          done
+        fi
     if [ -z "$SERVER" ]; then
       if [ -n "${IK_LLAMA_DIR:-}" ] && [ -x "$IK_LLAMA_DIR/build/bin/llama-server" ]; then
         SERVER="$IK_LLAMA_DIR/build/bin/llama-server"
