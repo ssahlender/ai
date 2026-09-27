@@ -7,6 +7,25 @@ set -euo pipefail
 MACHINE="${1:-}"
 MODE="${2:-}"
 
+# ── host reality (2026-09-27) ──────────────────────────────────────
+# Checked before the per-host config: the branches below bail out on their own terms (a missing
+# llama-server, a WSL path) and that would hide the real reason these two hosts changed.
+case "$MACHINE" in
+  probook)
+    echo "This branch drove ik_llama over WSL (/mnt/c). WSL is retired and the ProBook now runs the" >&2
+    echo "engine natively on Windows: use  llm\\start-llm.ps1 <mode>  instead. See llm/README.md." >&2
+    exit 1 ;;
+  macbook-air)
+    _gguf_dir="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
+    if ! compgen -G "$_gguf_dir/*.gguf" >/dev/null 2>&1; then
+      echo "No GGUF in $_gguf_dir: this Mac's models belong to Ollama (qwen36-35b-a3b = UD-Q2_K_XL)." >&2
+      echo "Use ollama/start.sh instead (see ollama/README.md). To use this GGUF path, fetch first:" >&2
+      echo "  ./download-models.sh macbook-air" >&2
+      exit 1
+    fi ;;
+esac
+
+
 # ── machine config ─────────────────────────────────────────────────
 case "$MACHINE" in
   i9)
@@ -78,6 +97,7 @@ case "$MACHINE" in
     ;;
   *) echo "Usage: $0 <i9|probook|macbook-air> <mode>" >&2; exit 1 ;;
 esac
+
 
 # Keep one full-context slot by default. Multiple unrelated agent sessions on
 # one slot pool invalidate each other's prompt cache and divide the context.

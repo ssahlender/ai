@@ -6,9 +6,9 @@
     This deliberately does not call the updater, write .tag, or replace any engine files.
     Update engines separately, then run this read-only benchmark against the selected binary.
 
-    The matrix covers every model verified to load on this box. Q3_K_M is deliberate for the two
-    2026 candidates: same quant class on the same engine makes them comparable to each other,
-    while Gemma and the incumbent keep the baselines they were measured at.
+    The matrix covers every .gguf found in the models directory - discovered at run time rather
+    than hardcoded, so it always matches what is actually installed. Labels are the file stems.
+    Numbers are only comparable between models measured in the same run on the same engine.
 
     A failed or empty run throws - a partial matrix is never reported as a result.
 #>
@@ -28,14 +28,18 @@ $ProgressPreference = 'SilentlyContinue'
 if (-not $BenchExe) { $BenchExe = Join-Path $LlmRoot 'llama.cpp-cpu\llama-bench.exe' }
 if (-not (Test-Path $BenchExe)) { throw "installed benchmark executable not found: $BenchExe. Run update-llm.ps1 separately; this script will not install it." }
 
-$jobs = @(
-    @{ f = 'gemma-4-26B_q4_0-it.gguf';                                    label = 'Gemma 4 26B-A4B QAT Q4_0' },
-    @{ f = 'Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf';  label = 'incumbent Qwen3.6-35B-A3B IQ4_NL' },
-    @{ f = 'Kwaipilot_KAT-Coder-V2.5-Dev-Q3_K_M.gguf';                    label = 'KAT-Coder-V2.5-Dev Q3_K_M' },
-    @{ f = 'Ornith-1.5-35B-A3B-Q3_K_M.gguf';                              label = 'Ornith-1.5-35B-A3B Q3_K_M' }
-)
-
+# Whatever is installed, whatever its quant - the list is discovered, not hardcoded, so a
+# benchmark can never again be impossible to run because its model list outlived the models.
 $modelDir = Join-Path $LlmRoot 'models'
+$jobs = @()
+foreach ($f in (Get-ChildItem -Path $modelDir -Filter *.gguf -File -ErrorAction SilentlyContinue | Sort-Object Name)) {
+    $jobs += @{ f = $f.Name; label = $f.BaseName }
+}
+if ($jobs.Count -eq 0) {
+    throw "no .gguf files in $modelDir - nothing to measure. Fetch one first (llm/MODELS.md records the sources)."
+}
+Write-Output ("matrix over " + $jobs.Count + " installed model(s) in " + $modelDir)
+
 foreach ($j in $jobs) {
     $modelPath = Join-Path $modelDir $j.f
     if (-not (Test-Path $modelPath)) {

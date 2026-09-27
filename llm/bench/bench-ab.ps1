@@ -1,3 +1,7 @@
+# OBSOLETE (2026-09-27): this A/B compared the incumbent against gemma-4-26B on BOTH engines.
+# Gemma was deleted (unverified provenance) and the ik_llama engine directory was removed, so
+# neither half of the comparison is measurable here any more. Kept as the record of the method;
+# the guard below refuses rather than half-reporting. For what IS installed, use bench-matrix.ps1.
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
@@ -13,7 +17,7 @@ $gem = "$base\models\gemma-4-26B_q4_0-it.gguf"
 # loudly rather than fail inside llama-bench with an unhelpful loader error.
 foreach ($p in @($ik, $ml, $inc, $gem)) {
     if (-not (Test-Path $p)) {
-        throw "bench-ab.ps1 needs $p, which is not on disk. No partial comparison is reported. llm/MODELS.md records what each file was and where to fetch it."
+        throw "bench-ab.ps1 needs $p, which is not on disk, so this A/B cannot run. It is obsolete as of 2026-09-27 (gemma deleted, ik_llama engine removed); use bench-matrix.ps1 for the installed models. llm/MODELS.md records what each file was and where to fetch it."
     }
 }
 # Run output belongs in logs\, and a timestamped name means a re-run keeps the previous numbers
