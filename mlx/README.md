@@ -205,16 +205,25 @@ for now since it only bites at very long (50K+ token) unbounded sessions — mit
 restarting the server between long OpenCode sessions rather than leaving it up
 indefinitely, and revisit if `--max-kv-size` lands on the server.
 
-### Current state (2026-09-13, backlogged — no rush, this is a months-scale decision)
+### Current state (2026-09-13 — superseded 2026-09-27)
 
-- Ollama and oMLX are both **kept installed** via Homebrew (binaries only,
-  nothing running, no idle resource cost) so testing can resume without
-  re-setup. Ollama's `qwen3.8:27b-mlx` (17 GB) is also kept on disk.
-- Neither engine is wired into OpenCode yet — no daily-driver decision has been
-  made. Current OpenCode config still points at `../ik-llama/`
-  (llama.cpp/`qwen36u27b`).
-- `mlx-community/Qwen3.8-27B-4bit` (15.5 GB, standard 4-bit MLX) stays cached —
-  used by both raw `mlx_lm.server` and oMLX tests.
+*Kept as history. Every claim below was true when written and none of it is now;
+the live state is in `../ollama/README.md`.*
+
+- Ollama and oMLX were both **kept installed** via Homebrew (binaries only,
+  nothing running, no idle resource cost) so testing could resume without
+  re-setup. Ollama's `qwen3.8:27b-mlx` (17 GB) was kept on disk — **removed
+  2026-09-27**, replaced by `qwen36-35b-a3b` (`UD-Q2_K_XL`, 13 GB).
+- Neither engine was wired into OpenCode at the time — no daily-driver decision
+  had been made. **Decided 2026-09-27: Ollama.** The OpenCode and Pi configs now
+  point at `ollama/qwen36-35b-a3b`; the older `../ik-llama/`
+  (llama.cpp/`qwen36u27b`) wiring and the stale `mlx` provider entries were
+  removed from both configs the same day.
+- `mlx-community/Qwen3.8-27B-4bit` (15.5 GB, standard 4-bit MLX) was cached — used
+  by both raw `mlx_lm.server` and oMLX tests. **The HuggingFace cache is now empty
+  (1.6 MB, `CACHEDIR.TAG` and a lock directory only)**, so `mlx/start.sh` would
+  re-download ~15.5 GB before it could run. That path is legacy: do not read its
+  presence as an available model.
 
 ### Not yet done
 
