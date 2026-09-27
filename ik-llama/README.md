@@ -102,6 +102,13 @@ brew install llama.cpp             # prerequisite (once)
 
 All Mac modes use Metal GPU (`-ngl 99`) with 4 threads. Same HF repos and mmproj as i9.
 
+> **The Mac's daily driver is Ollama, not this path** — see `../ollama/README.md`.
+> This GGUF/Metal path is the alternative. Its Mac lineup predates the memory
+> ceiling measured on that machine (a 17.6 GB model OOM'd at 8K context; the
+> guard aborts at 16.9 GB), so if you use it there, prefer `IQ3_M` (14.38 GiB)
+> or `Q2_K_P` (13.95 GiB) from the same repo — both recorded with sizes and
+> hashes in `../llm/MODELS.md`.
+
 For OpenCode edit loops where "Preparing write" feels slow, first try the same coder
 model with a smaller active context:
 

@@ -104,8 +104,11 @@ case "$MACHINE" in
         # ONE model, matching the x86 reference. IQ4_XS (17.44 GiB) is the 4-bit tier that
         # leaves room for a desktop session in 24 GB of unified memory; IQ4_NL is 1 GiB larger.
         # Sizes are exact: an unverified 17 GB download that loads is worse than one that errors.
-        download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf  18728777856
-        download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf  899283072
+    download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive  Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf
+    download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf
+    download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf
+    download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
+    download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF                Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf
     ;;
 
   *) usage ;;
