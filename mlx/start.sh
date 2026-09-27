@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Starts mlx_lm.server on the MacBook Air M4. Usage: ./start.sh <mode>
+#
+# LEGACY: the Mac's daily driver is ollama/ (see ollama/README.md). This path is kept for
+# the mlx-vs-llama.cpp comparison and is not wired into any agent config.
 set -euo pipefail
 
 MODE="${1:-}"
@@ -34,6 +37,11 @@ for m in "${MODES[@]}"; do
   IFS='|' read -r SN NAME REPO CTX <<< "$m"
   if [ "$SN" = "$MODE" ]; then
     FOUND=1
+    CACHE_DIR="$HOME/.cache/huggingface/hub/models--${REPO//\//--}"
+    if [ ! -d "$CACHE_DIR" ]; then
+      echo "NOTE: $REPO is not in the local HF cache, so mlx_lm.server will download" >&2
+      echo "      ~15.5 GB before it can serve. See mlx/README.md." >&2
+    fi
     echo "Starting $NAME on port $PORT (reasoning_effort=$REASONING_EFFORT, max_tokens=$MAX_TOKENS)..."
     exec mlx_lm.server \
       --model "$REPO" \
