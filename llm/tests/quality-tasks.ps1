@@ -1,6 +1,6 @@
 # Quality task set for the local-LLM A/B on this box.
 #
-# DESIGN CONSTRAINTS (deliberate, from arena issue #23 - do not weaken without re-deciding):
+# DESIGN CONSTRAINTS (deliberate, decided up front - do not weaken without re-deciding):
 #   * Every task is MACHINE-CHECKABLE. Code is executed and its output compared; tool tasks are
 #     judged on call structure (name + parseable arguments), not on prose. Nothing here is scored
 #     by a model, so the verdict does not depend on a judge's taste.
@@ -124,8 +124,8 @@ function Get-CodeCandidates {
     # Candidate solutions to execute, in the order the model offered them.
     #
     # Fenced blocks first: models routinely hand back two or three ALTERNATIVES in one answer, and
-    # concatenating them punishes formatting instead of capability - the same class of error arena
-    # #22 found in the vendor harness (a model marked down for a tool the harness never exposed).
+    # concatenating them punishes formatting instead of capability - the same class of error seen
+    # once in a vendor harness (a model marked down for a tool the harness never exposed).
     # If there are no fences, the whole answer is the single candidate. Capped so a rambling answer
     # cannot turn into a dozen executions.
     param([string]$Text, [int]$Max = 3)
@@ -226,7 +226,7 @@ function Assert-ToolTask {
 
 function Get-QualityTaskList {
     # 12 tasks, three families, 5 / 4 / 3. Kept deliberately small: 12 paired outcomes support a
-    # decision about THIS box, not a benchmark claim, and every arena position said so.
+    # decision about THIS box, not a benchmark claim; the constraint is accepted deliberately.
     $fy = @{ Func = 'Assert-ExecOutput' }
     $toolReadFile = @{
         type = 'function'
