@@ -2,7 +2,7 @@
 
 ## Summary for Codex
 
-There is a local LLM available on this Mac (Ollama, model `qwen3.8:27b-mlx`)
+There is a local LLM available on this Mac (Ollama, model `qwen36-35b-a3b`)
 that can do two things for free instead of spending your own tokens on them:
 
 1. **Extract** structured fields (vendor, date, amount, currency) from raw
@@ -11,7 +11,14 @@ that can do two things for free instead of spending your own tokens on them:
    entry, given a short list of candidates.
 
 Both are validated against real project data (see "Verified" below) — not
-hypothetical. Start the engine with `cd ~/data/git/ai-tools/ollama &&
+hypothetical.
+
+> **Model changed 2026-09-27.** These results were measured on `qwen3.8:27b-mlx`,
+> which has been removed from this Mac. The recipe now runs on `qwen36-35b-a3b`
+> (Qwen3.6-35B-A3B, IQ4_XS — 19 GB, ~26 tok/s decode). The prompts, the JSON
+> contract and the `max_tokens` budgets below have **not** been re-validated on
+> the new model: re-run the Verified checks before trusting this in the
+> pipeline, and treat any output as unproven until you have. Start the engine with `cd ~/data/git/ai-tools/ollama &&
 ./start.sh` if it isn't already running (`curl -s
 http://127.0.0.1:11434/v1/models` to check), then call it exactly as shown in
 "Extraction call" / "Matching call" below. Stop it with `./stop.sh` when done
@@ -99,7 +106,7 @@ endpoint measured 10-12 tok/s with the same model, same hardware.
 curl -s http://127.0.0.1:11434/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.8:27b-mlx",
+    "model": "qwen36-35b-a3b",
     "reasoning_effort": "low",
     "messages": [
       {"role": "system", "content": "Extract vendor, date (ISO YYYY-MM-DD), currency, and total amount from this OCR receipt text. Output ONLY a JSON object with keys: vendor, date, currency, amount. If a field is not clearly present in the text, use null for that field — never guess or invent a value."},
@@ -127,7 +134,7 @@ confidence, and reason:
 curl -s http://127.0.0.1:11434/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.8:27b-mlx",
+    "model": "qwen36-35b-a3b",
     "reasoning_effort": "low",
     "messages": [
       {"role": "system", "content": "You are matching a scanned invoice (raw OCR text) to the correct existing ledger entry from a short candidate list. Read the OCR text, identify the vendor, invoice type, and total amount, then pick the candidate entry_key whose description and amount best match. Output ONLY a JSON object with keys: matched_entry_key (string or null), confidence (\"high\"/\"medium\"/\"low\"), reason (one short sentence). If no candidate clearly matches, or more than one could plausibly match, use null and explain why in reason — never guess."},
@@ -149,12 +156,13 @@ project already requires before anything is booked or renamed.
 
 ## Model choice
 
-`qwen3.8:27b-mlx` (or the MLX-native `mlx-community/Qwen3.8-27B-4bit`) is
-already downloaded and known-good from today's testing, so it's the
-zero-extra-setup choice. For pure structured extraction on short text, a much
-smaller model (7-14B) would likely be faster and sufficient — worth trying if
-extraction volume grows large enough that per-receipt latency matters. Not
-tested here; the flagship model was simply what was already on hand.
+`qwen36-35b-a3b` is the only model on this Mac (see `README.md`), so it is the
+zero-extra-setup choice by construction. The old guidance — that a 7-14B model
+would likely be faster and sufficient for short-text structured extraction —
+still stands and is still untested; it is worth trying if extraction volume ever
+makes per-receipt latency matter. Note the constraint from `README.md`: this is
+a 24 GB machine holding a 19 GB model, so run extraction when the desktop is not
+also in use.
 
 ## Practical context size on this Mac
 
