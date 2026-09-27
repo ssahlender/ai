@@ -176,7 +176,7 @@ if (-not $sel) { throw "Unknown mode: $Mode (run with no arguments to list modes
 
 $server    = Resolve-EngineServer $sel.Engine
 $modelPath = Join-Path $ModelDir $sel.File
-if (-not (Test-Path $modelPath)) { throw "Mode '$Mode' requires GGUF '$($sel.File)', but it is missing at $modelPath. Download or copy that model before starting." }
+if (-not (Test-Path $modelPath)) { throw "Mode '$Mode' requires GGUF '$($sel.File)', but it is missing at $modelPath. Run -ListOnly to see which modes are complete; every GGUF's repo, file and SHA-256 is recorded in llm/MODELS.md." }
 if (-not $Ctx) { $Ctx = $sel.Ctx }
 
 $running = Get-Process -Name 'llama-server' -ErrorAction SilentlyContinue
