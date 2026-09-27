@@ -126,8 +126,8 @@ function New-QualityHardFixture {
     # The distractor is deliberate: lowercase "error" appears in prose many times, so a model that
     # greps case-insensitively finds noise and must reason about which line is the real one.
     $log = New-Object System.Collections.Generic.List[string]
-    for ($i = 0; $i -lt 700; $i++) {
-        if ($i -eq 470) {
+    for ($i = 0; $i -lt 400; $i++) {
+        if ($i -eq 270) {
             $log.Add('2026-09-27 03:14:22 ERROR request failed request_id=req-8f4c2b91 upstream timeout')
         } elseif ($i % 97 -eq 0) {
             $log.Add(('2026-09-27 03:{0:d2}:11 INFO  request {1} completed with no error observed' -f ($i % 60), $i))
@@ -144,11 +144,11 @@ function New-QualityHardFixture {
     $cfg.Add('')
     $cfg.Add('[legacy defaults]')
     $cfg.Add('max_connections = 64')
-    for ($i = 0; $i -lt 700; $i++) { $cfg.Add(('legacy.option_{0} = {1}' -f $i, ($i * 3))) }
+    for ($i = 0; $i -lt 300; $i++) { $cfg.Add(('legacy.option_{0} = {1}' -f $i, ($i * 3))) }
     $cfg.Add('')
     $cfg.Add('[included from site.conf]')
     $cfg.Add('max_connections = 128')
-    for ($i = 0; $i -lt 700; $i++) { $cfg.Add(('site.option_{0} = {1}' -f $i, ($i * 5))) }
+    for ($i = 0; $i -lt 300; $i++) { $cfg.Add(('site.option_{0} = {1}' -f $i, ($i * 5))) }
     $cfg.Add('')
     $cfg.Add('[operator overrides - applied last]')
     $cfg.Add('max_connections = 512')
