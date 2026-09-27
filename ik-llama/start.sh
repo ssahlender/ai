@@ -63,9 +63,7 @@ case "$MACHINE" in
     SAMPLE_BASE=()
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
     MODES=(
-      "qwen36u27b|Qwen3.6 27B IQ4_XS|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf|32768|8192|||mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "qwen36u35b|Qwen3.6 35B-A3B IQ4_NL|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf|16384|4096|||mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "qwen3coder30b|Qwen3-Coder 30B-A3B IQ4_NL|Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf|32768|8192"
+          "qwen36u35b|Qwen3.6 35B-A3B IQ4_XS|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf|16384|4096|||mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
     )
     ;;
   *) echo "Usage: $0 <i9|probook|macbook-air> <mode>" >&2; exit 1 ;;
