@@ -13,7 +13,7 @@ OPENCODE_COMPACTION_RESERVED="${OPENCODE_COMPACTION_RESERVED:-10000}"
 
 # shortname|display name|ollama model tag|context window
 MODES=(
-  "qwen38-27b|Qwen3.8-27B (Ollama/MLX)|qwen3.8:27b-mlx|131072"
+  "qwen36-35b-a3b|Qwen3.6-35B-A3B (Ollama, UD-Q2_K_XL 13 GB)|qwen36-35b-a3b|32768"
 )
 
 _py=$(mktemp)
@@ -114,11 +114,13 @@ print('Available model shortnames:')
 for short, m in generated['opencode_provider']['models'].items():
     print(f'  ollama/{short}  ->  {m["name"]}')
 print()
-print('NOTE: reasoning_effort must be set per-request (no server-wide flag for')
-print('Ollama, unlike mlx_lm.server). If OpenCode/Pi do not expose a way to set')
-print('extra body params per provider, the model will default to xhigh reasoning')
-print('and may respond slower than expected. See ../mlx/receipt-extraction-guide.md')
-print('for the direct-API pattern that does set it explicitly.')
+print('NOTE: thinking is on by default and is set per-request - Ollama has no')
+print('server-wide switch. On /v1/chat/completions, the endpoint OpenCode and Pi')
+print('below use, the working knob is  "reasoning_effort": "none"  which measured')
+print('0 reasoning bytes against 132 tokens when left unset. "think": false is')
+print('IGNORED there - it made the model think MORE, so do not reach for it.')
+print('Trap: with a small max_tokens the model can spend the whole budget inside')
+print('reasoning and return empty content. See README.md for the measured table.')
 PYEOF
 
 echo "$RESULT_JSON" | OPENCODE_CONFIG_DIR="$OPENCODE_CONFIG_DIR" OPENCODE_AUTH_FILE="$OPENCODE_AUTH_FILE" PI_CONFIG_DIR="$PI_CONFIG_DIR" python3 "$_apply"
