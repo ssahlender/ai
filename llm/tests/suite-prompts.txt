@@ -1,0 +1,5 @@
+Explain, in 5 short bullet points, how to safely put one node of a 3-node Proxmox VE cluster into maintenance without causing quorum loss.
+Write a bash one-liner that lists running Docker containers sorted by memory usage, showing only those over 2 GB.
+Schreibe eine kurze, freundliche E-Mail an einen Mieter, der die Miete drei Tage zu spaet bezahlt hat. Auf Deutsch, sachlich, ohne Drohung.
+A language model must read 2.3 GB of weights per generated token, and memory bandwidth is 89.6 GB/s. Show the arithmetic for the theoretical maximum tokens/s, then state which fraction is realistic in practice and why.
+Review this snippet and name the bug plus the fix: for f in $(ls /data/*.json); do jq -r .id $f >> ids.txt; done

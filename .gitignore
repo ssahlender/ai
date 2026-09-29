@@ -5,3 +5,10 @@ __pycache__/
 *.py[cod]
 *.opencode
 repomix-output.*
+# Per-agent skill copies are duplicated per repo (~460K); the user-level skill
+# already exists on every host, so only the wiring files are worth committing.
+.claude/skills/
+.codex/skills/
+.opencode/skills/
+.agents/skills/
+# directories only, so it would NOT ignore the symlink and the link would

@@ -7,6 +7,25 @@ set -euo pipefail
 MACHINE="${1:-}"
 MODE="${2:-}"
 
+# ── host reality (2026-09-27) ──────────────────────────────────────
+# Checked before the per-host config: the branches below bail out on their own terms (a missing
+# llama-server, a WSL path) and that would hide the real reason these two hosts changed.
+case "$MACHINE" in
+  probook)
+    echo "This branch drove ik_llama over WSL (/mnt/c). WSL is retired and the ProBook now runs the" >&2
+    echo "engine natively on Windows: use  llm\\start-llm.ps1 <mode>  instead. See llm/README.md." >&2
+    exit 1 ;;
+  macbook-air)
+    _gguf_dir="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
+    if ! compgen -G "$_gguf_dir/*.gguf" >/dev/null 2>&1; then
+      echo "No GGUF in $_gguf_dir: this Mac's models belong to Ollama (qwen36-35b-a3b = UD-Q2_K_XL)." >&2
+      echo "Use ollama/start.sh instead (see ollama/README.md). To use this GGUF path, fetch first:" >&2
+      echo "  ./download-models.sh macbook-air" >&2
+      exit 1
+    fi ;;
+esac
+
+
 # ── machine config ─────────────────────────────────────────────────
 case "$MACHINE" in
   i9)
@@ -48,6 +67,14 @@ case "$MACHINE" in
   macbook-air)
     SERVER="${IK_LLAMA_SERVER:-}"
     [ -z "$SERVER" ] && SERVER="$(command -v llama-server 2>/dev/null || echo '')"
+        # Non-interactive shells (ssh, launchd) do not inherit Homebrew's PATH, so
+        # `command -v` alone fails even though llama.cpp is installed. Probe the standard
+        # prefixes before giving up.
+        if [ -z "$SERVER" ]; then
+          for c in /opt/homebrew/bin/llama-server /usr/local/bin/llama-server "$HOME/.local/bin/llama-server"; do
+            [ -x "$c" ] && { SERVER="$c"; break; }
+          done
+        fi
     if [ -z "$SERVER" ]; then
       if [ -n "${IK_LLAMA_DIR:-}" ] && [ -x "$IK_LLAMA_DIR/build/bin/llama-server" ]; then
         SERVER="$IK_LLAMA_DIR/build/bin/llama-server"
@@ -70,6 +97,7 @@ case "$MACHINE" in
     ;;
   *) echo "Usage: $0 <i9|probook|macbook-air> <mode>" >&2; exit 1 ;;
 esac
+
 
 # Keep one full-context slot by default. Multiple unrelated agent sessions on
 # one slot pool invalidate each other's prompt cache and divide the context.
