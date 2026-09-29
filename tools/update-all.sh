@@ -23,6 +23,7 @@ UPDATE_TOOLS=(
   rtk
   context-mode
   claude-mem
+  graphify
   pi
   repomix
   ccusage
