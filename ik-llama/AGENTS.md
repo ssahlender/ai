@@ -7,19 +7,19 @@ How to wire OpenCode and Claude Code to the local ik_llama.cpp server.
 Run the setup script for your machine — it parses `start.sh` for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. Vision models automatically get `modalities` for image input. OpenCode config is written only when `opencode` is installed.
 
 ```bash
-# ProBook (WSL2)
-./setup-agents.sh probook
-
-# i9
+# i9 (Linux)
 ./setup-agents.sh i9
 
-# MacBook Air
+# MacBook Air (macOS)
 ./setup-agents.sh macbook-air
+
+# HP ProBook (Windows native PowerShell)
+powershell -File llm/setup-agent-providers.ps1
 ```
 
-The ProBook script auto-detects the Windows host IP from the WSL2 default gateway. The generated config uses `http://<host-ip>:9080/v1` (all machines).
+The generated config uses `http://localhost:9080/v1`. The port can be overridden with `IK_LLAMA_PORT`.
 
-Model shortnames are derived from `start.sh` case entries. Run `setup-agents.sh` to see available shortnames — they're printed after install. No static config file to maintain.
+Model shortnames are derived from `start.sh` (or `llm/start-llm.ps1`) case entries. Run `setup-agents.sh` to see available shortnames — they're printed after install. No static config file to maintain.
 
 ## Pi
 
@@ -107,8 +107,7 @@ when you pick `local`. It intercepts every `/v1/messages` request and caps
 
 The proxy logs to `/tmp/local-proxy.log`. Kill it with `./kill-proxy.sh`.
 
-The script auto-detects WSL2 and uses the Windows host IP when needed (llama-server
-runs as a Windows `.exe` on ProBook). On native Linux/macOS it uses `localhost`.
+The script uses `localhost` by default (configurable via `IK_LLAMA_HOST` and `IK_LLAMA_PORT`).
 Ensure a model is loaded first: `./start.sh <machine> <mode>`.
 
 ### Bare mode
@@ -123,8 +122,7 @@ discovery. If you prefer full features, run `claude /logout` first, then set
 ```bash
 # Local — point at the proxy on 9081, NOT directly at llama-server on 9080.
 # Start local-proxy.py first, or just use claude-providers.sh local (it does it).
-export ANTHROPIC_BASE_URL=http://$(ip route show default | awk '{print $3; exit}'):9081  # WSL2
-export ANTHROPIC_BASE_URL=http://localhost:9081                                            # native
+export ANTHROPIC_BASE_URL=http://localhost:9081
 export ANTHROPIC_API_KEY=dummy
 export ANTHROPIC_CUSTOM_MODEL_OPTION=<gguf-stem>   # e.g. Qwopus3.6-35B-A3B-v1-Q6_K
 export ANTHROPIC_DEFAULT_SONNET_MODEL=<gguf-stem>
@@ -173,17 +171,6 @@ The attribution header causes a ~90% slowdown with local servers. Add to `~/.cla
     "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
   }
 }
-```
-
-## WSL2 memory config
-
-Limit WSL2 memory to leave headroom for Windows (file: `C:\Users\<user>\.wslconfig`):
-
-```ini
-[wsl2]
-memory=28GB
-processors=6
-swap=0
 ```
 
 ## Prompt cache warmup

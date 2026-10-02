@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shows on-disk GGUF models vs expected entries from start.sh.
-# Usage: ./model-info.sh [i9|probook|macbook-air]
+# Usage: ./model-info.sh [i9|macbook-air]
 set -euo pipefail
 
 MACHINE="${1:-}"
@@ -17,13 +17,16 @@ fi
 if [ -n "$MACHINE" ]; then
   case "$MACHINE" in
     i9) MODELS_DIR="${MODELS_DIR:-/data/llm/models}" ;;
-    probook) MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}" ;;
+    probook)
+      echo "WSL is retired on ProBook. Run model inspection natively on Windows via llm/ (e.g. llm\\fetch-model.ps1 -List)." >&2
+      exit 1
+      ;;
     macbook-air) MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}" ;;
-    *) echo "Usage: $0 [i9|probook|macbook-air]" >&2; exit 1 ;;
+    *) echo "Usage: $0 [i9|macbook-air]" >&2; exit 1 ;;
   esac
 else
   # Auto-detect: try paths
-  for d in /data/llm/models /mnt/c/data/llm/models "$HOME/.local/share/llama.cpp/models"; do
+  for d in /data/llm/models "$HOME/.local/share/llama.cpp/models"; do
     if [ -d "$d" ] && ls "$d"/*.gguf >/dev/null 2>&1; then
       MODELS_DIR="$d"
       break
@@ -41,6 +44,15 @@ b2h() {
   fi
 }
 
+file_size() {
+  local f="$1"
+  if [ -f "$f" ]; then
+    wc -c < "$f" | tr -d ' '
+  else
+    echo 0
+  fi
+}
+
 echo "Models dir: $MODELS_DIR"
 echo
 
@@ -49,7 +61,7 @@ echo "=== GGUF files on disk ==="
 found_gguf=0
 while IFS= read -r -d '' f; do
   name="$(basename "$f")"
-  size="$(stat --format=%s "$f" 2>/dev/null || echo 0)"
+  size="$(file_size "$f")"
   printf "  %-70s %s\n" "$name" "$(b2h "$size")"
   found_gguf=1
 done < <(find "$MODELS_DIR" -maxdepth 1 -name '*.gguf' -not -name 'mmproj*' -print0 2>/dev/null | sort -z)
@@ -61,7 +73,7 @@ echo "=== mmproj files on disk ==="
 found_mm=0
 while IFS= read -r -d '' f; do
   name="$(basename "$f")"
-  size="$(stat --format=%s "$f" 2>/dev/null || echo 0)"
+  size="$(file_size "$f")"
   printf "  %-70s %s\n" "$name" "$(b2h "$size")"
   found_mm=1
 done < <(find "$MODELS_DIR" -maxdepth 1 -name 'mmproj*' -print0 2>/dev/null | sort -z)
@@ -72,7 +84,7 @@ echo
 echo "=== Start-script model entries ==="
 
 if [ -z "$MACHINE" ]; then
-  echo "  No machine specified. Run: $0 <i9|probook|macbook-air>"
+  echo "  No machine specified. Run: $0 <i9|macbook-air>"
   echo
   echo "=== Stale snapshots (.part files) ==="
   stale=0
@@ -87,8 +99,10 @@ fi
 # Extract entries from the machine case block in start.sh
 # Format: "shortname|desc|filename.gguf|ctx|cram|flags"
 ENTRIES=$(awk -v m="$MACHINE" '
+  /# ── machine config/ { in_config=1 }
+  !in_config { next }
   $0 ~ "^[[:space:]]*" m "\\)[[:space:]]*$" { in_block=1; next }
-  in_block && /^[[:space:]]*;;/ { exit }
+  in_block && /;;[[:space:]]*$/ { exit }
   in_block && /\".*[.]gguf\|/ {
     if (match($0, /"[^"]+[.]gguf\|[0-9]+\|[0-9]+[^"]*"/)) {
       entry = substr($0, RSTART+1, RLENGTH-2)
@@ -126,13 +140,13 @@ while IFS= read -r line; do
   gguf_ok=0; gguf_size=0
   if [ -f "$MODELS_DIR/$fn" ]; then
     gguf_ok=1
-    gguf_size=$(stat --format=%s "$MODELS_DIR/$fn" 2>/dev/null || echo 0)
+    gguf_size="$(file_size "$MODELS_DIR/$fn")"
   fi
 
   mmproj_ok=0; mmproj_size=0
   if [ "$is_vision" -eq 1 ] && [ -n "$mmproj_file" ] && [ -f "$MODELS_DIR/$mmproj_file" ]; then
     mmproj_ok=1
-    mmproj_size=$(stat --format=%s "$MODELS_DIR/$mmproj_file" 2>/dev/null || echo 0)
+    mmproj_size="$(file_size "$MODELS_DIR/$mmproj_file")"
   fi
 
   # Status

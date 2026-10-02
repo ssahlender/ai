@@ -47,8 +47,6 @@ unset _args
 
 # ── helpers ──────────────────────────────────────────────────────────
 
-is_wsl() { grep -qi microsoft /proc/version 2>/dev/null; }
-
 bold()  { printf '\033[1m%s\033[0m\n' "$*"; }
 dim()   { printf '\033[2m%s\033[0m\n' "$*"; }
 red()   { printf '\033[31m%s\033[0m\n' "$*"; }
@@ -93,17 +91,17 @@ launch() {
 
 # ── local proxy (caps max_tokens for llama-server) ───────────────────
 
+llama_host() {
+  echo "${IK_LLAMA_HOST:-127.0.0.1}"
+}
+
 start_local_proxy() {
-  # Proxy listens on 9081 and forwards to llama-server on 9080.
+  local port="${IK_LLAMA_PORT:-9080}"
+  local upstream_host
+  upstream_host=$(llama_host)
+  # Proxy listens on 9081 and forwards to llama-server on $port.
   # Claude CLI always sends max_tokens=32000; cap it to n_ctx/8 so 87.5% of context
   # remains available for input (avoids "exceeds available context size" errors).
-  if curl -sf --max-time 2 "http://localhost:9081/proxy-health" >/dev/null 2>&1; then
-    return 0
-  fi
-  fuser -k "9081/tcp" 2>/dev/null || true
-  sleep 0.3
-
-  # Derive cap from running server's context size unless overridden by env.
   local cap
   if [ -n "${LOCAL_PROXY_MAX_TOKENS:-}" ]; then
     cap="$LOCAL_PROXY_MAX_TOKENS"
@@ -119,17 +117,30 @@ start_local_proxy() {
     fi
   fi
 
-  local script_dir upstream_host
+  local expected_health="ok upstream=${upstream_host}:${port} max_tokens_cap=${cap}"
+  local health_out
+  health_out=$(curl -sf --max-time 2 "http://localhost:9081/proxy-health" 2>/dev/null || true)
+  if [ "$health_out" = "$expected_health" ]; then
+    return 0
+  fi
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k "9081/tcp" 2>/dev/null || true
+  elif command -v lsof >/dev/null 2>&1; then
+    lsof -ti :9081 2>/dev/null | xargs kill -9 2>/dev/null || true
+  fi
+  sleep 0.3
+
+  local script_dir
   script_dir="$(cd "$(dirname "$0")" && pwd)"
-  upstream_host=$(llama_host)
-  LOCAL_PROXY_UPSTREAM="http://${upstream_host}:9080" \
+  LOCAL_PROXY_UPSTREAM="http://${upstream_host}:${port}" \
   LOCAL_PROXY_PORT=9081 \
   LOCAL_PROXY_MAX_TOKENS="$cap" \
     python3 "$script_dir/local-proxy.py" >"/tmp/local-proxy.log" 2>&1 &
   local i
   for i in {1..10}; do
     sleep 0.3
-    if curl -sf --max-time 1 "http://localhost:9081/proxy-health" >/dev/null 2>&1; then
+    health_out=$(curl -sf --max-time 1 "http://localhost:9081/proxy-health" 2>/dev/null || true)
+    if [ "$health_out" = "$expected_health" ]; then
       dim "  Started local-proxy on port 9081 (max_tokens cap: ${cap})"
       return 0
     fi
@@ -141,16 +152,9 @@ start_local_proxy() {
 # ── local model detection ────────────────────────────────────────────
 
 detect_local() {
-  local model host
-  # WSL2: server runs on Windows host, reachable via default gateway IP
-  # Native: server runs on localhost
-  if is_wsl; then
-    host=$(ip route show default | awk '{print $3; exit}')
-    [ -n "$host" ] || host="127.0.0.1"
-  else
-    host="127.0.0.1"
-  fi
-  model=$(curl -sf --max-time 3 --connect-timeout 2 "http://${host}:9080/v1/models" 2>/dev/null | \
+  local model host port="${IK_LLAMA_PORT:-9080}"
+  host=$(llama_host)
+  model=$(curl -sf --max-time 3 --connect-timeout 2 "http://${host}:${port}/v1/models" 2>/dev/null | \
           python3 -c "
 import sys, json, os
 d = json.load(sys.stdin)
@@ -169,27 +173,14 @@ print(name)
 }
 
 detect_local_ctx() {
-  local host
-  if is_wsl; then
-    host=$(ip route show default | awk '{print $3; exit}')
-    [ -n "$host" ] || host="127.0.0.1"
-  else
-    host="127.0.0.1"
-  fi
-  curl -sf --max-time 3 --connect-timeout 2 "http://${host}:9080/props" 2>/dev/null | \
+  local host port="${IK_LLAMA_PORT:-9080}"
+  host=$(llama_host)
+  curl -sf --max-time 3 --connect-timeout 2 "http://${host}:${port}/props" 2>/dev/null | \
     python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 print(d.get('default_generation_settings', {}).get('n_ctx', ''))
 " 2>/dev/null || true
-}
-
-llama_host() {
-  if is_wsl; then
-    ip route show default | awk '{print $3; exit}'
-  else
-    echo "127.0.0.1"
-  fi
 }
 
 # ── openrouter models ─────────────────────────────────────────────────
@@ -299,7 +290,7 @@ picker() {
   if [ -n "$local_model" ]; then
     local ctx_info=""
     [ -n "$local_ctx" ] && ctx_info="  ctx=${local_ctx}"
-    green "  1) $local_model  [port 9080${ctx_info}]"
+    green "  1) $local_model  [port ${IK_LLAMA_PORT:-9080}${ctx_info}]"
   else
     dim  "  1) No local server detected. Start with:  ./start.sh <machine> <mode>"
   fi
@@ -363,7 +354,7 @@ warn_session_size() {
   # Warn if the most recent session file in the current project is large.
   # Large sessions cause "exceeds context size" errors with local models.
   local project_key sessions_dir latest size lines
-  project_key=$(pwd | sed 's|^/||; s|/|-|g')
+  project_key=$(pwd | sed 's|[^a-zA-Z0-9]|-|g')
   sessions_dir="$HOME/.claude/projects/$project_key"
   latest=$(ls -t "$sessions_dir"/*.jsonl 2>/dev/null | head -1 || true)
   [ -z "$latest" ] && return

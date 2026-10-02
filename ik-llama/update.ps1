@@ -1,11 +1,10 @@
 <#
 .SYNOPSIS
-    Update ik_llama.cpp (Thireus prebuilt) on Windows — PowerShell port of update.sh.
+    Update ik_llama.cpp (Thireus prebuilt) on Windows natively via PowerShell.
 
 .DESCRIPTION
-    Windows twin of ./update.sh (which covers i9, probook-in-WSL and macbook-air).
-    Needed because the WSL2 path (/mnt/c/...) is only reachable as the interactive
-    user, while the automation account cannot reach the WSL path.
+    Native Windows updater for standalone ik_llama.cpp on ProBook.
+    (For the unified suite, use llm\update-llm.ps1).
 
     Difference from the bash version, deliberate:
       * same install location as the bash script: the canonical C:\data\llm\ik_llama

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Updates ik_llama.cpp (Linux/Windows) or llama.cpp (macOS via brew).
-# Usage: ./update.sh <i9|probook|macbook-air>
+# Usage: ./update.sh <i9|macbook-air>
 set -euo pipefail
 
 MACHINE="${1:-}"
 
-[ -n "$MACHINE" ] || { echo "Usage: $0 <i9|probook|macbook-air>" >&2; exit 1; }
+[ -n "$MACHINE" ] || { echo "Usage: $0 <i9|macbook-air>" >&2; exit 1; }
 
 case "$MACHINE" in
   i9)
@@ -18,9 +18,9 @@ case "$MACHINE" in
     ;;
 
   probook)
-    DEST="${IK_LLAMA_DIR:-/mnt/c/data/llm/ik_llama}"
-    REPO="Thireus/ik_llama.cpp"
-    ARCH_PATTERN='^ik_llama-(?!cudart).+-bin-win-cpu-x64-avx512_vnni_vbmi_bf16\.zip$'
+    echo "WSL is retired on ProBook. To update ik_llama natively on Windows, run PowerShell:" >&2
+    echo "  powershell -File llm/update-llm.ps1  (or ..\\llm\\update-llm.ps1 from ik-llama)" >&2
+    exit 1
     ;;
 
   macbook-air)
@@ -33,7 +33,7 @@ case "$MACHINE" in
     exit 0
     ;;
 
-  *) echo "Usage: $0 <i9|probook|macbook-air>" >&2; exit 1 ;;
+  *) echo "Usage: $0 <i9|macbook-air>" >&2; exit 1 ;;
 esac
 
 # ── find latest release asset matching the arch pattern ────────────

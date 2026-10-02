@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
 # Benchmarks CPU thread settings for ik_llama.cpp.
 # Usage: ./bench.sh <machine> [mode|all|qwen36]
-#   Machine: i9 | probook
+#   Machine: i9
+#   (ProBook benchmarks run natively on Windows via llm/bench/)
 set -euo pipefail
 
 MACHINE="${1:-}"
 MODE="${2:-}"
 
-[ -n "$MACHINE" ] || { echo "Usage: $0 <i9|probook> [mode|all|qwen36]" >&2; exit 1; }
+[ -n "$MACHINE" ] || { echo "Usage: $0 <i9> [mode|all|qwen36]" >&2; exit 1; }
 
 case "$MACHINE" in
   i9)
     IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
     MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
     BENCH="$IK_LLAMA_DIR/build/bin/llama-bench"
-    NGL=0; MACHINE_PATH=
+    NGL=0
     THREADS_DEFAULT="${BENCH_THREADS:-6 8}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-24 32}"
     MODE="${MODE:-qwopus35bq5km}"
     MODES=(qwen36u35bq6kp qwopus35bq5km supergemma4q4km qwen3codernext qwen36u27bq5kp)
@@ -41,24 +42,10 @@ case "$MACHINE" in
     }
     ;;
   probook)
-    IK_LLAMA_DIR="${IK_LLAMA_DIR:-/mnt/c/data/llm/ik_llama}"
-    MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}"
-    BENCH="$IK_LLAMA_DIR/llama-bench.exe"
-    NGL=0; MACHINE_PATH=1
-    THREADS_DEFAULT="${BENCH_THREADS:-8 12 16}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-8 12 16}"
-    MODE="${MODE:-qwen36u35b}"
-    MODES=(qwen36u35b qwen3coder30b)
-    QWEN_MODES=()
-    normalize_mode() { echo "$1"; }
-    model_for_mode() {
-      case "$1" in
-        qwen36u35b)    echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf" ;;
-        qwen3coder30b) echo "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ;;
-        *) return 1 ;;
-      esac
-    }
+    echo "WSL is retired on ProBook. Benchmarking runs natively on Windows in llm/bench/ (e.g. powershell -File llm\\bench\\bench-threads.ps1)." >&2
+    exit 1
     ;;
-  *) echo "Usage: $0 <i9|probook> [mode|all|qwen36]" >&2; exit 1 ;;
+  *) echo "Usage: $0 <i9> [mode|all|qwen36]" >&2; exit 1 ;;
 esac
 
 # ── shared benchmark logic ─────────────────────────────────────────
@@ -70,11 +57,7 @@ REPETITIONS="${BENCH_REPETITIONS:-3}"
 OUT_DIR="${BENCH_OUT_DIR:-$PWD/bench-results}"
 
 model_path() {
-  if [ -n "$MACHINE_PATH" ] && command -v wslpath >/dev/null 2>&1; then
-    wslpath -w "$MODELS_DIR/$1"
-  else
-    echo "$MODELS_DIR/$1"
-  fi
+  echo "$MODELS_DIR/$1"
 }
 
 usage() {
@@ -142,11 +125,6 @@ for run_mode in "${RUN_MODES[@]}"; do
     for threads_batch in $THREADS_BATCH; do
       output="$OUT_DIR/${timestamp}-${run_mode}-t${threads}-tb${threads_batch}.json"
       echo "==> threads=$threads threads_batch=$threads_batch"
-      # Clear Windows standby page list before each run to avoid mmap exit 5
-      if [ -n "${MACHINE_PATH:-}" ] && command -v powershell.exe >/dev/null 2>&1; then
-        powershell.exe -Command "& { Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class M { [DllImport(\"ntdll.dll\")] public static extern int NtSetSystemInformation(int c, IntPtr p, int l); public static void C() { var p=Marshal.AllocHGlobal(4); Marshal.WriteInt32(p,4); NtSetSystemInformation(80,p,4); Marshal.FreeHGlobal(p); } }'; [M]::C() }" 2>/dev/null || true
-      fi
-
       args=(-m "$(model_path "$model_file")" -ngl "$NGL" -p "$PROMPT_TOKENS" -n "$GEN_TOKENS" -r "$REPETITIONS" -o json)
       [ -n "${MMAP:-}" ] && args+=(-mmp "$MMAP")
 
