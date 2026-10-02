@@ -1,4 +1,4 @@
-# Ollama (MacBook Air M4, 24 GB) — daily-driver engine
+# Ollama (MacBook Air M4, 24 GB): daily-driver engine
 
 Chosen over raw `mlx_lm.server` (`../mlx/`) and oMLX after a full comparison
 on 2026-09-13 (see `../mlx/README.md` for the complete writeup). Ollama had
@@ -20,7 +20,7 @@ End-to-end against the live model (`qwen36-35b-a3b`, ctx 32768), thinking suppre
 | `/v1/chat/completions` | `"reasoning_effort": "none"` | `"Mac local model works."` · `finish_reason: stop` · 6 tokens |
 
 `ollama/start.sh` now resolves the `ollama` binary itself (PATH, then `/opt/homebrew/bin`,
-`/usr/local/bin`), so it also works from ssh or launchd where Homebrew is not on PATH — the same
+`/usr/local/bin`), so it also works from ssh or launchd where Homebrew is not on PATH; the same
 failure mode that made `../ik-llama/start.sh` report "llama-server not found" over ssh.
 
 ## Install / update
@@ -34,7 +34,7 @@ cd ../tools
 
 `ollama-update.sh` (binary) and `ollama-models-update.sh` (re-pulls every
 currently-installed model) are both already in `tools/update-all.sh`'s
-`UPDATE_TOOLS` list — `./update-all.sh` keeps everything current.
+`UPDATE_TOOLS` list, `./update-all.sh` keeps everything current.
 
 ## Model
 
@@ -96,7 +96,7 @@ are all gone: 246 → 278 GiB free on this machine.
 
 Model shortname in OpenCode/Pi: `ollama/qwen36-35b-a3b`. Default port `11434`
 (override with `OLLAMA_HOST_PORT`). The provider config is **generated** by
-`setup-agent.sh` from its `MODES` array — change the model there, not in the JSON.
+`setup-agent.sh` from its `MODES` array, change the model there, not in the JSON.
 
 ## Reasoning / thinking
 
@@ -114,9 +114,9 @@ the two working switches were re-verified on the current quant):
 | `"reasoning_effort": "none"` | **0** | **2** | `OK` |
 
 - **`/v1/chat/completions`** (what OpenCode and Pi use): the working switch is
-  `"reasoning_effort": "none"`. `"think": false` is **ignored** on this endpoint —
+  `"reasoning_effort": "none"`. `"think": false` is **ignored** on this endpoint:
   it made the model think *more* (225 vs 132 tokens), so do not reach for it here.
-- **native `/api/generate`**: `"think": false` **does** work — verified with an
+- **native `/api/generate`**: `"think": false` **does** work; verified with an
   empty `thinking` field and no `think` block in the response text.
 
 **One real trap:** with a small `max_tokens` the model spends the entire budget
@@ -138,9 +138,9 @@ of its token budget on `<think>` before answering. The fix is confirmed and
 documented, but the *plumbing* differs by which API you call:
 
 - **Ollama's native `/api/chat`**: `think` field, accepts
-  `low`/`medium`/`high`/`none` — but this enum **doesn't match** Qwen3.8's own
+  `low`/`medium`/`high`/`none`; but this enum **doesn't match** Qwen3.8's own
   template enum (`low`/`medium`/`xhigh`). Passing `"think":"low"` silently did
-  not reduce reasoning length in testing (2.69 tok/s effective — looked like a
+  not reduce reasoning length in testing (2.69 tok/s effective, looked like a
   broken/slow engine until this was diagnosed).
 - **Ollama's OpenAI-compatible `/v1/chat/completions`**: `reasoning_effort`
   field, accepts `"low"` directly and **does** map correctly to Qwen3.8's
@@ -150,7 +150,7 @@ documented, but the *plumbing* differs by which API you call:
 `/api/chat` with `"think"`, for this model.**
 
 Unlike `mlx_lm.server` (which bakes `reasoning_effort` into server startup via
-`--chat-template-args`), Ollama has no server-wide equivalent — it must be set
+`--chat-template-args`), Ollama has no server-wide equivalent; it must be set
 per-request. If OpenCode/Pi's provider config doesn't expose a way to inject
 extra body params, requests through the agent may still default to `xhigh`.
 Direct API calls (e.g. the receipt-extraction/matching use case in
@@ -159,15 +159,15 @@ unaffected.
 
 ## Also validated for non-coding use
 
-The same engine (correctly configured) was used for a real accounting
-extraction/matching task with 100% correct results — see
-`receipt-extraction-guide.md`. Same model, same `reasoning_effort`
-fix, different (single-turn, short) workload — the long-context/memory
-tradeoffs from the coding-agent testing don't apply there.
+The receipt guide records two successful test cases using the earlier
+`qwen3.8:27b-mlx` model. Those prompts and output budgets should be revalidated
+on the current `qwen36-35b-a3b` model; see `receipt-extraction-guide.md`.
+Different (single-turn, short) workload: the long-context and multi-turn memory
+tradeoffs from coding-agent testing do not apply there.
 
 ## Using this ollama from another host (e.g. graphify on a separate machine)
 
-`start.sh` binds `OLLAMA_HOST=127.0.0.1` on purpose — an ollama endpoint has no
+`start.sh` binds `OLLAMA_HOST=127.0.0.1` on purpose; an ollama endpoint has no
 authentication, so it never listens on the LAN. Another host reaches it over an SSH
 tunnel instead:
 
@@ -187,7 +187,7 @@ Client-side findings (measured against graphify 0.9.67, Sept 2026):
 - **graphify batches documents into large chunks.** Ten small ESPHome YAML files went
   out as *one* ~18,755-token chunk, so cap it: `--token-budget 3000`.
 
-- **The context window is a SERVER-side setting on ollama 0.34.4 — no client can raise it.**
+- **The context window is a SERVER-side setting on ollama 0.34.4; no client can raise it.**
   Verified on the wire 2026-09-25 with a logging proxy: graphify sent
   `options={'num_ctx': 16384} keep_alive='30m'`, and the runner still came up at
   **CONTEXT 4096** (`ollama ps`), i.e. `/v1` silently drops both fields. Only the native
@@ -198,7 +198,7 @@ Client-side findings (measured against graphify 0.9.67, Sept 2026):
   extraction-only instance on port 11438 with `OLLAMA_CONTEXT_LENGTH=16384`.** A second
   instance is used rather than raising the shared one because the server env is global to
   the instance, and the daily-driver model (18 GB, 64 layers, MLX format) exposes no
-  KV-head geometry — its cache may be fp16-sized (ollama's MLX path need not honour
+  KV-head geometry, its cache may be fp16-sized (ollama's MLX path need not honour
   `OLLAMA_KV_CACHE_TYPE=q8_0`), so a global bump could put a 24 GB machine under pressure
   during coding sessions. Measured cost for the extraction model: ~0.68 GB of q8_0 KV at
   16384 (~42.5 KiB/token). The extraction instance also pins `OLLAMA_NUM_PARALLEL=1`
@@ -209,21 +209,21 @@ Client-side findings (measured against graphify 0.9.67, Sept 2026):
 - **Uncapped prompts kill big models.** An 18 GB model plus an 18.7K-token prompt dies
   with a Metal OOM (`mlx: [METAL] Command buffer execution failed: Insufficient
   Memory`). Capping the chunk fixes it; raising `iogpu.wired_limit_mb` is the other
-  lever (see `../mlx/README.md`). Free RAM was not the cause — the Mac sat at 72% free
+  lever (see `../mlx/README.md`). Free RAM was not the cause; the Mac sat at 72% free
   with only ~2 GiB in apps when it happened.
 - **`qwen2.5-coder:7b` is a weak-but-working extraction baseline, not a dead end.**
-  Corrrected 2026-09-25 after re-measuring against a real corpus: with
+  Corrected 2026-09-25 after re-measuring against a real corpus: with
   `--token-budget 3000` it produced **59 nodes / 83 edges over 8 files** in 1529 s, with
   3 `invalid JSON` and 6 hollow responses. An earlier "zero nodes" reading was a harness
   artifact, not the model's fault. Still: pick the extraction model by JSON-contract
   reliability and graph density, not by size or speed.
-- The `ollama` Python module is *not* needed by graphify — it speaks the
+- The `ollama` Python module is *not* needed by graphify; it speaks the
   OpenAI-compatible `/v1/chat/completions` endpoint, so a failed call reports
   `Connection error`, never an import error. No server = connection refused.
 
 ## What decides whether a local extraction run finishes (measured 2026-09-25)
 
-Same corpus (10 YAML docs), same `--token-budget 3000`, same extraction instance, same model — only the
+Same corpus (10 YAML docs), same `--token-budget 3000`, same extraction instance, same model; only the
 output bounding differs:
 
 | variant | wall | outcome |
@@ -233,28 +233,28 @@ output bounding differs:
 | `reasoning_effort none` (thinking off) | 1500 s timeout | no graph |
 
 Two rules from it: **cap the output** (2500 is enough for a real config corpus) and keep
-`reasoning_effort: low`. Do not assume turning thinking off buys speed — the `none` variant was slower
+`reasoning_effort: low`. Do not assume turning thinking off buys speed; the `none` variant was slower
 here, not faster. Judge a variant by whether `graph.json` exists and how many chunks were truncated,
 never by how many tokens it generated; the variants that produced *nothing* generated more tokens than
 the one that worked.
 
-**The extraction instance does not survive a reboot.** `start-graphify.sh` starts a detached process and
-installs no LaunchAgent, so after a restart re-run it before expecting local extractions to work:
+**The extraction instance does not survive a reboot.** `start-graphify.sh` runs in the foreground and
+installs no LaunchAgent, so after a restart re-run it (e.g. in a separate terminal or tmux) before expecting local extractions to work:
 `cd <this repo>/ollama && ./start-graphify.sh`. (The daily-driver instance on the default port is
-unaffected — it is started by ollama itself.)
+unaffected; it is started by ollama itself.)
 
 ## Local model verdicts (extraction use, measured)
 
-- **`Qwen3.6-35B-A3B` `UD-Q2_K_XL` — the working choice** (13 GB): the only model that produced a graph
+- **`Qwen3.6-35B-A3B` `UD-Q2_K_XL`; the working choice** (13 GB): the only model that produced a graph
   with the bounded recipe above, on both a fixture and a real 12-file repo.
-- `UD-Q3_K_XL` (17 GB) — downloaded, **never benchmarked**; higher quant should adhere better and run
+- `UD-Q3_K_XL` (17 GB), downloaded, **never benchmarked**; higher quant should adhere better and run
   ~20–35 % slower. Unproven either way.
-- `gemma4:26b` — unusable with graphify: upstream `/v1` puts all text in `reasoning`, and the MoE variant
+- `gemma4:26b`: unusable with graphify: upstream `/v1` puts all text in `reasoning`, and the MoE variant
   returns nothing with system prompts over ~500 chars. Measured 0 completion tokens.
-- `granite4.2:30b` — fails on context: a ~18.8k-token chunk against a smaller `NUM_CTX` gives
+- `granite4.2:30b`: fails on context: a ~18.8k-token chunk against a smaller `NUM_CTX` gives
   `BadRequestError` and endless slice splitting, no usable graph.
-- `qwen2.5-coder:7b` — completes but unreliable (see the baseline note above). Fine as a smoke test.
-- `qwen3.8:27b-mlx` — unsuitable for extraction: it defaults to `reasoning_effort xhigh` at ~2.7 tok/s
+- `qwen2.5-coder:7b`: completes but unreliable (see the baseline note above). Fine as a smoke test.
+- `qwen3.8:27b-mlx`: unsuitable for extraction: it defaults to `reasoning_effort xhigh` at ~2.7 tok/s
   against 10–12 for the others, so it cannot finish a chunk cap in reasonable time.
 
 

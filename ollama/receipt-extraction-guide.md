@@ -10,23 +10,22 @@ that can do two things for free instead of spending your own tokens on them:
 2. **Propose a match** between a receipt and the correct existing ledger
    entry, given a short list of candidates.
 
-Both are validated against real project data (see "Verified" below) — not
-hypothetical.
+Both tasks were validated on `qwen3.8:27b-mlx` using real project data.
+The current `qwen36-35b-a3b` model still needs those checks repeated.
 
 > **Model changed 2026-09-27.** These results were measured on `qwen3.8:27b-mlx`,
-> which has been removed from this Mac. The recipe now runs on `qwen36-35b-a3b`
-> (Qwen3.6-35B-A3B, IQ4_XS — 19 GB, ~26 tok/s decode). The prompts, the JSON
+> which has been removed from this Mac. The daily driver now runs `qwen36-35b-a3b`
+> (Qwen3.6-35B-A3B, UD-Q2_K_XL, 13 GB, ~30.9 tok/s decode). The prompts, the JSON
 > contract and the `max_tokens` budgets below have **not** been re-validated on
 > the new model: re-run the Verified checks before trusting this in the
-> pipeline, and treat any output as unproven until you have. Start the engine with `cd ~/data/git/ai-tools/ollama &&
-./start.sh` if it isn't already running (`curl -s
-http://127.0.0.1:11434/v1/models` to check), then call it exactly as shown in
-"Extraction call" / "Matching call" below. Stop it with `./stop.sh` when done
-if nothing else needs it running.
+> pipeline, and treat any output as unproven until you have. Start the engine with `cd ~/git/ai-tools/ollama && ./start.sh` if it isn't already running (`curl -s
+> http://127.0.0.1:11434/v1/models` to check), then call it exactly as shown in
+> "Extraction call" / "Matching call" below. Stop it with `./stop.sh` when done
+> if nothing else needs it running.
 
 **Treat every result as a proposal, not a fact.** Use the same
 `matched`/`ambiguous`/`missing_or_unmatched` convention the pipeline already
-uses — a "high confidence" model match still needs human review before
+uses; a "high confidence" model match still needs human review before
 anything is booked or renamed, same as any other receipt match. Never let the
 model's output skip the review step this project's `AGENTS.md` already
 requires for financial data.
@@ -34,21 +33,21 @@ requires for financial data.
 ---
 
 Use case in more detail: a Codex/agent pipeline (e.g. the Accounting Helper
-project on `pmon-macbookair`) OCRs receipts locally (Apple Vision, see
+project on the MacBook Air M4) OCRs receipts locally (Apple Vision, see
 `MAC_WORKER.md` in that project). Two things currently cost the cloud agent
 tokens/context that a local model can do instead, for free:
 
-1. **Extraction** — turning raw OCR text into compact structured JSON
+1. **Extraction**: turning raw OCR text into compact structured JSON
    (vendor, date, amount, currency) instead of the cloud agent reading raw
    OCR text on every receipt.
-2. **Matching** — given a receipt's extracted data and a short list of
+2. **Matching**: given a receipt's extracted data and a short list of
    candidate open ledger entries, deciding which one it corresponds to (the
-   actual "brain work" of reconciliation — not just field extraction).
+   actual "brain work" of reconciliation; not just field extraction).
 
 Both were tested against real, already-verified cases from this project's own
-Phase 2 output (2026-09-13) — not synthetic examples. Exact figures/vendor
+Phase 2 output (2026-09-13); not synthetic examples. Exact figures/vendor
 names are intentionally omitted here (this is a shared dev-tools repo, not
-the accounting workspace) — see the project's own `outputs/*/ocr/README.md`
+the accounting workspace); see the project's own `outputs/*/ocr/README.md`
 files for the underlying verified data.
 
 **Extraction, validated:** ran one already-verified single-page invoice's OCR
@@ -56,26 +55,26 @@ JSON through the extraction prompt below. Model output matched the project's
 own manually-verified reading of that document exactly (vendor, ISO date,
 currency, amount all correct).
 
-**Matching, validated — the harder, more valuable case:** three invoices from
+**Matching, validated; the harder, more valuable case:** three invoices from
 the same vendor, same booking date, even the same source PDF filename in the
 ledger export, differing only in description and amount. Given one invoice's
 raw OCR text plus all three as candidates, the model correctly picked the
 matching entry with high confidence and a correct one-sentence justification,
-rejecting the two lookalikes — replicating the same conclusion the project's
+rejecting the two lookalikes, replicating the same conclusion the project's
 own OCR README already reached by hand. This is the part worth automating:
 it's exactly the kind of multi-file cross-referencing (OCR text ↔ ledger CSV
 rows) that otherwise costs the cloud agent real context/tokens per receipt.
 
 This is a different workload than the daily-driver coding-agent evaluation
-that chose this engine — single-turn, short input/output, no multi-turn
-context growth — so the memory-guard/long-context tradeoffs from that
+that chose this engine, single-turn, short input/output, no multi-turn
+context growth; so the memory-guard/long-context tradeoffs from that
 comparison don't apply here. **Engine: Ollama** (the settled daily driver,
 chosen after a full comparison against raw MLX and oMLX on speed,
-crash-safety, and quirks — full writeup at
+crash-safety, and quirks, full writeup at
 `~/data/git/ai-tools/ollama/README.md` on this Mac).
 Both the extraction and matching prompts below were re-verified directly
 against Ollama specifically, not just the MLX engine used during initial
-exploration — same correct results.
+exploration; same correct results.
 
 ## Starting the engine
 
@@ -93,9 +92,9 @@ curl -s http://127.0.0.1:11434/v1/models
 ## Extraction call
 
 Use `reasoning_effort: low` on the **OpenAI-compatible endpoint**
-(`/v1/chat/completions`) — this is a short structured-output task, not a
+(`/v1/chat/completions`); this is a short structured-output task, not a
 reasoning task, and `xhigh` (the model's default) wastes time thinking.
-**Do not use `/api/chat`'s `think` field** — its enum
+**Do not use `/api/chat`'s `think` field**, its enum
 (`low`/`medium`/`high`/`none`) doesn't match this model's own template enum
 (`low`/`medium`/`xhigh`) and silently fails to reduce reasoning: passing
 `"think":"low"` on the native endpoint measured 2.69 tok/s (looked like a
@@ -118,8 +117,8 @@ curl -s http://127.0.0.1:11434/v1/chat/completions \
 
 The `null`-instead-of-guessing instruction matches the Accounting Helper
 project's own rule (`AGENTS.md`: "Do not invent missing dates, counterparties,
-receipt links, categories, amounts, or tax treatment. Mark them for review.")
-— any field the model can't find stays `null` and gets flagged for human
+receipt links, categories, amounts, or tax treatment. Mark them for review.");
+any field the model can't find stays `null` and gets flagged for human
 review downstream, same as the existing pipeline already does for unmatched
 receipts.
 
@@ -127,7 +126,7 @@ receipts.
 
 Same `reasoning_effort: low`. Pass the receipt's raw OCR text plus a *short*
 list of candidate ledger entries (already narrowed down by date/amount range
-or counterparty — don't hand it the whole ledger) and ask for a matched key,
+or counterparty; don't hand it the whole ledger) and ask for a matched key,
 confidence, and reason:
 
 ```bash
@@ -145,36 +144,30 @@ curl -s http://127.0.0.1:11434/v1/chat/completions \
 ```
 
 `max_tokens` needs headroom for the model's `<think>` preamble even at low
-effort — 200 was too tight for this prompt shape and returned no `content` at
+effort, 200 was too tight for this prompt shape and returned no `content` at
 all; 400-600 worked reliably in testing. Only the matching prompt needed the
 larger budget; the pure-extraction prompt worked fine at 200.
 
 This step should stay a **proposal**, same as the existing pipeline's
-`receipt_match_status: matched/ambiguous/missing_or_unmatched` convention —
+`receipt_match_status: matched/ambiguous/missing_or_unmatched` convention:
 even a "high confidence" model match goes through the same human review the
 project already requires before anything is booked or renamed.
 
 ## Model choice
 
-`qwen36-35b-a3b` is the only model on this Mac (see `README.md`), so it is the
-zero-extra-setup choice by construction. The old guidance — that a 7-14B model
-would likely be faster and sufficient for short-text structured extraction —
-still stands and is still untested; it is worth trying if extraction volume ever
-makes per-receipt latency matter. Note the constraint from `README.md`: this is
-a 24 GB machine holding a 19 GB model, so run extraction when the desktop is not
-also in use.
+`qwen36-35b-a3b` is the primary daily-driver model on this Mac (see `README.md`), making it the zero-extra-setup choice. The earlier guidance that a 7–14B model might be faster and sufficient for short-text structured extraction remains untested; it is worth exploring if extraction volume makes per-receipt latency a priority. As noted in `README.md`, run extraction when memory-heavy desktop applications are closed.
 
 ## Practical context size on this Mac
 
 The model's architectural max context is 262,144 tokens, but that's not the
 real ceiling on a 24 GB machine. In testing during engine evaluation, a single
 ~3.9K-token prompt already pushed KV cache usage to 17-18 GB on top of the
-15.5 GB model weights — right against a memory guard's ceiling (that specific
+15.5 GB model weights, right against a memory guard's ceiling (that specific
 test was on oMLX, which enforces a hard ceiling; Ollama doesn't hard-fail the
 same way but the underlying memory pressure is the same). Rough estimate from
 that data: realistic safe context
 for a single request here is more like **8K-16K tokens**, not benchmarked
-precisely. For this receipt-matching use case that's not a constraint — OCR
+precisely. For this receipt-matching use case that's not a constraint, OCR
 text for one invoice plus a handful of candidate ledger rows is a few hundred
 to low thousands of tokens, well within range. It would matter if this were
 ever extended to feed the model much larger batches (e.g. many receipts or a

@@ -1,15 +1,15 @@
 # ik_llama.cpp scripts
 
-CPU-only local LLM inference using [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) (authored by Iwan Kawrakow, packaged by [Thireus](https://github.com/Thireus/ik_llama.cpp)) — an optimized fork of llama.cpp featuring custom AVX2/AVX-512 GEMM tiling, optimized quantization formats (IQ\*, K\_P variants), and specialized MoE matrix scheduling.
+CPU-only local LLM inference using [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) (authored by Iwan Kawrakow, packaged by [Thireus](https://github.com/Thireus/ik_llama.cpp)); an optimized fork of llama.cpp featuring custom AVX2/AVX-512 GEMM tiling, optimized quantization formats (IQ\*, K\_P variants), and specialized MoE matrix scheduling.
 
 ## Hardware
 
 | Machine | CPU | RAM | OS | Notes |
 |---|---|---|---|---|
 | HP ProBook (Ryzen) | AMD Ryzen 7 250 (Zen 5) | 32 GB | Windows 11 (native) | AVX512 VNNI VBMI BF16 |
-| Work PC (i9) | Intel Core i9-13900 (Raptor Lake) | 64 GB | Debian 12 (bookworm), GLIBC 2.36 | AVX2 + AVX-VNNI — no AVX512 |
+| Work PC (i9) | Intel Core i9-13900 (Raptor Lake) | 64 GB | Debian 12 (bookworm), GLIBC 2.36 | AVX2 + AVX-VNNI; no AVX512 |
 
-Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vulkan OOM crashes — always use `-ngl 0`.
+Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vulkan OOM crashes; always use `-ngl 0`.
 
 ## Scripts
 
@@ -24,7 +24,7 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `ocg-proxy.py` | Anthropic ↔ OpenAI proxy for OpenCode Go (DeepSeek/Kimi/GLM + Claude Code) |
 | `bench.sh <machine> <mode>` | Benchmark CPU thread settings with llama-bench (i9) |
 | `model-info.sh` | Show on-disk models, file sizes, mmproj status |
-| `cleanup-models.sh <machine>` | Remove GGUFs not in active start.sh lineup — whitelist-driven, dry-run by default |
+| `cleanup-models.sh <machine>` | Remove GGUFs not in active start.sh lineup, whitelist-driven, dry-run by default |
 
 `setup-agents.sh` writes the `ik-llama` provider for OpenCode when `opencode` is
 installed and for Pi when `pi` is installed. Per-model context values are parsed
@@ -57,7 +57,7 @@ when testing a different compaction buffer.
 Pi config is written to `~/.pi/agent/models.json` with `api:
 "openai-completions"`, `contextWindow`, and `maxTokens` for each local model.
 
-### Quick start — ProBook (Native Windows PowerShell)
+### Quick start: ProBook (Native Windows PowerShell)
 
 On Windows, ProBook runs natively via the scripts in `llm/` (see `llm/README.md`):
 
@@ -74,7 +74,7 @@ Benchmark thread settings:
 pwsh llm\bench\bench-threads.ps1
 ```
 
-### Quick start — i9
+### Quick start: i9
 
 ```bash
 ./update.sh i9
@@ -86,7 +86,7 @@ pwsh llm\bench\bench-threads.ps1
 
 All i9 start modes default to `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24`. Override these only for explicit benchmark tests.
 
-### Quick start — MacBook Air M4
+### Quick start: MacBook Air M4
 
 ```bash
 brew install llama.cpp             # prerequisite (once)
@@ -99,11 +99,11 @@ brew install llama.cpp             # prerequisite (once)
 
 All Mac modes use Metal GPU (`-ngl 99`) with 4 threads. Same HF repos and mmproj as i9.
 
-> **The Mac's daily driver is Ollama, not this path** — see `../ollama/README.md`.
+> **The Mac's daily driver is Ollama, not this path**; see `../ollama/README.md`.
 > This GGUF/Metal path is the alternative. Its Mac lineup predates the memory
 > ceiling measured on that machine (a 17.6 GB model OOM'd at 8K context; the
 > guard aborts at 16.9 GB), so if you use it there, prefer `IQ3_M` (14.38 GiB)
-> or `Q2_K_P` (13.95 GiB) from the same repo — both recorded with sizes and
+> or `Q2_K_P` (13.95 GiB) from the same repo; both recorded with sizes and
 > hashes in `../llm/MODELS.md`.
 
 For OpenCode edit loops where "Preparing write" feels slow, first try the same coder
@@ -147,8 +147,8 @@ Summarize benchmark results:
 
 | Mode | Model | Size | Context | Vision | Notes |
 |---|---|---|---|---|---|
-| `qwen36u27b` | Qwen3.6-27B-Uncensored IQ4\_XS | ~15 GB | 32 K | yes | 27B dense — all params active, daily driver |
-| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 16 K | yes | 35B MoE, 3B active — general + vision |
+| `qwen36u27b` | Qwen3.6-27B-Uncensored IQ4\_XS | ~15 GB | 32 K | yes | 27B dense; all params active, daily driver |
+| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 16 K | yes | 35B MoE, 3B active, general + vision |
 | `qwen3coder30b` | Qwen3-Coder-30B-A3B IQ4\_NL | ~17 GB | 32 K | no | Dedicated agentic coder, 262K native ctx |
 
 Quick start:
@@ -159,21 +159,21 @@ brew install llama.cpp                      # prerequisite
 ./start.sh macbook-air qwen36u27b            # daily driver: 27B dense, 32K ctx
 ```
 
-The 27B dense IQ4\_XS is the smarter general pick — all 27B params active vs 3B MoE for the 35B, and still fits at 32K context on 24 GB unified memory. Use `qwen3coder30b` for focused coding sessions. Same HF repos and mmproj files as i9, just different quants (IQ4\_XS/IQ4\_NL for Mac vs K\_P for i9).
+The 27B dense IQ4\_XS is the smarter general pick; all 27B params active vs 3B MoE for the 35B, and still fits at 32K context on 24 GB unified memory. Use `qwen3coder30b` for focused coding sessions. Same HF repos and mmproj files as i9, just different quants (IQ4\_XS/IQ4\_NL for Mac vs K\_P for i9).
 
 ### i9 (64 GB RAM)
 
 | Mode | Model | Size | Context | Vision | Notes |
 |---|---|---|---|---|---|
 | `qwen36u35bq6kp` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline + vision |
-| `qwopus35bq5km` | Qwopus3.6-35B-A3B Q5\_K\_M | ~25 GB | 128 K | yes | Daily driver — fastest, reasoning, vision |
+| `qwopus35bq5km` | Qwopus3.6-35B-A3B Q5\_K\_M | ~25 GB | 128 K | yes | Daily driver, fastest, reasoning, vision |
 | `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored fallback, text-only |
-| `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active — heavy coder test |
-| `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P (dense) | ~19 GB | 128 K | no | Dense, all 27B active — slow (3.4 tg tok/s measured) but higher quality ceiling than 3B-active MoE; kept on hand since no GPU upgrade is coming |
+| `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active, heavy coder test |
+| `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P (dense) | ~19 GB | 128 K | no | Dense, all 27B active, slow (3.4 tg tok/s measured) but higher quality ceiling than 3B-active MoE; kept on hand since no GPU upgrade is coming |
 
-Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24 — about 20% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Context set to 128K for long agent sessions; prompt-cache RAM capped via `cram`.
+Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24, about 20% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Context set to 128K for long agent sessions; prompt-cache RAM capped via `cram`.
 
-NVIDIA's Nemotron-3.5-Lightning-30B-A3B was tried and dropped: its architecture interleaves Mamba-2 (SSM) layers with MoE and attention layers, which ik_llama.cpp (an AVX2/quant-kernel-focused `llama.cpp` fork) doesn't implement — it fails to load with `unknown model architecture: 'nemotron_h_moe'`. Confirmed via direct load test, not just a version mismatch.
+NVIDIA's Nemotron-3.5-Lightning-30B-A3B was tried and dropped: its architecture interleaves Mamba-2 (SSM) layers with MoE and attention layers, which ik_llama.cpp (an AVX2/quant-kernel-focused `llama.cpp` fork) doesn't implement; it fails to load with `unknown model architecture: 'nemotron_h_moe'`. Confirmed via direct load test, not just a version mismatch.
 
 **`-ub`/`--ubatch-size` default raised to 1024** (`IK_LLAMA_UBATCH` env override) after a sweep on `qwopus35bq5km` showed a free ~2.5% pp gain (135.8 → 139.1 t/s at ub=1024 vs the previous default of 512) with `tg` unaffected. No GPU-style cliff at small ubatch values on this AVX2 CPU path, unlike reports on GPU/ROCm backends.
 
@@ -186,7 +186,7 @@ Downloaded automatically by `update-*.sh`. Correct build for each machine:
 | ProBook (Windows) | `*-bin-win-cpu-x64-avx512_vnni_vbmi_bf16.zip` |
 | i9 (Linux) | `*-bin-ubuntu-x64-avx2.zip` |
 
-Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5` — the znver5 build crashes with Qwen3 MoE models.
+Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`; the znver5 build crashes with Qwen3 MoE models.
 
 ## Flag reference
 
@@ -245,7 +245,7 @@ Default startup uses `THREADS=8 THREADS_BATCH=16`. Use `IK_LLAMA_THREADS=8 IK_LL
 | pp2048 (t/s) | ~100–110 | ~122–131 |
 | tg128 (t/s) | ~12–13 | ~23–26 |
 
-Prompt processing is close (~80% of i9) thanks to AVX512. Token generation is roughly half — memory bandwidth limited by 32 GB laptop DDR5 vs 64 GB desktop DDR5.
+Prompt processing is close (~80% of i9) thanks to AVX512. Token generation is roughly half, memory bandwidth limited by 32 GB laptop DDR5 vs 64 GB desktop DDR5.
 
 - First message with long system prompt: ~5–10 s (cache cold, mmap)
 - Subsequent messages: ~2–3 s (cache hit)
@@ -261,14 +261,14 @@ Active model throughput at the default `8/24` thread setting:
 | `qwen36u35bq6kp` | ~122.8 | ~22.6 | Quality baseline + vision |
 | `qwen3codernext` | ~98 | ~16 | 80B MoE heavy coder |
 
-Qwopus Q5_K_M is the clear daily driver — fastest on both pp and tg. All models are well above the interactive threshold for OpenCode tool loops.
+Qwopus Q5_K_M is the clear daily driver, fastest on both pp and tg. All models are well above the interactive threshold for OpenCode tool loops.
 
 ### i9 speed notes
 
 The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. Qwen3-Coder-Next 80B-A3B covers the heavy coding slot; Qwopus covers daily use. Ornith-1.0 35B failed manual quality check and is removed.
 
 - Test `qwopus35bq5km` first for daily use.
-- Keep context as low as the task allows; 64K/128K context improves long sessions but slows prompt processing and grows KV memory.
+- All i9 modes default to 128K context. Treat that as an emergency ceiling and keep working context at 16K to 32K through agent-side compaction. Rerun provider setup with the same `IK_LLAMA_CTX_SIZE` override when changing the server window.
 - Use `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default i9 startup point.
 - Avoid `IK_LLAMA_THREADS=10` and `12`; benchmarks were consistently worse than `6` and `8`.
 
@@ -283,7 +283,7 @@ Measured on the same model (Qwen3-Coder-Next UD-Q3\_K\_M) with `p=2048 n=128 r=3
 | ik_llama.cpp | 16 gen / 24 batch | 93.1 | 14.2 |
 | standard llama.cpp b9789 | 16 | 46.4 | 14.7 |
 
-**Prompt processing: ik_llama is ~2.1× faster.** Token generation is identical (both are memory-bandwidth bound). Standard llama.cpp b9789 correctly auto-detected the i9 as Alder Lake and loaded `libggml-cpu-alderlake.so`, so this is a fair comparison — not a configuration gap.
+**Prompt processing: ik_llama is ~2.1× faster.** Token generation is identical (both are memory-bandwidth bound). Standard llama.cpp b9789 correctly auto-detected the i9 as Alder Lake and loaded `libggml-cpu-alderlake.so`, so this is a fair comparison; not a configuration gap.
 
 The PP speedup matters for coding sessions: it determines how fast tool results, file reads, and `/compact` requests are ingested. Some of ik_llama's IQ\*/K\_P AVX2 kernel improvements have been contributed back upstream over time (IQ1/IQ2/IQ3/IQ4 quant formats, some kernel patches), but the batch processing gap above shows significant optimizations remain fork-only.
 
@@ -303,7 +303,7 @@ Benchmarked 2026-06-29 with ik_llama.cpp b4958 (`x64-avx512_vnni_vbmi_bf16`), `p
 | 16 / 12 | 97.0 | 10.2 |
 | 16 / 8 | 85.1 | 11.7 |
 
-**qwen3coder30b (Q4\_K\_M, ~19 GB):** benchmarks pending — run via `llm/bench/bench-threads.ps1` after download.
+**qwen3coder30b (Q4\_K\_M, ~19 GB):** benchmarks pending; run via `llm/bench/bench-threads.ps1` after download.
 
 Default `8/16` is the best balanced setting for qwen36u35b. Use `8/8` (`IK_LLAMA_THREADS=8 IK_LLAMA_THREADS_BATCH=8`) only if qwen prompt throughput is the priority.
 
@@ -311,7 +311,7 @@ Default `8/16` is the best balanced setting for qwen36u35b. Use `8/8` (`IK_LLAMA
 
 `8/24` is the best default. `8/32` drops pp significantly with no tg gain.
 
-**Active models — best rows at `8/24`:**
+**Active models, best rows at `8/24`:**
 
 | Mode | pp2048 (t/s) | tg128 (t/s) | Notes |
 |---|---:|---:|---|
@@ -355,28 +355,28 @@ To free disk space after rotating models:
 ./cleanup-models.sh i9 --apply
 ```
 
-The cleanup script derives the whitelist from `start.sh` MODES automatically — any file not in the active lineup is flagged.
+The cleanup script derives the whitelist from `start.sh` MODES automatically; any file not in the active lineup is flagged.
 
 ## Key lessons
 
-1. **`-ngl 0` always** — integrated GPU causes Vulkan OOM crashes
-2. **Quantized KV cache requires flash attention on** — `-ctv q8_0` is incompatible with `--flash-attn off`; ik_llama.cpp enables FA by default which is correct
-3. **Avoid `_XL` variants** — incompatible quantization format with ik_llama.cpp
-4. **ProBook: use generic AVX512 build** — `znver5` crashes with MoE models (exit code 29 on any model load, despite `-h` working)
-5. **i9 has no AVX512** — Intel fused off AVX-512 on consumer Raptor Lake; use AVX2 + AVX-VNNI build only
-6. **Prefill and prefix-cache stability are the true bottleneck on CPU** — decode speed (16–26 t/s) is negligible next to cold prefill at ~100 t/s (ingesting a 50K context cold takes >8 minutes; 128K takes >20 minutes). Practical turnaround in coding agents is dominated by prefix-cache hits (`--cache-reuse`, single slot `IK_LLAMA_PARALLEL=1`, stable system prompts, static tool definitions).
-7. **128K context is an emergency ceiling, not routine operating depth** — operate at 16K–32K with agent-level harness compaction (e.g. OpenCode reserving 10,000 tokens to prune old tool outputs) rather than letting contexts inflate to 100K+.
-8. **Hybrid linear attention in Qwen3-Coder-Next 80B-A3B** — combines Gated DeltaNet (linear recurrent layers) with only 12 full-attention layers. This provides $O(1)$ memory per linear layer at deep context, explaining why an 80B-class model runs in 64 GB RAM. Note that recurrent hidden state cannot be shifted by server-side context shift, making harness-side compaction strictly mandatory.
-9. **Claude Code attribution header causes ~90% silent slowdown** — Claude Code inserts dynamic attribution metadata into request headers on every turn, altering the prompt prefix and forcing 100% cache misses on local servers. Adding `"CLAUDE_CODE_ATTRIBUTION_HEADER": "0"` in `~/.claude/settings.json` stabilizes the prefix.
-10. **The "Empty Answer" thinking budget trap** — on reasoning models, small `max_tokens` budgets (e.g. 32 or 64) spend every token in `reasoning_content` and return empty `content: ""`. Appending `/no_think` does not suppress thinking on these templates. Either provide generous token headroom (1024+) or turn off internal thinking server-side via `-rea off` (which cuts turn latency 50–80% for coding).
-11. **MoE active-parameter ceiling vs dense models** — 35B-A3B MoE routes ~3.2B active parameters per token. While fast on DDR5 (~24 t/s), dense 27B–32B models have full parameter depth on every token. For complex logic, speculative decoding (prompt lookup / n-gram drafting) on dense models can narrow the generation gap without model degradation.
-12. **Vision requires mmproj** — Qwen3.6, Qwopus3.6, and Gemma4 models support image input when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. SuperGemma4 and GLM-4.7-Flash are text-only.
-13. **One server slot per active agent** — `--parallel 2` divides the configured context between slots, while unrelated sessions evict each other's cached prefixes. Keep the default `IK_LLAMA_PARALLEL=1`; use separate server instances when concurrent agents need full context and stable cache reuse.
-14. **No YARN for Qwen3 instruct models** — Qwen3 instruct supports 128K context natively. YARN (`--rope-scaling yarn --yarn-orig-ctx 32768`) was a Qwen2.5-era workaround for 32K base models. On Qwen3 it is redundant and silently disables context shift in ik_llama, causing hard 500 errors when context fills. All Qwen3-family modes have YARN removed.
-15. **`--context-shift on` is explicit** — set explicitly in `start_model()` as a guard against version differences. Note that harness-side compaction should always be primary.
-16. **ProBook: `bench.sh` uses JSON output, not CSV** — `llama-bench.exe` embeds a null byte in the `cpu_info` CSV field, which silently truncates every data row (no performance numbers captured). `-o json` is used instead. `summarize-bench.py` reads both formats.
-17. **ProBook: native Windows execution** — WSL has been retired on ProBook. All model execution and benchmarks now run natively on Windows via PowerShell scripts in `llm/`.
-18. **ProBook: clear Windows standby page list between benchmark runs** — after each ~20 GB model run, Windows retains model pages in the standby list. Switching to a different model before the standby list is evicted causes mmap to fail with exit 5. In native Windows benchmarks (`llm/bench/`), the standby list is cleared between runs.
+1. **`-ngl 0` always**: integrated GPU causes Vulkan OOM crashes
+2. **Quantized KV cache requires flash attention on**: `-ctv q8_0` is incompatible with `--flash-attn off`; ik_llama.cpp enables FA by default which is correct
+3. **Avoid `_XL` variants**: incompatible quantization format with ik_llama.cpp
+4. **ProBook: use generic AVX512 build**: `znver5` crashes with MoE models (exit code 29 on any model load, despite `-h` working)
+5. **i9 has no AVX512**: Intel fused off AVX-512 on consumer Raptor Lake; use AVX2 + AVX-VNNI build only
+6. **Prefill and prefix-cache stability are the true bottleneck on CPU**: decode speed (16–26 t/s) is negligible next to cold prefill at ~100 t/s (ingesting a 50K context cold takes >8 minutes; 128K takes >20 minutes). Practical turnaround in coding agents is dominated by prefix-cache hits (`--cache-reuse`, single slot `IK_LLAMA_PARALLEL=1`, stable system prompts, static tool definitions).
+7. **128K context is an emergency ceiling, not routine operating depth**: operate at 16K–32K with agent-level harness compaction (e.g. OpenCode reserving 10,000 tokens to prune old tool outputs) rather than letting contexts inflate to 100K+.
+8. **Hybrid linear attention in Qwen3-Coder-Next 80B-A3B**: combines Gated DeltaNet (linear recurrent layers) with only 12 full-attention layers. This provides O(1) memory per linear layer at deep context, explaining how an 80B-class model runs in 64 GB RAM. Note that recurrent hidden state cannot be shifted by server-side context shift, making harness-side compaction strictly mandatory.
+9. **Claude Code attribution header causes ~90% silent slowdown**: Claude Code inserts dynamic attribution metadata into request headers on every turn, altering the prompt prefix and forcing 100% cache misses on local servers. Adding `"CLAUDE_CODE_ATTRIBUTION_HEADER": "0"` in `~/.claude/settings.json` stabilizes the prefix.
+10. **The "Empty Answer" thinking budget trap**: on reasoning models, small `max_tokens` budgets (e.g. 32 or 64) spend every token in `reasoning_content` and return empty `content: ""`. Appending `/no_think` does not suppress thinking on these templates. Either provide generous token headroom (1024+) or turn off internal thinking server-side via `-rea off` (which cuts turn latency 50–80% for coding).
+11. **MoE active-parameter ceiling vs dense models**: 35B-A3B MoE routes ~3.2B active parameters per token. While fast on DDR5 (~24 t/s), dense 27B–32B models have full parameter depth on every token. For complex logic, speculative decoding (prompt lookup / n-gram drafting) on dense models can narrow the generation gap without model degradation.
+12. **Vision requires mmproj**: Qwen3.6, Qwopus3.6, and Gemma4 models support image input when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. SuperGemma4 and GLM-4.7-Flash are text-only.
+13. **One server slot per active agent**: `--parallel 2` divides the configured context between slots, while unrelated sessions evict each other's cached prefixes. Keep the default `IK_LLAMA_PARALLEL=1`; use separate server instances when concurrent agents need full context and stable cache reuse.
+14. **No YARN for Qwen3 instruct models**: Qwen3 instruct supports 128K context natively. YARN (`--rope-scaling yarn --yarn-orig-ctx 32768`) was a Qwen2.5-era workaround for 32K base models. On Qwen3 it is redundant and silently disables context shift in ik_llama, causing hard 500 errors when context fills. All Qwen3-family modes have YARN removed.
+15. **`--context-shift on` is explicit**: set explicitly in `start_model()` as a guard against version differences. Note that harness-side compaction should always be primary.
+16. **ProBook: `bench.sh` uses JSON output, not CSV**: `llama-bench.exe` embeds a null byte in the `cpu_info` CSV field, which silently truncates every data row (no performance numbers captured). `-o json` is used instead. `summarize-bench.py` reads both formats.
+17. **ProBook: native Windows execution**: WSL has been retired on ProBook. All model execution and benchmarks now run natively on Windows via PowerShell scripts in `llm/`.
+18. **ProBook: clear Windows standby page list between benchmark runs**: after each ~20 GB model run, Windows retains model pages in the standby list. Switching to a different model before the standby list is evicted causes mmap to fail with exit 5. In native Windows benchmarks (`llm/bench/`), the standby list is cleared between runs.
 
 ## Debian 12 / GLIBC 2.36 compatibility
 
@@ -390,13 +390,13 @@ a compiled binary.
 version `GLIBC_2.38' not found
 ```
 
-**Fix — wrapper script (no root, no npm):**
-`pi-install.sh` auto-detects the glibc issue and creates `~/.local/bin/pi`
-— a wrapper that runs pi's JS via the system node, bypassing brew's broken
+**Fix, wrapper script (no root, no npm):**
+`pi-install.sh` auto-detects the glibc issue and creates `~/.local/bin/pi`,
+a wrapper that runs pi's JS via the system node, bypassing brew's broken
 node. Brew still manages pi upgrades; the wrapper auto-picks the latest version.
 
 For other brew formulae with the same issue, either build from source
 (`brew install --build-from-source <formula>`) or install via the system package
 manager instead of brew.
 
-Ubuntu 24.04 and macOS are unaffected — brew bottles work natively.
+Ubuntu 24.04 and macOS are unaffected, brew bottles work natively.
