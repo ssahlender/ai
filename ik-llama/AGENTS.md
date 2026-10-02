@@ -163,7 +163,7 @@ Use the full GGUF stem as the model name for local, e.g. `Qwopus3.6-35B-A3B-v1-Q
 
 ### Disable KV cache attribution header
 
-The attribution header causes a ~90% slowdown with local servers. Add to `~/.claude/settings.json`:
+Claude Code injects an attribution header into request headers that changes dynamically on each turn, breaking prompt prefix caching on local servers and causing a ~90% slowdown due to repeated cold prefills. Add to `~/.claude/settings.json`:
 
 ```json
 {
@@ -173,6 +173,15 @@ The attribution header causes a ~90% slowdown with local servers. Add to `~/.cla
 }
 ```
 
+### Context window and harness-side compaction
+
+Claude Code inspects `context_window` in the Anthropic `/v1/models` response. Because local servers return context info in extensions or fall back to `n_ctx_train` (e.g. 262K for Qwen3-Coder-Next), Claude Code does not trigger automatic context compaction until the session grows huge.
+
+- **Keep operating depth at 16K–32K**: Ingesting uncached context on CPU at ~100 t/s scales linearly with length (>8 minutes for 50K; >20 minutes for 128K).
+- **Run `/compact` proactively**: Execute `/compact` manually before sessions exceed 32K tokens to maintain snappy turnarounds and maximize prompt cache hits.
+- **Hybrid attention models**: On models using hybrid linear attention (such as Qwen3-Coder-Next with Gated DeltaNet), recurrent state cannot be shifted by server-side context shift, making harness-side compaction mandatory.
+
 ## Prompt cache warmup
 
 The first message with a large system prompt is slow (cold cache). Send a short "hi" first to prime the cache — all subsequent messages will be fast.
+

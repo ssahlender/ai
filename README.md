@@ -502,6 +502,3 @@ CPU-only local LLM inference using [ik_llama.cpp](https://github.com/Thireus/ik_
 See [`ik-llama/README.md`](ik-llama/README.md) for full details: hardware, models, flags, benchmark scripts, performance, and lessons learned.
 
 Generated benchmark output goes into `bench-results/` and is intentionally ignored by git. Python bytecode caches such as `__pycache__/` and `*.pyc` are also ignored.
-
----
-- `gemma3:12b` — Gemma3 12B dense (~8 GB), fast alternative
