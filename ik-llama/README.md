@@ -1,6 +1,6 @@
 # ik_llama.cpp scripts
 
-CPU-only local LLM inference on two machines using [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) — a fork of llama.cpp with better AVX512/AVX2 kernels, optimized quantization formats (IQ\*, K\_P variants), and improved MoE scheduling.
+CPU-only local LLM inference using [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) (authored by Iwan Kawrakow, packaged by [Thireus](https://github.com/Thireus/ik_llama.cpp)) — an optimized fork of llama.cpp featuring custom AVX2/AVX-512 GEMM tiling, optimized quantization formats (IQ\*, K\_P variants), and specialized MoE matrix scheduling.
 
 ## Hardware
 
@@ -13,8 +13,6 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 
 ## Scripts
 
-| Script | Purpose |
-|---|---|
 | Script | Purpose |
 |---|---|
 | `update.sh <machine>` | Download/update ik_llama.cpp (i9) or brew upgrade llama.cpp (macbook-air) |
@@ -365,19 +363,20 @@ The cleanup script derives the whitelist from `start.sh` MODES automatically —
 2. **Quantized KV cache requires flash attention on** — `-ctv q8_0` is incompatible with `--flash-attn off`; ik_llama.cpp enables FA by default which is correct
 3. **Avoid `_XL` variants** — incompatible quantization format with ik_llama.cpp
 4. **ProBook: use generic AVX512 build** — `znver5` crashes with MoE models (exit code 29 on any model load, despite `-h` working)
-5. **i9 has no AVX512** — despite being 13th gen Raptor Lake; use AVX2 build only
-6. **Prompt cache is critical** — first message is slow; subsequent messages hit cache and are fast
-7. **`-rea off`** — disables thinking mode; cuts response time 50–80% for coding tasks
-8. **MoE active-parameter ceiling** — 3B active params is the real intelligence limit regardless of quantization level; for more intelligence use a dense model like `qwen36u27bq5kp`
-9. **GLM-4.7-Flash is not faster than Qwen3-Coder on this i9** — despite MLA, measured throughput was lower than the Qwen MoE models
-10. **Vision requires mmproj** — Qwen3.6, Qwopus3.6, and Gemma4 models support image input when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. SuperGemma4 and GLM-4.7-Flash are text-only.
-11. **One server slot per active agent** — `--parallel 2` divides the configured context between slots, while unrelated sessions evict each other's cached prefixes. Keep the default `IK_LLAMA_PARALLEL=1`; use separate server instances when concurrent agents need full context and stable cache reuse.
-12. **No YARN for Qwen3 instruct models** — Qwen3 instruct supports 128K context natively. YARN (`--rope-scaling yarn --yarn-orig-ctx 32768`) was a Qwen2.5-era workaround for 32K base models. On Qwen3 it is redundant and, critically, causes ik_llama to silently disable context shift, causing hard 500 errors when the context fills. All Qwen3-family modes have YARN removed.
-13. **`--context-shift on` is explicit** — context shift is on by default in llama.cpp/ik_llama but YARN overrides it internally. Now set explicitly in `start_model()` as a belt-and-suspenders guard against version differences. With context shift on, a full KV cache softly rolls out old tokens instead of returning a 500 error — essential for long sessions and `/compact` requests.
-14. **Claude Code does not auto-compact for local models** — Claude Code reads `context_window` from the Anthropic SDK's `data[].context_window` field in the `/v1/models` response. ik_llama returns this in a non-standard `models[]` extension array instead, so Claude Code falls back to `n_ctx_train` (262K for Qwen3-Coder-Next) as the effective window and will not auto-compact until the session is enormous. Use `/compact` manually before sessions grow too large, or restart the server with a larger context.
-15. **ProBook: `bench.sh` uses JSON output, not CSV** — `llama-bench.exe` embeds a null byte in the `cpu_info` CSV field, which silently truncates every data row (no performance numbers captured). `-o json` is used instead. `summarize-bench.py` reads both formats.
-16. **ProBook: native Windows execution** — WSL has been retired on ProBook. All model execution and benchmarks now run natively on Windows via PowerShell scripts in `llm/`.
-17. **ProBook: clear Windows standby page list between benchmark runs** — after each ~20 GB model run, Windows retains model pages in the standby list. Switching to a different model before the standby list is evicted causes mmap to fail with exit 5. In native Windows benchmarks (`llm/bench/`), the standby list is cleared between runs.
+5. **i9 has no AVX512** — Intel fused off AVX-512 on consumer Raptor Lake; use AVX2 + AVX-VNNI build only
+6. **Prefill and prefix-cache stability are the true bottleneck on CPU** — decode speed (16–26 t/s) is negligible next to cold prefill at ~100 t/s (ingesting a 50K context cold takes >8 minutes; 128K takes >20 minutes). Practical turnaround in coding agents is dominated by prefix-cache hits (`--cache-reuse`, single slot `IK_LLAMA_PARALLEL=1`, stable system prompts, static tool definitions).
+7. **128K context is an emergency ceiling, not routine operating depth** — operate at 16K–32K with agent-level harness compaction (e.g. OpenCode reserving 10,000 tokens to prune old tool outputs) rather than letting contexts inflate to 100K+.
+8. **Hybrid linear attention in Qwen3-Coder-Next 80B-A3B** — combines Gated DeltaNet (linear recurrent layers) with only 12 full-attention layers. This provides $O(1)$ memory per linear layer at deep context, explaining why an 80B-class model runs in 64 GB RAM. Note that recurrent hidden state cannot be shifted by server-side context shift, making harness-side compaction strictly mandatory.
+9. **Claude Code attribution header causes ~90% silent slowdown** — Claude Code inserts dynamic attribution metadata into request headers on every turn, altering the prompt prefix and forcing 100% cache misses on local servers. Adding `"CLAUDE_CODE_ATTRIBUTION_HEADER": "0"` in `~/.claude/settings.json` stabilizes the prefix.
+10. **The "Empty Answer" thinking budget trap** — on reasoning models, small `max_tokens` budgets (e.g. 32 or 64) spend every token in `reasoning_content` and return empty `content: ""`. Appending `/no_think` does not suppress thinking on these templates. Either provide generous token headroom (1024+) or turn off internal thinking server-side via `-rea off` (which cuts turn latency 50–80% for coding).
+11. **MoE active-parameter ceiling vs dense models** — 35B-A3B MoE routes ~3.2B active parameters per token. While fast on DDR5 (~24 t/s), dense 27B–32B models have full parameter depth on every token. For complex logic, speculative decoding (prompt lookup / n-gram drafting) on dense models can narrow the generation gap without model degradation.
+12. **Vision requires mmproj** — Qwen3.6, Qwopus3.6, and Gemma4 models support image input when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. SuperGemma4 and GLM-4.7-Flash are text-only.
+13. **One server slot per active agent** — `--parallel 2` divides the configured context between slots, while unrelated sessions evict each other's cached prefixes. Keep the default `IK_LLAMA_PARALLEL=1`; use separate server instances when concurrent agents need full context and stable cache reuse.
+14. **No YARN for Qwen3 instruct models** — Qwen3 instruct supports 128K context natively. YARN (`--rope-scaling yarn --yarn-orig-ctx 32768`) was a Qwen2.5-era workaround for 32K base models. On Qwen3 it is redundant and silently disables context shift in ik_llama, causing hard 500 errors when context fills. All Qwen3-family modes have YARN removed.
+15. **`--context-shift on` is explicit** — set explicitly in `start_model()` as a guard against version differences. Note that harness-side compaction should always be primary.
+16. **ProBook: `bench.sh` uses JSON output, not CSV** — `llama-bench.exe` embeds a null byte in the `cpu_info` CSV field, which silently truncates every data row (no performance numbers captured). `-o json` is used instead. `summarize-bench.py` reads both formats.
+17. **ProBook: native Windows execution** — WSL has been retired on ProBook. All model execution and benchmarks now run natively on Windows via PowerShell scripts in `llm/`.
+18. **ProBook: clear Windows standby page list between benchmark runs** — after each ~20 GB model run, Windows retains model pages in the standby list. Switching to a different model before the standby list is evicted causes mmap to fail with exit 5. In native Windows benchmarks (`llm/bench/`), the standby list is cleared between runs.
 
 ## Debian 12 / GLIBC 2.36 compatibility
 
