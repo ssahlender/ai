@@ -6,7 +6,7 @@ CPU-only local LLM inference on two machines using [ik_llama.cpp](https://github
 
 | Machine | CPU | RAM | OS | Notes |
 |---|---|---|---|---|
-| HP ProBook (Ryzen) | AMD Ryzen 7 250 (Zen 5) | 32 GB | Windows 11 + WSL2 | AVX512 VNNI VBMI BF16 |
+| HP ProBook (Ryzen) | AMD Ryzen 7 250 (Zen 5) | 32 GB | Windows 11 (native) | AVX512 VNNI VBMI BF16 |
 | Work PC (i9) | Intel Core i9-13900 (Raptor Lake) | 64 GB | Debian 12 (bookworm), GLIBC 2.36 | AVX2 + AVX-VNNI — no AVX512 |
 
 Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vulkan OOM crashes — always use `-ngl 0`.
@@ -15,14 +15,16 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 
 | Script | Purpose |
 |---|---|
-| `update.sh <machine>` | Download/update ik_llama.cpp (Linux/Windows) or brew upgrade llama.cpp (Mac) |
-| `download-models.sh <machine>` | Download GGUF + mmproj files for i9/probook/macbook-air |
-| `start.sh <machine> <mode>` | Start llama-server on any machine |
+| Script | Purpose |
+|---|---|
+| `update.sh <machine>` | Download/update ik_llama.cpp (i9) or brew upgrade llama.cpp (macbook-air) |
+| `download-models.sh <machine>` | Download GGUF + mmproj files for i9/macbook-air |
+| `start.sh <machine> <mode>` | Start llama-server on i9 or macbook-air |
 | `setup-agents.sh <machine>` | Auto-generate OpenCode/Pi provider config (parses start.sh) |
 | `claude-providers.sh [provider] [model]` | Interactive picker & launch Claude Code with local or remote models (shows live n_ctx from `/props`) |
 | `.secrets.example` | Template for `~/.secrets` (copy, chmod 600, fill in keys) |
 | `ocg-proxy.py` | Anthropic ↔ OpenAI proxy for OpenCode Go (DeepSeek/Kimi/GLM + Claude Code) |
-| `bench.sh <machine> <mode>` | Benchmark CPU thread settings with llama-bench (i9/probook) |
+| `bench.sh <machine> <mode>` | Benchmark CPU thread settings with llama-bench (i9) |
 | `model-info.sh` | Show on-disk models, file sizes, mmproj status |
 | `cleanup-models.sh <machine>` | Remove GGUFs not in active start.sh lineup — whitelist-driven, dry-run by default |
 
@@ -57,25 +59,22 @@ when testing a different compaction buffer.
 Pi config is written to `~/.pi/agent/models.json` with `api:
 "openai-completions"`, `contextWindow`, and `maxTokens` for each local model.
 
-### Quick start — ProBook
+### Quick start — ProBook (Native Windows PowerShell)
 
-```bash
-./update.sh probook
-./download-models.sh probook
-./setup-agents.sh probook
-./start.sh probook qwen36u35b   # or: qwen3coder30b
+On Windows, ProBook runs natively via the scripts in `llm/` (see `llm/README.md`):
+
+```powershell
+pwsh llm\update-llm.ps1
+pwsh llm\fetch-model.ps1 qwen36u35b_ml
+pwsh llm\setup-agent-providers.ps1
+pwsh llm\start-llm.ps1 qwen36u35b_ml
 ```
 
 Benchmark thread settings:
 
-```bash
-./bench.sh probook qwen36u35b
-./bench.sh probook all
-BENCH_THREADS="8 12 16" BENCH_THREADS_BATCH="8 12 16" ./bench.sh probook qwen36u35b
-./summarize-bench.py bench-results/*-summary.tsv
+```powershell
+pwsh llm\bench\bench-threads.ps1
 ```
-
-> **ProBook bench quirks:** runs bench.sh one model at a time (`probook qwen36u35b` then `probook qwen3coder30b`), not `all` at once — switching models mid-batch exhausts the Windows standby page list and causes mmap exit 5. The script clears the standby list automatically before each run now, but running models back-to-back in a single `all` invocation is still fragile on 32 GB.
 
 ### Quick start — i9
 
@@ -142,7 +141,7 @@ Summarize benchmark results:
 ### ProBook (32 GB RAM)
 
 | Mode | Model | Size | Context | Vision | Notes |
-|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|
 | `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 32 K | no | 35B MoE, 3B active |
 | `qwen3coder30b` | Qwen3-Coder-30B-A3B Q4\_K\_M | ~19 GB | 64 K | no | Dedicated agentic coder, 262K native ctx |
 
@@ -167,14 +166,14 @@ The 27B dense IQ4\_XS is the smarter general pick — all 27B params active vs 3
 ### i9 (64 GB RAM)
 
 | Mode | Model | Size | Context | Vision | Notes |
-|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|
 | `qwen36u35bq6kp` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline + vision |
 | `qwopus35bq5km` | Qwopus3.6-35B-A3B Q5\_K\_M | ~25 GB | 128 K | yes | Daily driver — fastest, reasoning, vision |
 | `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored fallback, text-only |
 | `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active — heavy coder test |
 | `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P (dense) | ~19 GB | 128 K | no | Dense, all 27B active — slow (3.4 tg tok/s measured) but higher quality ceiling than 3B-active MoE; kept on hand since no GPU upgrade is coming |
 
-Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24 — about 20% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Context bumped to 128K so `/compact` fits long sessions; KV capped at 24 GB via `cram`.
+Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24 — about 20% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Context set to 128K for long agent sessions; prompt-cache RAM capped via `cram`.
 
 NVIDIA's Nemotron-3.5-Lightning-30B-A3B was tried and dropped: its architecture interleaves Mamba-2 (SSM) layers with MoE and attention layers, which ik_llama.cpp (an AVX2/quant-kernel-focused `llama.cpp` fork) doesn't implement — it fails to load with `unknown model architecture: 'nemotron_h_moe'`. Confirmed via direct load test, not just a version mismatch.
 
@@ -201,14 +200,14 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | `--parallel` | 1 | Keep one full-context slot and preserve prompt-cache locality. Override: `IK_LLAMA_PARALLEL` |
 | `--ctx-size` | 32768–131072 | Context window |
 | `IK_LLAMA_CTX_SIZE` | env override | Override the per-model context size for fast OpenCode edit loops |
-| `IK_LLAMA_CRAM_MB` | env override | Override the per-model KV cache RAM limit |
+| `IK_LLAMA_CRAM_MB` | env override | Override the per-model prompt-cache RAM limit |
 | `-sps 0.5` | 0.5 | Slot prompt similarity for cache reuse |
-| `-cram <MB>` | 8192–32768 | KV cache RAM limit |
+| `-cram <MB>` | 8192–32768 | Prompt-cache RAM limit |
 | `-crs 0.5` | 0.5 | Cache similarity threshold |
 | `-ctk q8_0` | q8_0 | Quantize K cache (requires flash attention) |
 | `-ctv q8_0` | q8_0 | Quantize V cache (requires flash attention) |
 | `-dt 0.1` | 0.1 | Defragmentation threshold |
-| `--host 0.0.0.0` | — | Listen on all interfaces (required for WSL2) |
+| `--host <ip>` | 127.0.0.1 | Listen interface (override with IK_LLAMA_HOST) |
 | `--jinja` | — | Enable Jinja templates (required for tool calling) |
 | `--context-shift on` | on | Explicitly enable context shift (soft-rolls old KV instead of erroring when context fills) |
 | `-rea off` | off | Disable thinking/reasoning mode |
@@ -227,7 +226,7 @@ Recommended by the Qwen3 technical report for thinking/chat mode.
 
 ## Performance
 
-### ProBook (Ryzen 7 250, Zen 5, AVX512, Windows 11 + WSL2)
+### ProBook (Ryzen 7 250, Zen 5, AVX512, Windows 11)
 
 Benchmarked with `p=2048 n=128 r=3` via llama-bench.exe (x64 AVX512 VNNI VBMI BF16 build):
 
@@ -306,7 +305,7 @@ Benchmarked 2026-06-29 with ik_llama.cpp b4958 (`x64-avx512_vnni_vbmi_bf16`), `p
 | 16 / 12 | 97.0 | 10.2 |
 | 16 / 8 | 85.1 | 11.7 |
 
-**qwen3coder30b (Q4\_K\_M, ~19 GB):** benchmarks pending — run `./bench.sh probook qwen3coder30b` after download.
+**qwen3coder30b (Q4\_K\_M, ~19 GB):** benchmarks pending — run via `llm/bench/bench-threads.ps1` after download.
 
 Default `8/16` is the best balanced setting for qwen36u35b. Use `8/8` (`IK_LLAMA_THREADS=8 IK_LLAMA_THREADS_BATCH=8`) only if qwen prompt throughput is the priority.
 
@@ -377,8 +376,8 @@ The cleanup script derives the whitelist from `start.sh` MODES automatically —
 13. **`--context-shift on` is explicit** — context shift is on by default in llama.cpp/ik_llama but YARN overrides it internally. Now set explicitly in `start_model()` as a belt-and-suspenders guard against version differences. With context shift on, a full KV cache softly rolls out old tokens instead of returning a 500 error — essential for long sessions and `/compact` requests.
 14. **Claude Code does not auto-compact for local models** — Claude Code reads `context_window` from the Anthropic SDK's `data[].context_window` field in the `/v1/models` response. ik_llama returns this in a non-standard `models[]` extension array instead, so Claude Code falls back to `n_ctx_train` (262K for Qwen3-Coder-Next) as the effective window and will not auto-compact until the session is enormous. Use `/compact` manually before sessions grow too large, or restart the server with a larger context.
 15. **ProBook: `bench.sh` uses JSON output, not CSV** — `llama-bench.exe` embeds a null byte in the `cpu_info` CSV field, which silently truncates every data row (no performance numbers captured). `-o json` is used instead. `summarize-bench.py` reads both formats.
-16. **ProBook: never run `strings` on a Windows PE binary from WSL2** — reading a `.exe` or `.dll` via Linux file APIs invalidates the Windows page-cache state for that file, causing subsequent `mmap` calls by Windows processes to fail with `ERROR_ACCESS_DENIED` (exit 5). `bench.sh` previously used `strings "$BENCH"` to detect flags; this is removed. `-h` output alone is sufficient.
-17. **ProBook: clear Windows standby page list between benchmark runs** — after each ~20 GB model run, Windows retains model pages in the standby list. Switching to a different model before the standby list is evicted causes mmap to fail with exit 5. `bench.sh` calls `NtSetSystemInformation(80, ...)` via PowerShell before each run to drain the standby list.
+16. **ProBook: native Windows execution** — WSL has been retired on ProBook. All model execution and benchmarks now run natively on Windows via PowerShell scripts in `llm/`.
+17. **ProBook: clear Windows standby page list between benchmark runs** — after each ~20 GB model run, Windows retains model pages in the standby list. Switching to a different model before the standby list is evicted causes mmap to fail with exit 5. In native Windows benchmarks (`llm/bench/`), the standby list is cleared between runs.
 
 ## Debian 12 / GLIBC 2.36 compatibility
 

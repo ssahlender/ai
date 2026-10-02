@@ -42,42 +42,48 @@ class Handler(http.server.BaseHTTPRequestHandler):
                    if k.lower() not in _SKIP_REQ_HEADERS}
         if body:
             headers["Content-Length"] = str(len(body))
+        headers_sent = False
         try:
             conn.request(self.command, self.path, body=body or None, headers=headers)
             resp = conn.getresponse()
+            self.send_response(resp.status)
+            for k, v in resp.getheaders():
+                if k.lower() not in _SKIP_RESP_HEADERS:
+                    self.send_header(k, v)
+            self.end_headers()
+            headers_sent = True
+
+            # Stream response — use read1 for immediate forwarding of streamed chunks
+            read_fn = getattr(resp, "read1", resp.read)
+            while True:
+                chunk = read_fn(4096)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                self.wfile.flush()
         except Exception as exc:
-            self.send_error(502, str(exc))
-            return
-
-        self.send_response(resp.status)
-        for k, v in resp.getheaders():
-            if k.lower() not in _SKIP_RESP_HEADERS:
-                self.send_header(k, v)
-        self.end_headers()
-
-        # Stream response — http.client transparently decodes chunked encoding,
-        # so we just forward decoded bytes; BaseHTTPRequestHandler closes on return.
-        while True:
-            chunk = resp.read(4096)
-            if not chunk:
-                break
-            self.wfile.write(chunk)
-            self.wfile.flush()
-
-        conn.close()
+            if not headers_sent:
+                self.send_error(502, str(exc))
+            else:
+                sys.stderr.write(f"  stream error after headers sent: {exc}\n")
+                sys.stderr.flush()
+        finally:
+            conn.close()
 
     def do_GET(self):
-        if self.path == "/proxy-health":
+        parsed = urlparse(self.path)
+        if parsed.path == "/proxy-health":
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
-            self.wfile.write(b"ok")
+            self.wfile.write(f"ok upstream={UPSTREAM_HOST}:{UPSTREAM_PORT} max_tokens_cap={MAX_TOKENS_CAP}".encode())
             return
         self._forward(b"")
 
     def do_POST(self):
         body = self._read_body()
-        if self.path == "/v1/messages" and body:
+        parsed = urlparse(self.path)
+        if parsed.path == "/v1/messages" and body:
             try:
                 data = json.loads(body)
                 orig = data.get("max_tokens", 0)

@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Starts ik_llama llama-server natively on Windows. PowerShell replacement for
-    start.sh's probook block (which required WSL2 via /mnt/c and wslpath).
+    Starts ik_llama llama-server natively on Windows.
 
 .DESCRIPTION
-    Same flags and model table as start.sh <probook>, minus the WSL path mangling.
-    Installs stay at the canonical C:\data\llm\ik_llama (start.sh's .tag location).
+    Native Windows startup script for standalone ik_llama on ProBook (AMD Ryzen 7 250).
+    (For the unified suite covering mainline and ik_llama, use llm\start-llm.ps1).
+    Installs stay at the canonical C:\data\llm\ik_llama.
 
     Two deliberate improvements over the bash original:
       * the mode table uses NAMED fields, so the "NOSAMPLE in the YF column" bug

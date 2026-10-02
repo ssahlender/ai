@@ -7,7 +7,7 @@
 #   ./session-cleanup.sh --truncate-all     # truncate every session >300 KB
 #
 # Truncation keeps line 1 (session metadata) + last 150 lines (recent context).
-# A .bak copy is saved before any truncation.
+# A unique timestamped backup copy is saved before any truncation.
 set -euo pipefail
 
 THRESHOLD_KB=300
@@ -22,19 +22,29 @@ dim()   { printf '\033[2m%s\033[0m\n' "$*"; }
 
 truncate_session() {
   local file="$1"
-  local bak="${file}.bak"
   local size_kb=$(( $(wc -c < "$file") / 1024 ))
   local lines
   lines=$(wc -l < "$file")
-
-  cp "$file" "$bak"
 
   # Keep first line (sessionId metadata) + last TAIL_LINES lines.
   # If the file has <= TAIL_LINES+1 lines, nothing to do.
   if [ "$lines" -le $(( TAIL_LINES + 1 )) ]; then
     echo "  $(basename "$file"): only ${lines} lines — nothing to truncate"
-    rm -f "$bak"
     return
+  fi
+
+  local dir base bak
+  dir="$(dirname "$file")"
+  base="$(basename "$file")"
+  bak=$(mktemp "${dir}/${base}.bak.$(date +%Y%m%d%H%M%S).XXXXXX")
+
+  cp "$file" "$bak"
+
+  # Prune older backups for this session file, keeping the 3 most recent
+  local old_baks
+  old_baks=$(find "$dir" -maxdepth 1 -name "${base}.bak.*" | sort -r | tail -n +4)
+  if [ -n "$old_baks" ]; then
+    echo "$old_baks" | while IFS= read -r ob; do [ -f "$ob" ] && rm -f "$ob"; done
   fi
 
   { head -1 "$bak"; tail -n "$TAIL_LINES" "$bak"; } > "$file"

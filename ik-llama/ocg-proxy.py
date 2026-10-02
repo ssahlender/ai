@@ -32,8 +32,8 @@ import ssl
 import sys
 import time
 import uuid
-import signal
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import socket
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
@@ -143,6 +143,8 @@ def anthropic_req_to_openai(req: dict) -> dict:
 
     if "stream" in req:
         body["stream"] = req["stream"]
+        if req["stream"]:
+            body["stream_options"] = {"include_usage": True}
 
     # Tools
     tools = req.get("tools") or req.get("functions")  # anthropic-beta: computer-use-2025
@@ -160,71 +162,111 @@ def anthropic_req_to_openai(req: dict) -> dict:
         # Tool choice
         tc = req.get("tool_choice")
         if tc:
-            if tc == "auto" or tc == "any":
+            if isinstance(tc, dict):
+                tc_type = tc.get("type")
+                if tc_type == "auto":
+                    body["tool_choice"] = "auto"
+                elif tc_type == "any":
+                    body["tool_choice"] = "required"
+                elif tc_type == "none":
+                    body["tool_choice"] = "none"
+                elif tc_type == "tool":
+                    body["tool_choice"] = {"type": "function", "function": {"name": tc.get("name", "")}}
+            elif tc == "auto":
                 body["tool_choice"] = "auto"
-            elif isinstance(tc, dict) and tc.get("type") == "tool":
-                body["tool_choice"] = {"type": "function", "function": {"name": tc.get("name", "")}}
+            elif tc == "any":
+                body["tool_choice"] = "required"
+            elif tc == "none":
+                body["tool_choice"] = "none"
 
     return body
+
+
+def flush_tools(state: dict) -> list:
+    events = []
+    if state.get("tools"):
+        for oai_idx in sorted(state["tools"].keys()):
+            t = state["tools"][oai_idx]
+            anthropic_idx = state["next_block_idx"]
+            state["next_block_idx"] += 1
+            events.append(f'event: content_block_start\ndata: {json.dumps({"type":"content_block_start","index":anthropic_idx,"content_block":{"type":"tool_use","id":t["id"],"name":t["name"],"input":{}}})}\n\n')
+            if t["args"]:
+                events.append(f'event: content_block_delta\ndata: {json.dumps({"type":"content_block_delta","index":anthropic_idx,"delta":{"type":"input_json_delta","partial_json":t["args"]}})}\n\n')
+            events.append(f'event: content_block_stop\ndata: {json.dumps({"type":"content_block_stop","index":anthropic_idx})}\n\n')
+        state["tools"].clear()
+    return events
 
 
 def openai_chunk_to_anthropic_events(chunk: dict, model: str, msg_id: str,
                                       state: dict) -> list:
     """Convert one OpenAI SSE chunk to Anthropic SSE events. Returns list of event strings.
-       state tracks: {'started': bool, 'block_started': bool, 'tool_idx': int, 'current_tool': str|None}
+       state tracks: {'started': bool, 'text_started': bool, 'text_block_idx': int,
+                      'next_block_idx': int, 'tools': dict, 'finished': bool, 'usage': dict}
     """
     events = []
     choice = (chunk.get("choices", [{}]) or [{}])[0]
     delta = choice.get("delta", {})
     finish = choice.get("finish_reason")
+    usage = chunk.get("usage")
 
     # message_start
-    if not state["started"]:
+    if not state.get("started"):
         state["started"] = True
-        events.append(f'event: message_start\ndata: {json.dumps({"type":"message_start","message":{"id":msg_id,"type":"message","role":"assistant","content":[],"model":model}})}\n')
+        state.setdefault("text_started", False)
+        state.setdefault("text_block_idx", 0)
+        state.setdefault("next_block_idx", 0)
+        state.setdefault("tools", {})
+        state.setdefault("finished", False)
+        events.append(f'event: message_start\ndata: {json.dumps({"type":"message_start","message":{"id":msg_id,"type":"message","role":"assistant","content":[],"model":model,"usage":{"input_tokens":0,"output_tokens":0}}})}\n\n')
 
-    # Tool calls
+    if usage:
+        state["usage"] = {
+            "input_tokens": usage.get("prompt_tokens", 0),
+            "output_tokens": usage.get("completion_tokens", 0)
+        }
+
+    # 1. Tool calls — buffer before processing text or finish
     tc_delta = delta.get("tool_calls")
     if tc_delta:
         for tc in tc_delta:
-            idx = tc.get("index", 0)
+            oai_idx = tc.get("index", 0)
             fn = tc.get("function", {})
-            tc_id = tc.get("id", "")
+            tc_id = tc.get("id") or f"call_{msg_id}_{oai_idx}"
             tc_name = fn.get("name", "")
             tc_args = fn.get("arguments", "")
 
-            # content_block_start for this tool
-            if idx >= state["tool_idx"]:
-                if state["block_started"]:
-                    events.append(f'event: content_block_stop\ndata: {json.dumps({"type":"content_block_stop","index":state["block_idx"]})}\n')
-                    state["block_idx"] += 1
-                state["block_started"] = False
+            if oai_idx not in state["tools"]:
+                state["tools"][oai_idx] = {
+                    "id": tc_id,
+                    "name": tc_name,
+                    "args": tc_args or ""
+                }
+            else:
+                if tc_id and not state["tools"][oai_idx]["id"]:
+                    state["tools"][oai_idx]["id"] = tc_id
+                if tc_name:
+                    state["tools"][oai_idx]["name"] = tc_name
+                if tc_args:
+                    state["tools"][oai_idx]["args"] += tc_args
 
-                events.append(f'event: content_block_start\ndata: {json.dumps({"type":"content_block_start","index":idx,"content_block":{"type":"tool_use","id":tc_id,"name":tc_name,"input":{}}})}\n')
-                state["block_started"] = True
-                state["tool_idx"] = idx + 1
-                state["current_tool"] = tc_id
-
-            # input_json_delta
-            if tc_args:
-                events.append(f'event: content_block_delta\ndata: {json.dumps({"type":"content_block_delta","index":idx,"delta":{"type":"input_json_delta","partial_json":tc_args}})}\n')
-        return events
-
-    # Text delta
+    # 2. Text delta
     content = delta.get("content")
     if content:
-        if not state["block_started"]:
-            events.append(f'event: content_block_start\ndata: {json.dumps({"type":"content_block_start","index":state["block_idx"],"content_block":{"type":"text","text":""}})}\n')
-            state["block_started"] = True
-        events.append(f'event: content_block_delta\ndata: {json.dumps({"type":"content_block_delta","index":state["block_idx"],"delta":{"type":"text_delta","text":content}})}\n')
+        if not state.get("text_started"):
+            anthropic_idx = state["next_block_idx"]
+            state["next_block_idx"] += 1
+            state["text_block_idx"] = anthropic_idx
+            state["text_started"] = True
+            events.append(f'event: content_block_start\ndata: {json.dumps({"type":"content_block_start","index":anthropic_idx,"content_block":{"type":"text","text":""}})}\n\n')
+        events.append(f'event: content_block_delta\ndata: {json.dumps({"type":"content_block_delta","index":state["text_block_idx"],"delta":{"type":"text_delta","text":content}})}\n\n')
 
-    # finish
+    # 3. Finish
     if finish:
-        if state["block_started"]:
-            events.append(f'event: content_block_stop\ndata: {json.dumps({"type":"content_block_stop","index":state["block_idx"]})}\n')
-        stop_reason = "tool_use" if finish == "tool_calls" else "end_turn" if finish == "stop" else "max_tokens" if finish == "length" else "end_turn"
-        events.append(f'event: message_delta\ndata: {json.dumps({"type":"message_delta","delta":{"stop_reason":stop_reason,"stop_sequence":None},"usage":{"output_tokens":0}})}\n')
-        events.append(f'event: message_stop\ndata: {json.dumps({"type":"message_stop"})}\n')
+        state["finish_reason"] = finish
+        if state.get("text_started"):
+            events.append(f'event: content_block_stop\ndata: {json.dumps({"type":"content_block_stop","index":state["text_block_idx"]})}\n\n')
+            state["text_started"] = False
+        events.extend(flush_tools(state))
 
     return events
 
@@ -316,7 +358,11 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         # Read request body
         cl = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(cl)) if cl else {}
+        try:
+            body = json.loads(self.rfile.read(cl)) if cl else {}
+        except json.JSONDecodeError as e:
+            self._send_json({"type": "error", "error": {"type": "invalid_request_error", "message": f"Invalid JSON: {e}"}}, 400)
+            return
 
         stream = body.get("stream", False)
         model = body.get("model", MODELS[0])
@@ -330,17 +376,29 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
         try:
             if stream:
+                headers_sent = False
                 try:
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/event-stream")
-                    self.send_header("Cache-Control", "no-cache")
-                    self.end_headers()
-                    state = {"started": False, "block_started": False, "block_idx": 0, "tool_idx": 0, "current_tool": None}
+                    state = {
+                        "started": False,
+                        "text_started": False,
+                        "text_block_idx": 0,
+                        "next_block_idx": 0,
+                        "tools": {},
+                        "finished": False
+                    }
                     with urlopen(req, timeout=300, context=CTX) as resp:
+                        self.send_response(200)
+                        self.send_header("Content-Type", "text/event-stream")
+                        self.send_header("Cache-Control", "no-cache")
+                        self.end_headers()
+                        headers_sent = True
                         for line in resp:
                             line = line.strip()
-                            if not line or line == b"data: [DONE]":
+                            if not line:
                                 continue
+                            if line == b"data: [DONE]":
+                                state["saw_done"] = True
+                                break
                             if line.startswith(b"data: "):
                                 try:
                                     chunk = json.loads(line[6:])
@@ -349,16 +407,60 @@ class ProxyHandler(BaseHTTPRequestHandler):
                                         self.wfile.flush()
                                 except json.JSONDecodeError:
                                     pass
-                    # Final flush
-                    if state["block_started"]:
-                        self.wfile.write(f'event: content_block_stop\ndata: {json.dumps({"type":"content_block_stop","index":state["block_idx"]})}\n'.encode())
-                        self.wfile.write(f'event: message_delta\ndata: {json.dumps({"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":None},"usage":{"output_tokens":0}})}\n'.encode())
-                        self.wfile.write(f'event: message_stop\ndata: {json.dumps({"type":"message_stop"})}\n'.encode())
+                    # Final flush after upstream stream terminates
+                    if not state.get("finished"):
+                        if not state.get("started"):
+                            state["started"] = True
+                            self.wfile.write(f'event: message_start\ndata: {json.dumps({"type":"message_start","message":{"id":msg_id,"type":"message","role":"assistant","content":[],"model":model,"usage":{"input_tokens":state.get("usage", {}).get("input_tokens", 0),"output_tokens":0}}})}\n\n'.encode())
+                        if state.get("text_started"):
+                            self.wfile.write(f'event: content_block_stop\ndata: {json.dumps({"type":"content_block_stop","index":state["text_block_idx"]})}\n\n'.encode())
+                            state["text_started"] = False
+
+                        finish_reason = state.get("finish_reason")
+                        saw_done = state.get("saw_done", False)
+
+                        if not finish_reason and not saw_done:
+                            # Stream was truncated prematurely without finish_reason or [DONE]
+                            err_ev = f'event: error\ndata: {json.dumps({"type":"error","error":{"type":"api_error","message":"Stream truncated prematurely: upstream closed connection before finish_reason"}})}\n\n'
+                            self.wfile.write(err_ev.encode())
+                        else:
+                            for event in flush_tools(state):
+                                self.wfile.write(event.encode())
+                            if finish_reason == "tool_calls" or (state.get("tools") and finish_reason != "length"):
+                                stop_reason = "tool_use"
+                            elif finish_reason == "length":
+                                stop_reason = "max_tokens"
+                            else:
+                                stop_reason = "end_turn"
+                            out_tokens = state.get("usage", {}).get("output_tokens", 0)
+                            self.wfile.write(f'event: message_delta\ndata: {json.dumps({"type":"message_delta","delta":{"stop_reason":stop_reason,"stop_sequence":None},"usage":{"output_tokens":out_tokens}})}\n\n'.encode())
+                            self.wfile.write(f'event: message_stop\ndata: {json.dumps({"type":"message_stop"})}\n\n'.encode())
+                        state["finished"] = True
                     self.wfile.flush()
+                except (HTTPError, URLError, TimeoutError, socket.timeout) as exc:
+                    if not headers_sent:
+                        raise
+                    import traceback
+                    sys.stderr.write(f"  stream network error: {exc}\n{traceback.format_exc()}\n")
+                    sys.stderr.flush()
+                    try:
+                        err_ev = f'event: error\ndata: {json.dumps({"type":"error","error":{"type":"api_error","message":str(exc)}})}\n\n'
+                        self.wfile.write(err_ev.encode())
+                        self.wfile.flush()
+                    except Exception:
+                        pass
                 except Exception as e:
+                    if not headers_sent:
+                        raise
                     import traceback
                     sys.stderr.write(f"  stream error: {e}\n{traceback.format_exc()}\n")
                     sys.stderr.flush()
+                    try:
+                        err_ev = f'event: error\ndata: {json.dumps({"type":"error","error":{"type":"api_error","message":str(e)}})}\n\n'
+                        self.wfile.write(err_ev.encode())
+                        self.wfile.flush()
+                    except Exception:
+                        pass
             else:
                 with urlopen(req, timeout=300, context=CTX) as resp:
                     oai_resp = json.loads(resp.read())
@@ -369,10 +471,16 @@ class ProxyHandler(BaseHTTPRequestHandler):
             sys.stderr.write(f"  upstream HTTP {e.code}: {err}\n")
             sys.stderr.flush()
             self._send_json({"error": f"upstream error {e.code}: {e.reason}"}, 502)
-        except URLError as e:
-            sys.stderr.write(f"  upstream URLError: {e.reason}\n")
+        except (TimeoutError, socket.timeout) as e:
+            reason = str(e)
+            sys.stderr.write(f"  upstream timeout: {reason}\n")
             sys.stderr.flush()
-            self._send_json({"error": f"upstream unreachable: {e.reason}"}, 502)
+            self._send_json({"error": f"upstream timeout: {reason}"}, 504)
+        except URLError as e:
+            reason = getattr(e, "reason", str(e))
+            sys.stderr.write(f"  upstream unreachable: {reason}\n")
+            sys.stderr.flush()
+            self._send_json({"error": f"upstream unreachable: {reason}"}, 502)
         except Exception as e:
             import traceback
             sys.stderr.write(f"  proxy error: {e}\n{traceback.format_exc()}\n")
@@ -382,7 +490,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
 # ── main ────────────────────────────────────────────────────────────
 
-class _QuietServer(HTTPServer):
+class _QuietServer(ThreadingHTTPServer):
     def handle_error(self, request, client_address):
         import http.client
         exc = sys.exc_info()[1]
@@ -403,14 +511,12 @@ def main():
     print(f"models: {', '.join(MODELS)}", file=sys.stderr)
     print(f"Claude Code: ANTHROPIC_BASE_URL=http://localhost:{PORT} ANTHROPIC_CUSTOM_MODEL_OPTION={MODELS[0]} ANTHROPIC_API_KEY=dummy claude --bare --model {MODELS[0]}", file=sys.stderr)
 
-    def shutdown(sig, frame):
-        server.shutdown()
-    signal.signal(signal.SIGINT, shutdown)
-
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        server.server_close()
     print("", file=sys.stderr)
 
 if __name__ == "__main__":

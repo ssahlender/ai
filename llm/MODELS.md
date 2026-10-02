@@ -23,8 +23,8 @@ Base URL pattern: `https://huggingface.co/<repo>/resolve/main/<file>`
 
 | host | runtime | model | size |
 |---|---|---|---|
-| ProBook `pmon-probook` (Windows) | mainline llama.cpp CPU, `C:\data\llm\llama.cpp-cpu` | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf` | 18.42 GiB |
-| MacBook Air M4 `pmon-macbookair` | Ollama (`ollama serve`) | `qwen36-35b-a3b` = `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` (13 GB) | 11.45 GiB |
+| ProBook (Windows) | mainline llama.cpp CPU, `C:\data\llm\llama.cpp-cpu` | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf` | 18.42 GiB |
+| MacBook Air M4 (macOS) | Ollama (`ollama serve`) | `qwen36-35b-a3b` = `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` (13 GB) | 11.45 GiB |
 
 Nothing else is installed on either host. No GGUF lives on the Mac — Ollama owns its models — and
 the ProBook's ik_llama engine directory was removed the same day, so the surviving engine there is

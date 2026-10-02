@@ -497,7 +497,7 @@ docker compose up -d
 
 ## ik-llama/
 
-CPU-only local LLM inference using [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) on HP ProBook (WSL2) and i9-13900 (Debian), plus Metal GPU on MacBook Air M4 via [llama.cpp](https://github.com/ggerganov/llama.cpp). Models: Qwen3.6, Qwopus3.6, Gemma4, GLM-4.7-Flash. Vision via mmproj on Qwen/Qwopus/Gemma models.
+CPU-only local LLM inference using [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) on HP ProBook (native Windows via `llm/`) and i9-13900 (Debian), plus Metal GPU on MacBook Air M4 via [llama.cpp](https://github.com/ggerganov/llama.cpp). Models: Qwen3.6, Qwopus3.6, Gemma4, GLM-4.7-Flash. Vision via mmproj on Qwen/Qwopus/Gemma models.
 
 See [`ik-llama/README.md`](ik-llama/README.md) for full details: hardware, models, flags, benchmark scripts, performance, and lessons learned.
 

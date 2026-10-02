@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Downloads GGUF models + mmproj files for all machines.
-# Usage: ./download-models.sh [i9|probook|macbook-air]
+# Usage: ./download-models.sh [i9|macbook-air]
 set -euo pipefail
 
 MACHINE="${1:-}"
 
 usage() {
-  echo "Usage: $0 [i9|probook|macbook-air]" >&2
+  echo "Usage: $0 [i9|macbook-air]" >&2
   exit 1
 }
 
@@ -34,6 +34,7 @@ download_if_missing() {
       rm -f "$dest"
     else
       echo "Already present: $file"
+      return 0
     fi
   fi
 
@@ -91,19 +92,16 @@ case "$MACHINE" in
     ;;
 
   probook)
-    MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}"
-    mkdir -p "$MODELS_DIR"
-
-    download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf
-    download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF               Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
+    echo "WSL is retired on ProBook. To download models natively on Windows, run PowerShell:" >&2
+    echo "  powershell -File llm/fetch-model.ps1 <model>  (or ..\\llm\\fetch-model.ps1 from ik-llama)" >&2
+    exit 1
     ;;
 
   macbook-air)
     MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
     mkdir -p "$MODELS_DIR"
-        # ONE model, matching the x86 reference. IQ4_XS (17.44 GiB) is the 4-bit tier that
-        # leaves room for a desktop session in 24 GB of unified memory; IQ4_NL is 1 GiB larger.
-        # Sizes are exact: an unverified 17 GB download that loads is worse than one that errors.
+    # Models calibrated for Apple Silicon unified memory (24 GB+):
+    # 27B dense (IQ4_XS + mmproj), 35B MoE (IQ4_NL + mmproj), and 30B coder (IQ4_NL).
     download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive  Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf
     download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf
     download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf

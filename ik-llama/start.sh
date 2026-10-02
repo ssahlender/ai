@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Starts llama-server. Usage: ./start.sh <machine> <mode>
-#   Machine: i9 | probook | macbook-air
+#   Machine: i9 | macbook-air
 #   Mode:    machine-specific model shortname (see usage)
+#   (ProBook runs natively on Windows via llm\start-llm.ps1)
 set -euo pipefail
 
 MACHINE="${1:-}"
@@ -9,21 +10,20 @@ MODE="${2:-}"
 
 # ── host reality (2026-09-27) ──────────────────────────────────────
 # Checked before the per-host config: the branches below bail out on their own terms (a missing
-# llama-server, a WSL path) and that would hide the real reason these two hosts changed.
-case "$MACHINE" in
-  probook)
-    echo "This branch drove ik_llama over WSL (/mnt/c). WSL is retired and the ProBook now runs the" >&2
-    echo "engine natively on Windows: use  llm\\start-llm.ps1 <mode>  instead. See llm/README.md." >&2
-    exit 1 ;;
-  macbook-air)
-    _gguf_dir="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
-    if ! compgen -G "$_gguf_dir/*.gguf" >/dev/null 2>&1; then
-      echo "No GGUF in $_gguf_dir: this Mac's models belong to Ollama (qwen36-35b-a3b = UD-Q2_K_XL)." >&2
-      echo "Use ollama/start.sh instead (see ollama/README.md). To use this GGUF path, fetch first:" >&2
-      echo "  ./download-models.sh macbook-air" >&2
-      exit 1
-    fi ;;
-esac
+# llama-server) and that would hide the real reason these two hosts changed.
+if [ "$MACHINE" = "probook" ]; then
+  echo "WSL is retired and the ProBook now runs the engine natively on Windows:" >&2
+  echo "use  llm\\start-llm.ps1 <mode>  instead (or ..\\llm\\start-llm.ps1 from ik-llama). See llm/README.md." >&2
+  exit 1
+elif [ "$MACHINE" = "macbook-air" ]; then
+  _gguf_dir="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
+  if ! compgen -G "$_gguf_dir/*.gguf" >/dev/null 2>&1; then
+    echo "No GGUF in $_gguf_dir: this Mac's models belong to Ollama (qwen36-35b-a3b = UD-Q2_K_XL)." >&2
+    echo "Use ollama/start.sh instead (see ollama/README.md). To use this GGUF path, fetch first:" >&2
+    echo "  ./download-models.sh macbook-air" >&2
+    exit 1
+  fi
+fi
 
 
 # ── machine config ─────────────────────────────────────────────────
@@ -37,31 +37,14 @@ case "$MACHINE" in
     UBATCH="${IK_LLAMA_UBATCH:-1024}"
     MLOCK="--mlock"
     PGREP_NAME="llama-server"
-    WSL_PATH=
     SAMPLE_BASE=(--temp "${IK_LLAMA_TEMP:-0.2}" --top-p "${IK_LLAMA_TOP_P:-0.8}" --top-k "${IK_LLAMA_TOP_K:-20}")
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
     MODES=(
       "qwen36u35bq6kp|Qwen3.6 35B-A3B Uncensored Q6_K_P|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf|131072|24576||SAMPLE|mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
       "qwopus35bq5km|Qwopus3.6 35B-A3B Q5_K_M|Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf|131072|24576||SAMPLE|mmproj-F32.gguf"
-      "supergemma4q4km|SuperGemma4 26B Uncensored Q4_K_M|supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf|131072|32768"
+      "supergemma4q4km|SuperGemma4 26B Uncensored Q4_K_M|supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf|131072|32768||SAMPLE"
       "qwen3codernext|Qwen3-Coder-Next 80B-A3B UD-Q3_K_M|Qwen3-Coder-Next-UD-Q3_K_M.gguf|131072|14336||SAMPLE"
-      "qwen36u27bq5kp|Qwen3.6 27B Uncensored Q5_K_P (dense)|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf|131072|32768"
-    )
-    ;;
-  probook)
-    IK_LLAMA_DIR="${IK_LLAMA_DIR:-/mnt/c/data/llm/ik_llama}"
-    SERVER="$IK_LLAMA_DIR/llama-server.exe"
-    MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}"
-    PORT="${IK_LLAMA_PORT:-9080}"
-    NGL=0; THREADS="${IK_LLAMA_THREADS:-8}"; THREADS_BATCH="${IK_LLAMA_THREADS_BATCH:-16}"
-    MLOCK=
-    PGREP_NAME="llama-server.exe"
-    WSL_PATH=1
-    SAMPLE_BASE=(--temp 0.6 --top-p 0.95 --top-k 20)
-    YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
-    MODES=(
-      "qwen36u35b|Qwen3.6 35B-A3B Uncensored|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf|32768|8192|NOSAMPLE|"
-      "qwen3coder30b|Qwen3-Coder 30B-A3B Q4_K_M|Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf|65536|16384||SAMPLE"
+      "qwen36u27bq5kp|Qwen3.6 27B Uncensored Q5_K_P (dense)|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf|131072|32768||SAMPLE"
     )
     ;;
   macbook-air)
@@ -86,7 +69,6 @@ case "$MACHINE" in
     NGL=99; THREADS="${IK_LLAMA_THREADS:-4}"; THREADS_BATCH="${IK_LLAMA_THREADS_BATCH:-4}"
     MLOCK="--mlock"
     PGREP_NAME="llama-server"
-    WSL_PATH=
     SAMPLE_BASE=()
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
     MODES=(
@@ -95,7 +77,7 @@ case "$MACHINE" in
       "qwen3coder30b|Qwen3-Coder 30B-A3B IQ4_NL|Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf|32768|8192"
     )
     ;;
-  *) echo "Usage: $0 <i9|probook|macbook-air> <mode>" >&2; exit 1 ;;
+  *) echo "Usage: $0 <i9|macbook-air> <mode>" >&2; exit 1 ;;
 esac
 
 
@@ -120,11 +102,7 @@ fi
 
 # ── path helper ────────────────────────────────────────────────────
 model_path() {
-  if [ -n "$WSL_PATH" ] && command -v wslpath >/dev/null 2>&1; then
-    wslpath -w "$MODELS_DIR/$1"
-  else
-    echo "$MODELS_DIR/$1"
-  fi
+  echo "$MODELS_DIR/$1"
 }
 
 # ── start_model ────────────────────────────────────────────────────
@@ -150,13 +128,12 @@ start_model() {
     -dt 0.1 \
     ${MLOCK:-} \
     --port "$PORT" \
-    --host 0.0.0.0 \
+    --host "${IK_LLAMA_BIND:-${IK_LLAMA_HOST:-127.0.0.1}}" \
     --jinja \
-    --chat-template-file "$(dirname "$(realpath "$0")")/qwen3-template.j2" \
     --context-shift on \
     -rea off \
     -v \
-    "${extra[@]}"
+    ${extra[@]+"${extra[@]}"}
 }
 
 # ── resolve mode ───────────────────────────────────────────────────
@@ -168,12 +145,15 @@ for m in "${MODES[@]}"; do
     EXTRA=()
     [ "$YF" = "YARN" ] && EXTRA+=("${YARN[@]}")
     if [ "$SF" = "SAMPLE" ]; then
-      EXTRA+=("${SAMPLE_BASE[@]}")
-    elif [ "$SF" != "NOSAMPLE" ]; then
-      EXTRA+=("${SAMPLE_BASE[@]}")
+      EXTRA+=(${SAMPLE_BASE[@]+"${SAMPLE_BASE[@]}"})
     fi
     [ -n "$MMPROJ" ] && EXTRA+=(--mmproj "$(model_path "$MMPROJ")")
-    start_model "$NAME" "$FILE" "$CTX" "$CRAM" "${EXTRA[@]}"
+    case "$SN" in
+      qwen36*|qwopus*)
+        EXTRA+=(--chat-template-file "$(dirname "$(realpath "$0")")/qwen3-template.j2")
+        ;;
+    esac
+    start_model "$NAME" "$FILE" "$CTX" "$CRAM" ${EXTRA[@]+"${EXTRA[@]}"}
   fi
 done
 

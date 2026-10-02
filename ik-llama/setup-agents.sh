@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Installs agent provider config for ik_llama.cpp / llama.cpp.
 # Parses the start script for model mappings.
-# Usage: ./setup-agents.sh [i9|probook|macbook-air]
+# Usage: ./setup-agents.sh [i9|macbook-air]
 set -euo pipefail
 
 MACHINE="${1:-}"
 
-[ -n "$MACHINE" ] || { echo "Usage: $0 [i9|probook|macbook-air]" >&2; exit 1; }
+[ -n "$MACHINE" ] || { echo "Usage: $0 [i9|macbook-air]" >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPENCODE_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
@@ -16,23 +16,23 @@ OPENCODE_OUTPUT_LIMIT="${OPENCODE_OUTPUT_LIMIT:-8192}"
 OPENCODE_COMPACTION_RESERVED="${OPENCODE_COMPACTION_RESERVED:-10000}"
 START_SCRIPT="$SCRIPT_DIR/start.sh"
 
+PORT="${IK_LLAMA_PORT:-9080}"
+
 case "$MACHINE" in
   i9)
     MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
-    BASE_URL="http://localhost:9080/v1"
+    BASE_URL="http://localhost:${PORT}/v1"
     ;;
   probook)
-    MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}"
-    WSL_HOST_IP=$(ip route show default | awk '{print $3; exit}')
-    [ -n "$WSL_HOST_IP" ] || { echo "Could not detect Windows host IP." >&2; exit 1; }
-    echo "Windows host IP: $WSL_HOST_IP"
-    BASE_URL="http://$WSL_HOST_IP:9080/v1"
+    echo "WSL is retired on ProBook. Agent providers on Windows are configured natively via PowerShell:" >&2
+    echo "  powershell -File llm/setup-agent-providers.ps1  (or ..\\llm\\setup-agent-providers.ps1 from ik-llama)" >&2
+    exit 1
     ;;
   macbook-air)
     MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
-    BASE_URL="http://localhost:9080/v1"
+    BASE_URL="http://localhost:${PORT}/v1"
     ;;
-  *) echo "Usage: $0 [i9|probook|macbook-air]" >&2; exit 1 ;;
+  *) echo "Usage: $0 [i9|macbook-air]" >&2; exit 1 ;;
 esac
 
 # ── write a temporary Python script that auto-collects parameters ──
@@ -54,6 +54,7 @@ with open(start_script) as f:
     content = f.read()
 
 # Extract MODES entries within the machine's case block
+in_config = False
 in_block = False
 modes_pattern = re.compile(r'"([^"]+)\|([^"]+)\|([^"]+\.gguf)\|(\d+)\|(\d+)')
 
@@ -61,12 +62,15 @@ opencode_models = {}
 pi_models = []
 
 for line in content.split('\n'):
+    if '# ── machine config' in line:
+        in_config = True
+    if not in_config:
+        continue
     if re.match(r'^\s*' + re.escape(machine) + r'\)\s*$', line):
         in_block = True
         continue
-    if in_block and re.match(r'^\s*;;\s*$', line):
-        in_block = False
-        continue
+    if in_block and re.search(r';;\s*$', line):
+        break
     if not in_block:
         continue
 
@@ -95,6 +99,7 @@ for line in content.split('\n'):
             }
             if is_vision:
                 pi_model['attachment'] = True
+                pi_model['input'] = ['text', 'image']
             pi_models.append(pi_model)
 
 compaction = {

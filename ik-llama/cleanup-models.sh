@@ -2,12 +2,11 @@
 # Removes model files not in the active start.sh lineup. Dry-run by default.
 # Usage:
 #   ./cleanup-models.sh i9 [--apply]
-#   ./cleanup-models.sh probook [--apply]
 #   ./cleanup-models.sh macbook-air [--apply]
 set -euo pipefail
 
 MACHINE="${1:-}"
-[ -n "$MACHINE" ] || { echo "Usage: $0 <i9|probook|macbook-air> [--apply]" >&2; exit 1; }
+[ -n "$MACHINE" ] || { echo "Usage: $0 <i9|macbook-air> [--apply]" >&2; exit 1; }
 
 ARG="${2:-}"
 APPLY=0
@@ -22,9 +21,12 @@ START_SCRIPT="$SCRIPT_DIR/start.sh"
 
 case "$MACHINE" in
   i9)          MODELS_DIR="${MODELS_DIR:-/data/llm/models}" ;;
-  probook)     MODELS_DIR="${MODELS_DIR:-/mnt/c/data/llm/models}" ;;
+  probook)
+    echo "WSL is retired on ProBook. Model cleanup runs natively on Windows in C:\data\llm\models." >&2
+    exit 1
+    ;;
   macbook-air) MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}" ;;
-  *) echo "Usage: $0 <i9|probook|macbook-air> [--apply]" >&2; exit 1 ;;
+  *) echo "Usage: $0 <i9|macbook-air> [--apply]" >&2; exit 1 ;;
 esac
 
 # Build whitelist by parsing start.sh MODES for this machine
@@ -35,13 +37,18 @@ machine = "$MACHINE"
 with open("$START_SCRIPT") as f:
     content = f.read()
 
+in_config = False
 in_block = False
 files = set()
 for line in content.split('\n'):
+    if '# ── machine config' in line:
+        in_config = True
+    if not in_config:
+        continue
     if re.match(r'^\s*' + re.escape(machine) + r'\)\s*$', line):
         in_block = True
         continue
-    if in_block and re.match(r'^\s*;;\s*$', line):
+    if in_block and re.search(r';;\s*$', line):
         break
     if not in_block:
         continue
@@ -58,6 +65,11 @@ for f in sorted(files):
     print(f)
 PYEOF
 )
+
+if [ -z "$active_files" ]; then
+  echo "Error: Whitelist is empty (failed to parse active models from $START_SCRIPT for $MACHINE). Refusing to proceed." >&2
+  exit 1
+fi
 
 echo "Machine:    $MACHINE"
 echo "Models dir: $MODELS_DIR"
