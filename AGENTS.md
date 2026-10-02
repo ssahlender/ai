@@ -8,7 +8,7 @@ This repository is public (its own URL is the only GitHub reference that belongs
 commit internal addressing: no LAN
 IPs, internal hostnames, account names, SSH key filenames/paths, or
 private URLs. Keep the real values in host-local skills or a private repository
-repos and reference them from here — `ollama/README.md` shows the pattern. The same
+and reference them from here (`ollama/README.md` shows the pattern). The same
 rule applies to `sysadmin-github`.
 
 ## Local LLM (OpenCode + Claude Code)
@@ -25,22 +25,23 @@ See [`ik-llama/AGENTS.md`](ik-llama/AGENTS.md) for full setup:
 
 ### Apple Silicon (MacBook Air M4)
 
-See [`ik-llama/`](ik-llama/) for unified setup:
-- `download-models.sh macbook-air` — pulls GGUFs + mmproj from HF (same repos as i9)
-- `setup-agents.sh macbook-air` — auto-generates OpenCode/Pi config
-- `start.sh macbook-air` — Metal GPU via brew's llama.cpp, same flags + vision as i9
+See [`ollama/README.md`](ollama/README.md) for the primary daily-driver engine setup.
+[`ik-llama/`](ik-llama/) provides the alternative llama.cpp launcher:
+- `download-models.sh macbook-air`: pulls GGUFs + mmproj from HF (same repos as i9)
+- `setup-agents.sh macbook-air`: auto-generates OpenCode/Pi config
+- `start.sh macbook-air`: Metal GPU via brew's llama.cpp, same flags + vision as i9
 
 ## tools/ scripts
 
-No special agent config needed — scripts are self-contained bash. Run directly or via `update-all.sh`.
+No special agent config needed, scripts are self-contained bash. Run directly or via `update-all.sh`.
 
 On the i9, scripts use the `_brew-i9.sh` helper which runs brew via `sudo -n -u brewuser` with the full absolute path. Other machines run brew directly.
 
-## Headroom — Context Compression (MCP + Proxy)
+## Headroom: Context Compression (MCP + Proxy)
 
 Headroom compresses tool outputs, files, and text before they reach the LLM (40-90% savings).
 
-### MCP (universal — all agents)
+### MCP (universal: all agents)
 Add to agent MCP config:
 ```json
 {"mcpServers": {"headroom": {"command": "headroom", "args": ["mcp", "serve", "--proxy-url", "http://127.0.0.1:8788"]}}}
@@ -50,7 +51,7 @@ Tools: `mcp_headroom_headroom_compress`, `_retrieve`, `_stats`.
 The agent host: `mcp_servers.headroom` in its own `config.yaml` (configured locally, not in this repo).
 Claude Code: `headroom mcp install --agent claude` (already configured).
 
-### Proxy (transparent — Claude Code / Codex)
+### Proxy (transparent: Claude Code / Codex)
 ```bash
 headroom proxy --port 8788          # already running as systemd service
 headroom wrap claude                # one-time setup
@@ -58,12 +59,12 @@ headroom wrap codex                 # one-time setup
 ```
 
 ### ai-tools scripts
-- `tools/headroom-install.sh` — uv tool install headroom-ai[proxy]
-- `tools/headroom-update.sh` — uv tool upgrade (also in update-all.sh)
-- `tools/headroom-init.sh` — systemd service + wrapper scripts
-- `tools/headroom-mcp-init.sh` — MCP config for all agents
+- `tools/headroom-install.sh`: uv tool install headroom-ai[proxy]
+- `tools/headroom-update.sh`: uv tool upgrade (also in update-all.sh)
+- `tools/headroom-init.sh`: systemd service + wrapper scripts
+- `tools/headroom-mcp-init.sh`: MCP config for all agents
 
-## Graphify — Knowledge Graphs (per-agent skills)
+## Graphify: Knowledge Graphs (per-agent skills)
 
 `graphify` turns a folder of code/docs/papers/images into a queryable knowledge
 graph (`graphify-out/graph.json` + `GRAPH_REPORT.md` + `graph.html`).
@@ -73,8 +74,8 @@ Install/uninstall/update: `tools/graphify-install.sh` → `graphify-init.sh`
 
 ### Install shape
 
-`uv tool install 'graphifyy[openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf]'`
-— isolated venv at `$(uv tool dir)/graphifyy`, shim `~/.local/bin/graphify`.
+`uv tool install 'graphifyy[openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf]'`:
+isolated venv at `$(uv tool dir)/graphifyy`, shim `~/.local/bin/graphify`.
 **Not a brew package.** The PyPI name is `graphifyy` (double-y); the CLI is `graphify`.
 
 Extras worth knowing (each one silently disabled when absent):
@@ -89,9 +90,9 @@ Extras worth knowing (each one silently disabled when absent):
 
 On i9 the `pdf` extra is omitted (corporate proxy CVE filter blocks `pypdf`).
 
-### Two registration levels — do not confuse them
+### Two registration levels: do not confuse them
 
-1. **`graphify install --platform <p>` — user-level, what the init script does.**
+1. **`graphify install --platform <p>`, user-level, what the init script does.**
    Copies the skill only:
    - Claude Code `~/.claude/skills/graphify/`
    - Codex `~/.codex/skills/graphify/`
@@ -100,20 +101,20 @@ On i9 the `pdf` extra is omitted (corporate proxy CVE filter blocks `pypdf`).
    - Antigravity `~/.gemini/config/skills/graphify/` (agy reads that path globally;
      project-level is `<workspace>/.agents/skills/`)
 
-2. **`graphify <platform> install` — PROJECT-scoped, run it inside the repo.**
+2. **`graphify <platform> install`, PROJECT-scoped, run it inside the repo.**
    Writes always-on wiring into `$PWD`: `AGENTS.md` (codex/opencode), `CLAUDE.md` +
    `.claude/settings.json` PreToolUse hooks (claude), `.codex/hooks.json` (codex),
    `.agents/rules|workflows/*.md` (antigravity), `.opencode/opencode.json` + plugin
    (opencode). It **touches committed files**, so it is opt-in per repo.
 
 Because of (2), `graphify-init.sh` runs the OpenCode registration inside a
-throwaway `mktemp -d` — otherwise the script drops `.opencode/` into whatever
+throwaway `mktemp -d`, otherwise the script drops `.opencode/` into whatever
 repo it was invoked from.
 
 ### LLM backend
 
 Code-only corpora need **no API key**: AST extraction, clustering, labels, query,
-`GRAPH_REPORT.md` all work keyless. Docs/papers/images need a backend —
+and `GRAPH_REPORT.md` all work keyless. Docs/papers/images need a backend:
 `--backend gemini|kimi|claude|openai|deepseek|ollama`, or a local
 OpenAI-compatible server via `OPENAI_BASE_URL`/`OPENAI_MODEL`.
 `--backend claude` requires `ANTHROPIC_API_KEY`; it does **not** reuse a Claude

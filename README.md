@@ -6,9 +6,10 @@ Scripts for running local AI tools across multiple machines.
 
 | Path | Contents |
 |---|---|
-| `ik-llama/` | LLM inference with ik_llama.cpp / llama.cpp — models, server, OpenCode config (ProBook, i9, MacBook Air) |
-| `mlx/` | MLX/oMLX vs llama.cpp/Metal engine comparison (MacBook Air M4) — background/history |
-| `ollama/` | **Settled daily-driver engine on the MacBook Air M4** — start/stop/setup-agent, chosen after the `mlx/` comparison |
+| `ik-llama/` | LLM inference with ik_llama.cpp / llama.cpp on i9 and Mac, models, server, OpenCode config |
+| `llm/` | Native Windows PowerShell tooling for the ProBook: mainline llama.cpp, provider setup, benchmarks, and quality tests |
+| `mlx/` | MLX/oMLX vs llama.cpp/Metal engine comparison (MacBook Air M4), background/history |
+| `ollama/` | **Settled daily-driver engine on the MacBook Air M4**, start/stop/setup-agent, chosen after the `mlx/` comparison |
 | `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Antigravity, Pi, Headroom, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
@@ -29,13 +30,13 @@ Install and update scripts for AI coding tools. Core CLIs are installed via Home
 
 Detection: if any of `http_proxy`, `HTTP_PROXY`, `https_proxy`, `HTTPS_PROXY` is set in the environment, the machine is treated as i9.
 
-`HOMEBREW_NO_ASK=1` is exported for the plain-brew case (home/Mac). For i9, sudo strips environment variables, so the first run of any brew script writes the setting to `/home/linuxbrew/.linuxbrew/etc/homebrew/brew.env` via `brew sh` (which runs a shell with the brew prefix in scope — the only way to write there without needing extra sudoers entries).
+`HOMEBREW_NO_ASK=1` is exported for the plain-brew case (home/Mac). For i9, sudo strips environment variables, so the first run of any brew script writes the setting to `/home/linuxbrew/.linuxbrew/etc/homebrew/brew.env` via `brew sh` (which runs a shell with the brew prefix in scope; the only way to write there without needing extra sudoers entries).
 
 **sudoers constraint**: the NOPASSWD rule covers only the brew binary itself. `sudo -E` (preserve env), `sudo env ...`, `sudo tee`, and `sudo mkdir` all require a password and will fail with `sudo: a password is required` when using `-n`. Do not add these to the `$BREW` variable.
 
 ---
 
-### Corporate PC setup — Homebrew via sudo
+### Corporate PC setup: Homebrew via sudo
 
 On the corporate Debian machines, regular users cannot install system packages. Homebrew runs as a shared `brewuser` account instead, and individual users access it via a passwordless `sudo` rule. The scripts in this repo detect this automatically; the steps below are the one-time setup per colleague.
 
@@ -95,9 +96,9 @@ ln -sf <repo-dir>/tools/brewenv.sh ~/bin/brewenv.sh
 
 After that, `~/bin/brewenv.sh` reads from `tools/brewenv-tools.conf` in this repo. Pull updates and re-run to stay in sync.
 
-For tools that install to `~/.local/bin` (npm-based: ccusage, context-mode; uv-based: graphify) no symlink is needed — `~/.local/bin` in PATH is enough.
+For tools that install to `~/.local/bin` (npm-based: ccusage, context-mode; uv-based: graphify) no symlink is needed, `~/.local/bin` in PATH is enough.
 
-**3. Run the install scripts** from this repo normally — they detect the proxy and use `sudo -n -u brewuser brew` automatically:
+**3. Run the install scripts** from this repo normally; they detect the proxy and use `sudo -n -u brewuser brew` automatically:
 
 ```bash
 cd <repo-dir>/tools
@@ -108,13 +109,13 @@ cd <repo-dir>/tools
 
 #### Node-based tools on Debian 12 (GLIBC < 2.38)
 
-Brew bottles for Node are built for Ubuntu 24.04 (GLIBC ≥ 2.38) and crash on Debian 12. Tools that ship as Node packages via brew (repomix, pi) get a `~/.local/bin/<tool>` wrapper that runs the brew-cellar JS with the system Node (`/data/bin/node`) instead. The install scripts create these wrappers automatically by testing `/home/linuxbrew/.linuxbrew/opt/node/bin/node` directly — not `command -v node`, which would find the system node and falsely pass the check.
+Brew bottles for Node are built for Ubuntu 24.04 (GLIBC ≥ 2.38) and crash on Debian 12. Tools that ship as Node packages via brew (repomix, pi) get a `~/.local/bin/<tool>` wrapper that runs the brew-cellar JS with the system Node (`/data/bin/node`) instead. The install scripts create these wrappers automatically by testing `/home/linuxbrew/.linuxbrew/opt/node/bin/node` directly; not `command -v node`, which would find the system node and falsely pass the check.
 
 Update scripts detect brew-wrapper installs by grepping for `Cellar`/`linuxbrew` in `~/.local/bin/<tool>` and run `brew upgrade` + wrapper refresh instead of falling through to npm.
 
 #### npm prefix
 
-The system npm prefix (`/data/app/nodejs24`) is not user-writable. npm-based tools (ccusage, context-mode) fall back to installing into `~/.local` via `_npm-wrapper.sh` automatically (`npm install -g --prefix ~/.local` — the `-g` flag is required; without it npm treats the prefix as a project directory and removes other packages). No manual configuration needed.
+The system npm prefix (`/data/app/nodejs24`) is not user-writable. npm-based tools (ccusage, context-mode) fall back to installing into `~/.local` via `_npm-wrapper.sh` automatically (`npm install -g --prefix ~/.local`; the `-g` flag is required; without it npm treats the prefix as a project directory and removes other packages). No manual configuration needed.
 
 #### uv / graphify on i9
 
@@ -124,7 +125,7 @@ Brew's `uv` bottle also requires GLIBC ≥ 2.38. `_uv-wrapper.sh` skips brew's u
 
 Scripts that download via curl or npm set `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, and `NPM_CONFIG_CAFILE` to `/etc/ssl/certs/ca-certificates.crt` on i9. Override the cert path with `SYSTEM_CA_FILE=/path/to/ca.crt` if your machine uses a different bundle.
 
-The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` extra is omitted by default on i9 — override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office` once the allowlist is updated.
+The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` extra is omitted by default on i9, override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office` once the allowlist is updated.
 
 ---
 
@@ -139,7 +140,7 @@ Order is defined by the `UPDATE_TOOLS` array in `update-all.sh`:
 `context-mode` → `claude-mem` → `graphify` → `pi` → `repomix` → `ccusage`. Ollama is updated
 afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
 run last. Each `*-update.sh` upgrades only if already installed and skips
-otherwise — run `*-install.sh` for new tools.
+otherwise; run `*-install.sh` for new tools.
 
 ---
 
@@ -186,7 +187,7 @@ Supported on Linux and macOS (amd64/arm64, glibc and musl).
 
 #### Known quirks (headless/print mode)
 
-- **Flag order bug**: `agy -p --model <model> "prompt"` swallows the prompt —
+- **Flag order bug**: `agy -p --model <model> "prompt"` swallows the prompt:
   the model name becomes the prompt and you get a canned greeting ("I am
   currently powered by the Gemini..."). Correct order:
   `agy --model <model> -p "prompt"`. Same applies to `--effort`.
@@ -232,7 +233,7 @@ extensions.
 
 ### nvm / Node
 
-Skipped entirely on i9 — work provides its own Node stack.
+Skipped entirely on i9: work provides its own Node stack.
 
 | Script | What it does |
 |---|---|
@@ -401,7 +402,7 @@ already use pipx. On the i9/proxy environment, the scripts pass
 
 Registration has two levels, and the init script only does the first:
 `graphify install --platform <p>` copies the **user-level skill** (nothing in the
-repo), while `graphify <platform> install` — run inside a repo — writes
+repo), while `graphify <platform> install`, run inside a repo, writes
 **project-scoped always-on wiring** (`AGENTS.md`, `CLAUDE.md`,
 `.claude/settings.json`, `.codex/hooks.json`, `.agents/rules|workflows`,
 `.opencode/`). The second form touches committed files, so it stays opt-in per
@@ -459,7 +460,7 @@ tools/repomix-pack.sh . --compress
 | `ccusage-install.sh` | `npm install -g ccusage` |
 | `ccusage-update.sh` | `npm update -g ccusage` (skips if not installed) |
 
-Claude Code token usage analytics — per-project and per-day breakdowns, cost tracking. Complements `rtk gain` by showing the Claude-side view of what was sent/received. On i9 installs to `~/.local/bin` (ensure it is in `$PATH`); on home/Mac installs into the nvm bin normally.
+Claude Code token usage analytics, per-project and per-day breakdowns, cost tracking. Complements `rtk gain` by showing the Claude-side view of what was sent/received. On i9 installs to `~/.local/bin` (ensure it is in `$PATH`); on home/Mac installs into the nvm bin normally.
 
 ```bash
 ccusage            # today's usage summary
@@ -472,7 +473,7 @@ ccusage --help
 
 | Script | What it does |
 |---|---|
-| `ollama-install.sh` | `$BREW install ollama` (skipped on i9 — CPU too slow) |
+| `ollama-install.sh` | `$BREW install ollama` (skipped on i9, CPU too slow) |
 | `ollama-update.sh` | `$BREW upgrade ollama` (skipped on i9) |
 | `ollama-models-update.sh` | Pulls latest version of every installed model (`ollama list \| xargs ollama pull`) |
 
@@ -489,7 +490,7 @@ docker compose up -d
 
 - Listens on port **3000**
 - Connects to Ollama at `host.docker.internal:11434`
-- `OFFLINE_MODE=True` — no external calls
+- `OFFLINE_MODE=True`: no external calls
 - Proxy env vars explicitly cleared so container bypasses any system proxy
 - Data volume: `~/docker/openwebui/data`
 
@@ -497,7 +498,7 @@ docker compose up -d
 
 ## ik-llama/
 
-CPU-only local LLM inference using [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) on HP ProBook (native Windows via `llm/`) and i9-13900 (Debian), plus Metal GPU on MacBook Air M4 via [llama.cpp](https://github.com/ggerganov/llama.cpp). Models: Qwen3.6, Qwopus3.6, Gemma4, GLM-4.7-Flash. Vision via mmproj on Qwen/Qwopus/Gemma models.
+The i9-13900 (Debian) uses [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) for CPU inference. The HP ProBook uses mainline llama.cpp through the native Windows scripts in `llm/`. The MacBook Air M4 uses Ollama for daily work; `ik-llama/` contains the alternative [llama.cpp](https://github.com/ggerganov/llama.cpp)/Metal launcher. Models: Qwen3.6, Qwopus3.6, Gemma4, SuperGemma4, Qwen3-Coder-Next. Vision via mmproj on supported models.
 
 See [`ik-llama/README.md`](ik-llama/README.md) for full details: hardware, models, flags, benchmark scripts, performance, and lessons learned.
 

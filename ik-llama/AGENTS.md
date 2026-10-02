@@ -4,7 +4,7 @@ How to wire OpenCode and Claude Code to the local ik_llama.cpp server.
 
 ## OpenCode
 
-Run the setup script for your machine — it parses `start.sh` for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. Vision models automatically get `modalities` for image input. OpenCode config is written only when `opencode` is installed.
+Run the setup script for your machine; it parses `start.sh` for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. Vision models automatically get `modalities` for image input. OpenCode config is written only when `opencode` is installed.
 
 ```bash
 # i9 (Linux)
@@ -19,12 +19,13 @@ powershell -File llm/setup-agent-providers.ps1
 
 The generated config uses `http://localhost:9080/v1`. The port can be overridden with `IK_LLAMA_PORT`.
 
-Model shortnames are derived from `start.sh` (or `llm/start-llm.ps1`) case entries. Run `setup-agents.sh` to see available shortnames — they're printed after install. No static config file to maintain.
+Model shortnames are derived from `start.sh` (or `llm/start-llm.ps1`) case entries. Run `setup-agents.sh` to see available shortnames; they're printed after install. No static config file to maintain.
 
 ## Pi
 
-The same setup scripts also write `~/.pi/agent/models.json` when `pi` is
-installed. The Pi provider key is `ik-llama`; model IDs match the start-script
+The bash setup script also writes `~/.pi/agent/models.json` when `pi` is
+installed. The Windows PowerShell script configures OpenCode only.
+The Pi provider key is `ik-llama`; model IDs match the start-script
 shortnames such as `qwen36u35bq6kp`.
 
 ### Large tool writes
@@ -42,7 +43,7 @@ the tool call.
 ## Claude Code
 
 Use `claude-providers.sh` to pick local or remote models interactively. Type
-numbers to select — no typing model names:
+numbers to select; no typing model names:
 
 ```bash
 # Interactive picker (local + OpenRouter + NVIDIA + OpenCode Go + Proxy)
@@ -112,7 +113,7 @@ Ensure a model is loaded first: `./start.sh <machine> <mode>`.
 
 ### Bare mode
 
-Both scripts use `--bare` mode by default to bypass claude.ai OAuth and let
+Both `claude-providers.sh` and `claude-local.ps1` use `--bare` mode by default to bypass claude.ai OAuth and let
 `ANTHROPIC_API_KEY` take over. `--bare` disables hooks and CLAUDE.md auto-
 discovery. If you prefer full features, run `claude /logout` first, then set
 `CLAUDE_PROVIDERS_NO_BARE=1` to skip bare mode.
@@ -156,10 +157,9 @@ claude --bare --model nvidia/llama-4-maverick
 
 Use the full GGUF stem as the model name for local, e.g. `Qwopus3.6-35B-A3B-v1-Q6_K`.
 
-<Note>
-  Don't include `/v1` in `ANTHROPIC_BASE_URL`. Claude Code appends `/v1/messages`
-  to the value. Adding `/v1` doubles the path to `/v1/v1/messages` → 404.
-</Note>
+> [!NOTE]
+> Don't include `/v1` in `ANTHROPIC_BASE_URL`. Claude Code appends `/v1/messages`
+> to the value. Adding `/v1` doubles the path to `/v1/v1/messages` → 404.
 
 ### Disable KV cache attribution header
 
@@ -183,5 +183,5 @@ Claude Code inspects `context_window` in the Anthropic `/v1/models` response. Be
 
 ## Prompt cache warmup
 
-The first message with a large system prompt is slow (cold cache). Send a short "hi" first to prime the cache — all subsequent messages will be fast.
+The first message with a large system prompt requires a cold prefill. A short "hi" can warm the shared prefix; subsequent requests benefit when that prefix stays unchanged and the server retains the cache.
 
