@@ -244,6 +244,26 @@ What this means:
 - `llama-bench` ignores speculation, so `bench.sh` reports the non-MTP speed for this mode. Use a server run
   (`/completion` timings: `draft_n`, `draft_n_accepted`) to measure MTP.
 
+### Agent reality round (2026-10-06)
+
+Five small real tasks in throwaway Python repos (parsing, config merging, a CLI flag, a shell-quoting refactor), solved end to end by a coding agent in a sandbox (read-only filesystem, own writable directory), scored by hidden pytest files that run only after the agent finishes. Tasks were proposed by Codex (3) and Claude (2); each was validated first (the unmodified project fails the hidden tests, the reference solution passes). OpenCode ran with a minimal isolated config; Claude Code ran with `--bare` through the max-tokens proxy. One sample per cell, 10-minute cap, no timeouts. The harness is not part of this repository.
+
+| Task | MTP + OpenCode | MTP + Claude Code | HauhauCS + OpenCode | Coder-Next + OpenCode |
+|---|---|---|---|---|
+| env-file parser (bugfix) | fail | pass | pass | pass |
+| recursive config merge (feature) | fail | fail | fail | fail |
+| shell-quote refactor | pass | pass | pass | pass |
+| logfmt parser (bugfix) | pass | pass | fail | pass |
+| report `--format json` (feature) | pass | pass | pass | fail |
+| **Passed** | **3/5** | **4/5** | **3/5** | **3/5** |
+| Mean time / tool calls per run | 260 s / 14.6 | 214 s / 12.4 | 193 s / 10.6 | 252 s / 11.4 |
+
+- **The three models are indistinguishable on real agent tasks** (3/5 each with OpenCode; every difference is one task, one sample). Coder-Next 80B showed no advantage, and its two failures were the harsher ones: it left four of five tests failing on the config-merge task after only 3 tool calls, and three on the report task. It is also the slowest to generate (~16 t/s) and needs 34 GB of RAM.
+- **Claude Code works against the vanilla MTP mode** through the proxy: 4/5, no protocol failures, 8-15 tool calls per task. Its one-task lead over OpenCode on the same model is within noise. The harness difference that is real and measured is prompt size: ~1.4K tokens for Claude Code `--bare` against ~12K for OpenCode (a cold start costs ~16 s against ~2.3 min on this CPU).
+- **All failures were missed instruction details, not broken tooling:** the config-merge task failed for every model on one explicit clause ("deletion applies inside new dictionaries"); OpenCode+MTP missed the invalid-line error rule; HauhauCS missed "keys without a value"; Coder-Next failed the JSON, empty-input JSON and unknown-format tests. Same weakness as the quality rounds.
+- **Test fairness:** one hidden test (`--format=json` equals syntax) was not promised by the task prompt; it was removed mid-run and all earlier runs were re-scored from their saved work directories (one run flipped from fail to pass).
+- **Caveats:** one sample per cell and five tasks, so a difference of one task is noise; Claude Code was run on the MTP model only, so the harness comparison is confounded by prompt size and tool set; the two agents use different system prompts and tool sets.
+
 ### Prompt cache and slot persistence (measured 2026-10-06)
 
 Cold prefill is the expensive part on this CPU (about 105-120 tokens/s, so a 13K-token context costs 2+ minutes and 50K tokens about 8). Measured with a 12.9K-token repo context and one agent-style conversation, single runs, tiny answers so the time is almost all prompt processing:
