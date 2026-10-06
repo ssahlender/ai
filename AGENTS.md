@@ -11,6 +11,24 @@ private URLs. Keep the real values in host-local skills or a private repository
 and reference them from here (`ollama/README.md` shows the pattern). The same
 rule applies to `sysadmin-github`.
 
+## Re-syncing an existing clone after the history rewrite (2026-10-06)
+
+History on `main` and `fix/harness-integrity` was rewritten and force-pushed. Every other clone
+(MacBook, ProBook, agent checkouts) must be re-synced; do not `git pull` or merge, that mixes old
+and new history:
+
+```bash
+git branch backup-before-resync          # keep any unpushed local work reachable
+git fetch --prune origin && git reset --hard origin/main
+```
+
+`reset --hard` discards local changes and commits on the current branch, so save anything
+unpushed first (the backup branch above, or `git stash`). Recreate other local branches on top of
+the new history with `git rebase --onto`, or `git cherry-pick` their commits.
+
+Commits here must use a personal identity, not a corporate address. Set it per clone with
+`git config --local user.name` / `user.email`; the global git config may point elsewhere.
+
 ## Local LLM (OpenCode + Claude Code)
 
 ### x86 CPU (ProBook + i9)
