@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Starts llama-server. Usage: ./start.sh <machine> <mode>
+# IK_LLAMA_EXTRA_ARGS appends raw llama-server flags last (later flags win), e.g. '--slot-save-path DIR' or '-rea on'.
 #   Machine: i9 | macbook-air
 #   Mode:    GGUF file name without .gguf, or its number from the list
 #            (run without a mode for an interactive numbered menu)
@@ -156,7 +157,8 @@ start_model() {
     --context-shift on \
     -rea off \
     -v \
-    ${extra[@]+"${extra[@]}"}
+    ${extra[@]+"${extra[@]}"} \
+    ${IK_LLAMA_EXTRA_ARGS:-}
 }
 
 # ── resolve mode ───────────────────────────────────────────────────

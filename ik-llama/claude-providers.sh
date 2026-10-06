@@ -56,6 +56,8 @@ launch() {
   local base_url="$1" api_key="$2" sonnet="$3" haiku="$4" label="$5"
   local tip_provider="${label%%:*}" tip_model="${label#*:}"
   shift 5  # consume our 5 args — leftover $@ goes to claude
+  # CLAUDE_CODE_ATTRIBUTION_HEADER=0 (set below) removes a per-message hash from the first system line; with it the
+  # local server's prompt cache is invalidated on every turn (measured: 120 s instead of 1 s per turn at 13K tokens).
   # Set CLAUDE_PROVIDERS_NO_BARE=1 if you logged out of claude.ai first
   # and want full hooks/CLAUDE.md.
   local bare_flag="--bare"
@@ -84,6 +86,7 @@ launch() {
   ANTHROPIC_CUSTOM_MODEL_OPTION="$sonnet" \
   ANTHROPIC_DEFAULT_SONNET_MODEL="$sonnet" \
   ANTHROPIC_DEFAULT_HAIKU_MODEL="$haiku" \
+  CLAUDE_CODE_ATTRIBUTION_HEADER="${CLAUDE_CODE_ATTRIBUTION_HEADER:-0}" \
   ANTHROPIC_TIMEOUT="${ANTHROPIC_TIMEOUT:-3600000}" \
   ANTHROPIC_MAX_RETRIES="${ANTHROPIC_MAX_RETRIES:-0}" \
   exec claude $bare_flag --model "$sonnet" "${CONTINUE_FLAG[@]+"${CONTINUE_FLAG[@]}"}" "$@"

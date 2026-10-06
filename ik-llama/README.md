@@ -244,6 +244,40 @@ What this means:
 - `llama-bench` ignores speculation, so `bench.sh` reports the non-MTP speed for this mode. Use a server run
   (`/completion` timings: `draft_n`, `draft_n_accepted`) to measure MTP.
 
+### Prompt cache and slot persistence (measured 2026-10-06)
+
+Cold prefill is the expensive part on this CPU (about 105-120 tokens/s, so a 13K-token context costs 2+ minutes and 50K tokens about 8). Measured with a 12.9K-token repo context and one agent-style conversation, single runs, tiny answers so the time is almost all prompt processing:
+
+| Wall time | HauhauCS 35B | MTP 35B | Coder-Next 80B |
+|---|---:|---:|---:|
+| Cold prefill | 123.7 s | 145.0 s | 147.1 s |
+| Same prefix, next question | 1.1 s | 1.5 s | 1.3 s |
+| **First line of the system prompt changed** | **121.7 s** | **140.3 s** | **154.7 s** |
+| Back to the original prefix | 0.9 s | 1.3 s | 1.3 s |
+| Save slot / file size | 0.56 s / 1.4 GB | 0.61 s / 0.9 GB | 0.97 s / 1.7 GB |
+| **After server restart + restore: first request** | **0.6 s** | **0.9 s** | **1.0 s** |
+
+- Within a session the existing prompt cache already works: a stable prefix costs about 1 s per turn, and the RAM prompt cache (`-cram`) also remembers a previous prefix, so alternating between two sessions is cheap.
+- Anything that changes near the start of the prompt (a timestamp, a per-message hash) makes every turn cost the full cold prefill, about 100 times slower. Keep volatile content at the end of the prompt.
+- Saving a slot to disk and restoring it after a restart brings back the whole context in about a second, with the vision projector loaded and with MTP speculative decoding. It only helps if the next prompt starts with exactly the same tokens.
+
+```bash
+# start with a slot directory (start.sh appends IK_LLAMA_EXTRA_ARGS last)
+IK_LLAMA_EXTRA_ARGS="--slot-save-path $HOME/.cache/ik-llama-slots" ./start.sh i9 <mode>
+curl -s -X POST "http://localhost:9080/slots/0?action=save"    -d '{"filename":"myrepo.bin"}'
+curl -s -X POST "http://localhost:9080/slots/0?action=restore" -d '{"filename":"myrepo.bin"}'   # after a restart, same model and flags
+```
+
+What the agents send first (captured through a fake endpoint, two runs a minute apart, from a git repository):
+
+| Agent | Prompt start | Verdict |
+|---|---|---|
+| OpenCode | ~36K-char system block (tools, skills, repo `AGENTS.md`), `Today's date` and the working directory near the end | stable; a new day costs one partial re-prefill from the date line |
+| Pi | ~24K-char system block, 26 tools, no date or time | stable |
+| Claude Code (`--bare`) | `x-anthropic-billing-header: cc_version=...<hash>` as the very first line; the hash depends on the user's message | **breaks the cache every turn** unless `CLAUDE_CODE_ATTRIBUTION_HEADER=0`; `claude-providers.sh` now sets it |
+
+Not covered: long sessions where an agent compacts or truncates its history (that also changes the prefix), and what happens when two agents share one server slot.
+
 ### Quality checks (2026-10-06)
 
 Three rounds of small automatic tests on the i9, through `start.sh` with the production flags: non-thinking mode, temperature 0.2, single runs unless noted. Round 3 was proposed independently by three AI reviewers (Codex, Agy, Claude) to avoid one author's blind spots; every checker was validated against reference answers first, and generated scripts run in a bubblewrap sandbox (read-only filesystem, no network). The test harness is not part of this repository.
@@ -453,7 +487,7 @@ The cleanup script derives the whitelist from `start.sh` MODES automatically; an
 6. **Prefill and prefix-cache stability are the true bottleneck on CPU**: decode speed (16–26 t/s) is negligible next to cold prefill at ~100 t/s (ingesting a 50K context cold takes >8 minutes; 128K takes >20 minutes). Practical turnaround in coding agents is dominated by prefix-cache hits (`--cache-reuse`, single slot `IK_LLAMA_PARALLEL=1`, stable system prompts, static tool definitions).
 7. **128K context is an emergency ceiling, not routine operating depth**: operate at 16K–32K with agent-level harness compaction (e.g. OpenCode reserving 10,000 tokens to prune old tool outputs) rather than letting contexts inflate to 100K+.
 8. **Hybrid linear attention in Qwen3-Coder-Next 80B-A3B**: combines Gated DeltaNet (linear recurrent layers) with only 12 full-attention layers. This provides O(1) memory per linear layer at deep context, explaining how an 80B-class model runs in 64 GB RAM. Note that recurrent hidden state cannot be shifted by server-side context shift, making harness-side compaction strictly mandatory.
-9. **Claude Code attribution header causes ~90% silent slowdown**: Claude Code inserts dynamic attribution metadata into request headers on every turn, altering the prompt prefix and forcing 100% cache misses on local servers. Adding `"CLAUDE_CODE_ATTRIBUTION_HEADER": "0"` in `~/.claude/settings.json` stabilizes the prefix.
+9. **Claude Code attribution header causes a silent slowdown**: Claude Code puts `x-anthropic-billing-header: cc_version=...bXX; ...` as the very first line of the system prompt, and the suffix is a hash of the user's message (captured 2026-10-06: `hi` always gives `bc6`, other prompts give other values). Byte zero of the prompt therefore changes whenever the message changes, so the local server's prompt cache cannot match and every turn re-prefills the whole context (measured: ~120 s instead of ~1 s per turn at 13K tokens). `CLAUDE_CODE_ATTRIBUTION_HEADER=0` removes the line; `claude-providers.sh` now sets it for every launch. OpenCode and Pi were checked the same way and have no per-turn value at the start of their prompts (OpenCode has a date line near the end of its system block, so a new day costs one partial re-prefill).
 10. **The "Empty Answer" thinking budget trap**: on reasoning models, small `max_tokens` budgets (e.g. 32 or 64) spend every token in `reasoning_content` and return empty `content: ""`. Appending `/no_think` does not suppress thinking on these templates. Either provide generous token headroom (1024+) or turn off internal thinking server-side via `-rea off` (which cuts turn latency 50–80% for coding).
 11. **MoE active-parameter ceiling vs dense models**: 35B-A3B MoE routes ~3.2B active parameters per token. While fast on DDR5 (~24 t/s), dense 27B–32B models have full parameter depth on every token. For complex logic, speculative decoding (prompt lookup / n-gram drafting) on dense models can narrow the generation gap without model degradation.
 12. **Vision requires mmproj**: Qwen3.6 models support image input (not combined with MTP) when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. GLM-4.7-Flash is text-only.

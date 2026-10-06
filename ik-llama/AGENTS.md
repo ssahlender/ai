@@ -196,7 +196,7 @@ Use the full GGUF stem as the model name for local, e.g. `Qwen3.6-35B-A3B-Uncens
 
 ### Disable KV cache attribution header
 
-Claude Code injects an attribution header into request headers that changes dynamically on each turn, breaking prompt prefix caching on local servers and causing a ~90% slowdown due to repeated cold prefills. Add to `~/.claude/settings.json`:
+Claude Code puts an attribution line (`x-anthropic-billing-header: cc_version=...`) at the very start of the system prompt, and its suffix is a hash of the user's message. It changes with the message, so the local server's prompt prefix never matches and every turn pays a full cold prefill (about 120 s instead of 1 s at 13K tokens, measured). `claude-providers.sh` now sets `CLAUDE_CODE_ATTRIBUTION_HEADER=0` itself. For manual launches set it in the environment (`CLAUDE_CODE_ATTRIBUTION_HEADER=0 claude ...`) or add it to `~/.claude/settings.json`:
 
 ```json
 {
