@@ -19,7 +19,7 @@ powershell -File llm/setup-agent-providers.ps1
 
 The generated config uses `http://localhost:9080/v1`. The port can be overridden with `IK_LLAMA_PORT`.
 
-Model ids are the GGUF file names without `.gguf`, derived from the `MODES` entries in `start.sh` (the Windows path still uses `llm/start-llm.ps1` names). Run `setup-agents.sh` to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`); use `--dry-run` to preview. No static config file to maintain.
+Model ids are the GGUF file names without `.gguf`, derived from the `MODES` entries in `start.sh` (the Windows path still uses `llm/start-llm.ps1` names). Run `setup-agents.sh` to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
 
 ## Pi
 
@@ -39,6 +39,39 @@ Instead, create a compact generator script or structured source file, run it to
 write the large artifact, then validate the output. For draw.io, generate the
 `.drawio` XML from data in a script rather than inlining the full XML payload in
 the tool call.
+
+## Docker Agent (docker-agent / cagent)
+
+Use `docker-agent-providers.sh` to pick local or remote models interactively, mirroring `claude-providers.sh`:
+
+```bash
+# Interactive picker (Local + OpenCode Go + OpenRouter)
+./docker-agent-providers.sh
+
+# Direct launch (skip picker)
+./docker-agent-providers.sh local
+./docker-agent-providers.sh opencode-go qwen3.7-max
+./docker-agent-providers.sh openrouter meta-llama/llama-4-maverick
+```
+
+The bash setup script (`./setup-agents.sh i9`) configures the `ik-llama` provider in `~/.config/cagent/config.yaml`
+pointing to `http://localhost:9080/v1` (merging with any existing options).
+
+- **Local models**: Run directly with `--model ik-llama/<gguf-stem>`, for example:
+  ```bash
+  docker-agent run --model ik-llama/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P coder "prompt"
+  ```
+- **OpenCode Go & Cloud models**: `setup-agents.sh` syncs credentials (`OPENCODE_API_KEY`,
+  `OPENROUTER_API_KEY`, `NVIDIA_API_KEY`) into `~/.config/cagent/.env` (mode 0600)
+  from `~/.secrets` (`OPENCODE_API_KEY` or `OPENCODE_GO_API_KEY`).
+  Run OpenCode Go models directly via the built-in provider:
+  ```bash
+  docker-agent run --model opencode-go/qwen3.7-max coder "prompt"
+  ```
+- Check credentials and configuration at any time:
+  ```bash
+  docker-agent doctor
+  ```
 
 ## Claude Code
 

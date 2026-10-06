@@ -36,6 +36,7 @@ Commits here must use a personal identity, not a corporate address. Set it per c
 See [`ik-llama/AGENTS.md`](ik-llama/AGENTS.md) for full setup:
 
 - OpenCode provider config (setup scripts for i9 and native Windows PowerShell for ProBook)
+- Docker Agent (docker-agent) custom provider config and OpenCode Go credentials
 - Claude Code environment variables and model names
 - Disabling the KV cache attribution header (causes ~90% slowdown with local servers)
 - OpenCode local-speed mode for disabling MCP/plugins when local writes stall with low CPU

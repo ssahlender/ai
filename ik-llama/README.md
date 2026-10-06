@@ -18,7 +18,8 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `update.sh <machine>` | Download/update ik_llama.cpp (i9) or brew upgrade llama.cpp (macbook-air) |
 | `download-models.sh <machine>` | Download GGUF + mmproj files for i9/macbook-air |
 | `start.sh <machine> <mode>` | Start llama-server on i9 or macbook-air |
-| `setup-agents.sh <machine> [--dry-run]` | Auto-generate OpenCode/Pi provider config (parses start.sh) and remove stale references to models that are gone |
+| `setup-agents.sh <machine> [--dry-run]` | Auto-generate OpenCode/Pi/Docker Agent provider config (parses start.sh) and remove stale references to models that are gone |
+| `docker-agent-providers.sh [provider] [model]` | Interactive picker & launch Docker Agent with local or remote models |
 | `claude-providers.sh [provider] [model]` | Interactive picker & launch Claude Code with local or remote models (shows live n_ctx from `/props`) |
 | `.secrets.example` | Template for `~/.secrets` (copy, chmod 600, fill in keys) |
 | `ocg-proxy.py` | Anthropic ↔ OpenAI proxy for OpenCode Go (DeepSeek/Kimi/GLM + Claude Code) |
@@ -26,8 +27,8 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `model-info.sh` | Show on-disk models, file sizes, mmproj status |
 | `cleanup-models.sh <machine>` | Remove GGUFs not in active start.sh lineup, whitelist-driven, dry-run by default |
 
-`setup-agents.sh` writes the `ik-llama` provider for OpenCode when `opencode` is
-installed and for Pi when `pi` is installed. Per-model context values are parsed
+`setup-agents.sh` writes the `ik-llama` provider for OpenCode, Pi, and Docker
+Agent (`docker-agent` / `cagent`). Per-model context values are parsed
 from `start.sh`. Vision models get `modalities: {input: [text, image], output: [text]}`.
 OpenCode gets a conservative `limit.output` of
 8192 tokens and:
@@ -57,6 +58,11 @@ when testing a different compaction buffer.
 Pi config is written to `~/.pi/agent/models.json` with `api:
 "openai-completions"`, `contextWindow`, and `maxTokens` for each local model.
 
+Docker Agent (`cagent`) config is registered in `~/.config/cagent/config.yaml`
+with the `ik-llama` provider (`http://localhost:9080/v1`), and credentials
+(`OPENCODE_API_KEY`, `OPENROUTER_API_KEY`, `NVIDIA_API_KEY`) are synced to
+`~/.config/cagent/.env` (mode 0600).
+
 **Model names.** There are no short aliases. A mode, an OpenCode/Pi model id and the
 Claude Code model name are all the GGUF file name without `.gguf` (for example
 `ik-llama/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P`). `start.sh` is the single source of truth:
@@ -71,8 +77,8 @@ the agent configs use. Outside a terminal, no mode prints the list and exits.
 **Stale settings cleanup.** Each `setup-agents.sh` run regenerates the `ik-llama`
 provider, so models that left `start.sh` (or are not on disk) disappear from it. It also
 removes dangling `ik-llama/<id>` references that would otherwise break the agent at
-startup: OpenCode's `model`, `small_model` and per-agent `model`/`small_model`, and Pi's
-`defaultModel`. It prints everything it removed and does not touch other providers or
+startup: OpenCode's `model`, `small_model` and per-agent `model`/`small_model`, Pi's
+`defaultModel`, and Docker Agent's `default_model`. It prints everything it removed and does not touch other providers or
 unrelated settings. Use `--dry-run` to preview. It refuses to run (and changes nothing)
 when no model is on disk, so an unmounted models directory cannot wipe your config.
 
@@ -238,6 +244,26 @@ What this means:
 - `llama-bench` ignores speculation, so `bench.sh` reports the non-MTP speed for this mode. Use a server run
   (`/completion` timings: `draft_n`, `draft_n_accepted`) to measure MTP.
 
+### Quality checks (2026-10-06)
+
+Three rounds of small automatic tests on the i9, through `start.sh` with the production flags: non-thinking mode, temperature 0.2, single runs unless noted. Round 3 was proposed independently by three AI reviewers (Codex, Agy, Claude) to avoid one author's blind spots; every checker was validated against reference answers first, and generated scripts run in a bubblewrap sandbox (read-only filesystem, no network). The test harness is not part of this repository.
+
+| Round | What it covers | HauhauCS 35B Q6\_K\_P | MTP 35B Q6\_K | Coder-Next 80B Q3\_K\_M |
+|---|---|---:|---:|---:|
+| 1: simple (11) | arithmetic, logic, code tracing, small coding, German, formats, tool call | 9/11 | 10/11 | not run |
+| 2: harder (12) | behaviour-tested code, 6K-token log needle, puzzles, JSON/YAML, 2-step agent | 9/12 | 9/12 | not run |
+| 3: mixed (13) | 3 agent tasks, strict-contract refactor, shell/config reasoning, German, SOC triage, executed bash, k8s, Terraform | 11/13 | **13/13** | 11/13 |
+| Speed, short answers | | 21.6 t/s | 25.1 t/s | 16.1 t/s |
+
+Round 3 bash script task: HauhauCS 2/2 samples, MTP 1/2, Coder-Next 0/2 (the losing scripts printed `count<TAB>name` instead of `name<TAB>count`). The table counts the first sample.
+
+- **MTP costs no measurable quality.** It scored equal or higher in every round. With 11-13 questions and single runs this is evidence, not proof; one flipped question changes the totals.
+- **Agent behaviour depends on the system prompt.** With no system prompt both 35B models never called tools and guessed (0/5); with a one-line agent system prompt they passed 5/5 and followed 3-step lookups. In round 3 all three models passed the three agent tasks (error recovery, concurrent-update conflict, two prompt injections) with such a prompt. Test agents with the harness's real system prompt.
+- **Coder-Next 80B is not better on general tasks** (11/13) and about 30% slower than the 35B models. Keep it for heavy coding, not as the daily model.
+- **Shared weaknesses are instruction details, not knowledge:** both 35B models ignored an explicit "slash date is US month/day" instruction (0/4) and added a time to a date (0/4); one model wrote evidence ids as numbers; one used a forbidden word; and without step-by-step reasoning a short code-tracing question was answered wrongly (15/16 instead of 23; correct when asked to reason).
+- **HauhauCS specifics:** it failed the strict lazy-batching contract and, in round 1, invented an explanation for a fictional country instead of saying it does not exist (one prompt, so only a hint).
+- **Test-harness lesson:** three of the first checkers were wrong (a command deny-list blocked legitimate `trap 'rm -f "$tmp"'`, an over-strict tool-call order, a misreading of `>=` as a redirect). Validate every checker against reference answers, and sandbox instead of deny-listing.
+
 ## Binaries
 
 Downloaded automatically by `update-*.sh`. Correct build for each machine:
@@ -382,13 +408,13 @@ Default `8/16` is the best balanced setting for qwen36u35b. Use `8/8` (`IK_LLAMA
 | Mode | pp2048 (t/s) | tg128 (t/s) | Reason dropped |
 |---|---:|---:|---|
 | `ornith35q6k` | 122.5 | 23.1 | Good throughput, failed manual quality |
+| `Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P` | - | 3.4 | Dense 27B: too slow on CPU for interactive use (dropped 2026-10) |
 | `Qwopus3.6-35B-A3B-v1-Q5_K_M` | 130.9 | 26.4 | Fastest llama-bench numbers, but not good in real use (dropped 2026-10) |
 | `supergemma4-26b-uncensored-fast-v2-Q4_K_M` | 129.1 | 23.2 | Not good in real use (dropped 2026-10) |
 | `qwen3coderq5km` | 110.6 | 29.8 | Failed manual quality |
 | `qwen3coderq8` | 105.8 | 20.7 | Failed manual quality |
 | `qwen3coderq6k` | 102.1 | 25.6 | Failed manual quality |
 | `glm47flashq5km` | 91.7 | 20.8 | Slower than Qwen MoE, low quality |
-| `Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P` | - | 3.4 | Dense 27B: too slow on CPU for interactive use (dropped 2026-10) |
 | `qwen3fast:q4/q5` | ~33–40 | ~6–7 | Too slow |
 | `qwen38b:q4/q5` | ~60 | ~13 | Not competitive with MoE |
 | `qwen332b / qwen25coder32b` | ~14 | ~3 | Way too slow on AVX2 |

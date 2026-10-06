@@ -16,6 +16,7 @@ UPDATE_TOOLS=(
   claude
   opencode
   codex
+  docker-agent
   antigravity
   hf
   mlx-lm
