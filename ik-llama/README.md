@@ -186,7 +186,6 @@ The 27B dense IQ4\_XS is the smarter general pick; all 27B params active vs 3B M
 | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline + vision |
 | `Qwen3.6-35B-A3B-MTP-UD-Q6_K` | Qwen3.6-35B-A3B MTP UD-Q6\_K (vanilla, unsloth) | ~30 GB | 128 K | no | MTP speculative decoding: ~+25% tg on code, +4-11% on prose; not the uncensored finetune; no vision (`--mmproj` unsupported with MTP) |
 | `Qwen3-Coder-Next-UD-Q3_K_M` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active, heavy coder test |
-| `Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P` | Qwen3.6-27B-Uncensored Q5\_K\_P (dense) | ~19 GB | 128 K | no | Dense, all 27B active, slow (3.4 tg tok/s measured) but higher quality ceiling than 3B-active MoE; kept on hand since no GPU upgrade is coming |
 
 Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24, about 20% slower than the 35B-A3B models due to the larger model footprint (same 3B active params, more bytes to stream). Context set to 128K for long agent sessions; prompt-cache RAM capped via `cram`.
 
@@ -389,6 +388,7 @@ Default `8/16` is the best balanced setting for qwen36u35b. Use `8/8` (`IK_LLAMA
 | `qwen3coderq8` | 105.8 | 20.7 | Failed manual quality |
 | `qwen3coderq6k` | 102.1 | 25.6 | Failed manual quality |
 | `glm47flashq5km` | 91.7 | 20.8 | Slower than Qwen MoE, low quality |
+| `Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P` | - | 3.4 | Dense 27B: too slow on CPU for interactive use (dropped 2026-10) |
 | `qwen3fast:q4/q5` | ~33–40 | ~6–7 | Too slow |
 | `qwen38b:q4/q5` | ~60 | ~13 | Not competitive with MoE |
 | `qwen332b / qwen25coder32b` | ~14 | ~3 | Way too slow on AVX2 |
