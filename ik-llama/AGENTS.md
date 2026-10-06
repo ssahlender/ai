@@ -19,14 +19,14 @@ powershell -File llm/setup-agent-providers.ps1
 
 The generated config uses `http://localhost:9080/v1`. The port can be overridden with `IK_LLAMA_PORT`.
 
-Model shortnames are derived from `start.sh` (or `llm/start-llm.ps1`) case entries. Run `setup-agents.sh` to see available shortnames; they're printed after install. No static config file to maintain.
+Model ids are the GGUF file names without `.gguf`, derived from the `MODES` entries in `start.sh` (the Windows path still uses `llm/start-llm.ps1` names). Run `setup-agents.sh` to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`); use `--dry-run` to preview. No static config file to maintain.
 
 ## Pi
 
 The bash setup script also writes `~/.pi/agent/models.json` when `pi` is
 installed. The Windows PowerShell script configures OpenCode only.
-The Pi provider key is `ik-llama`; model IDs match the start-script
-shortnames such as `qwen36u35bq6kp`.
+The Pi provider key is `ik-llama`; model IDs are the GGUF stems used by
+`start.sh` (for example `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P`).
 
 ### Large tool writes
 
@@ -125,7 +125,7 @@ discovery. If you prefer full features, run `claude /logout` first, then set
 # Start local-proxy.py first, or just use claude-providers.sh local (it does it).
 export ANTHROPIC_BASE_URL=http://localhost:9081
 export ANTHROPIC_API_KEY=dummy
-export ANTHROPIC_CUSTOM_MODEL_OPTION=<gguf-stem>   # e.g. Qwopus3.6-35B-A3B-v1-Q6_K
+export ANTHROPIC_CUSTOM_MODEL_OPTION=<gguf-stem>   # e.g. Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P
 export ANTHROPIC_DEFAULT_SONNET_MODEL=<gguf-stem>
 export ANTHROPIC_DEFAULT_HAIKU_MODEL=<gguf-stem>
 claude --bare --model <gguf-stem>                  # --bare required if signed into claude.ai
@@ -155,7 +155,7 @@ export ANTHROPIC_DEFAULT_HAIKU_MODEL=nvidia/llama-4-maverick
 claude --bare --model nvidia/llama-4-maverick
 ```
 
-Use the full GGUF stem as the model name for local, e.g. `Qwopus3.6-35B-A3B-v1-Q6_K`.
+Use the full GGUF stem as the model name for local, e.g. `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P`.
 
 > [!NOTE]
 > Don't include `/v1` in `ANTHROPIC_BASE_URL`. Claude Code appends `/v1/messages`

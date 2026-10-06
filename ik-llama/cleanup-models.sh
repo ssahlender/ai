@@ -56,10 +56,10 @@ for line in content.split('\n'):
     if not m:
         continue
     parts = m.group(1).split('|')
-    if len(parts) >= 3 and parts[2].endswith('.gguf'):
-        files.add(parts[2])
-    if len(parts) >= 8 and parts[7].endswith('.gguf'):
-        files.add(parts[7])
+    if len(parts) >= 2 and parts[1].endswith('.gguf'):
+        files.add(parts[1])
+    if len(parts) >= 7 and parts[6].endswith('.gguf'):
+        files.add(parts[6])
 
 for f in sorted(files):
     print(f)

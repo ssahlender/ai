@@ -498,7 +498,7 @@ docker compose up -d
 
 ## ik-llama/
 
-The i9-13900 (Debian) uses [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) for CPU inference. The HP ProBook uses mainline llama.cpp through the native Windows scripts in `llm/`. The MacBook Air M4 uses Ollama for daily work; `ik-llama/` contains the alternative [llama.cpp](https://github.com/ggerganov/llama.cpp)/Metal launcher. Models: Qwen3.6, Qwopus3.6, Gemma4, SuperGemma4, Qwen3-Coder-Next. Vision via mmproj on supported models.
+The i9-13900 (Debian) uses [ik_llama.cpp](https://github.com/Thireus/ik_llama.cpp) for CPU inference. The HP ProBook uses mainline llama.cpp through the native Windows scripts in `llm/`. The MacBook Air M4 uses Ollama for daily work; `ik-llama/` contains the alternative [llama.cpp](https://github.com/ggerganov/llama.cpp)/Metal launcher. Models: Qwen3.6 (uncensored finetune and an MTP build), Qwen3-Coder-Next. Vision via mmproj on supported models.
 
 See [`ik-llama/README.md`](ik-llama/README.md) for full details: hardware, models, flags, benchmark scripts, performance, and lessons learned.
 

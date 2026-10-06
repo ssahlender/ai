@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Starts llama-server. Usage: ./start.sh <machine> <mode>
 #   Machine: i9 | macbook-air
-#   Mode:    machine-specific model shortname (see usage)
+#   Mode:    GGUF file name without .gguf, or its number from the list
+#            (run without a mode for an interactive numbered menu)
 #   (ProBook runs natively on Windows via llm\start-llm.ps1)
 set -euo pipefail
 
@@ -40,11 +41,10 @@ case "$MACHINE" in
     SAMPLE_BASE=(--temp "${IK_LLAMA_TEMP:-0.2}" --top-p "${IK_LLAMA_TOP_P:-0.8}" --top-k "${IK_LLAMA_TOP_K:-20}")
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
     MODES=(
-      "qwen36u35bq6kp|Qwen3.6 35B-A3B Uncensored Q6_K_P|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf|131072|24576||SAMPLE|mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "qwopus35bq5km|Qwopus3.6 35B-A3B Q5_K_M|Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf|131072|24576||SAMPLE|mmproj-F32.gguf"
-      "supergemma4q4km|SuperGemma4 26B Uncensored Q4_K_M|supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf|131072|32768||SAMPLE"
-      "qwen3codernext|Qwen3-Coder-Next 80B-A3B UD-Q3_K_M|Qwen3-Coder-Next-UD-Q3_K_M.gguf|131072|14336||SAMPLE"
-      "qwen36u27bq5kp|Qwen3.6 27B Uncensored Q5_K_P (dense)|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf|131072|32768||SAMPLE"
+      "Qwen3.6 35B-A3B Uncensored Q6_K_P|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf|131072|24576||SAMPLE|mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
+      "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative, ~+25% tg on code)|Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf|131072|24576||SAMPLE||mtp:n_max=1,p_min=0.0"
+      "Qwen3-Coder-Next 80B-A3B UD-Q3_K_M|Qwen3-Coder-Next-UD-Q3_K_M.gguf|131072|14336||SAMPLE"
+      "Qwen3.6 27B Uncensored Q5_K_P (dense)|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf|131072|32768||SAMPLE"
     )
     ;;
   macbook-air)
@@ -72,9 +72,9 @@ case "$MACHINE" in
     SAMPLE_BASE=()
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
     MODES=(
-      "qwen36u27b|Qwen3.6 27B IQ4_XS|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf|32768|8192|||mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "qwen36u35b|Qwen3.6 35B-A3B IQ4_NL|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf|16384|4096|||mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "qwen3coder30b|Qwen3-Coder 30B-A3B IQ4_NL|Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf|32768|8192"
+      "Qwen3.6 27B IQ4_XS|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf|32768|8192|||mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf"
+      "Qwen3.6 35B-A3B IQ4_NL|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf|16384|4096|||mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
+      "Qwen3-Coder 30B-A3B IQ4_NL|Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf|32768|8192"
     )
     ;;
   *) echo "Usage: $0 <i9|macbook-air> <mode>" >&2; exit 1 ;;
@@ -86,13 +86,37 @@ esac
 PARALLEL="${IK_LLAMA_PARALLEL:-1}"
 
 # ── validate ───────────────────────────────────────────────────────
-if [ -z "$MODE" ]; then
-  echo "Usage: $0 $MACHINE <mode>" >&2
-  echo "Modes:" >&2
+list_modes() {
+  local i=1 m _desc _file
   for m in "${MODES[@]}"; do
-    printf "  %-22s %s\n" "${m%%|*}" "$(echo "$m" | cut -d'|' -f2)"
+    IFS='|' read -r _desc _file _ <<< "$m"
+    printf "  %2d) %s\n      %s\n" "$i" "${_file%.gguf}" "$_desc"
+    i=$((i + 1))
   done
-  exit 1
+}
+
+if [ -z "$MODE" ]; then
+  if [ -t 0 ] && [ -t 1 ]; then
+    echo "Models for $MACHINE:"
+    list_modes
+    read -r -p "Select a number: " MODE
+  else
+    echo "Usage: $0 $MACHINE <mode|number>" >&2
+    echo "Modes:" >&2
+    list_modes >&2
+    exit 1
+  fi
+fi
+
+# A number picks the Nth entry of the list above.
+if [[ "$MODE" =~ ^[0-9]+$ ]]; then
+  if [ "$MODE" -lt 1 ] || [ "$MODE" -gt "${#MODES[@]}" ]; then
+    echo "No model number $MODE (valid: 1-${#MODES[@]})." >&2
+    exit 1
+  fi
+  IFS='|' read -r _desc _file _ <<< "${MODES[$((MODE - 1))]}"
+  MODE="${_file%.gguf}"
+  echo "Selected: $MODE"
 fi
 
 if [ -n "$PGREP_NAME" ] && pgrep -x "$PGREP_NAME" >/dev/null 2>&1; then
@@ -139,8 +163,8 @@ start_model() {
 # ── resolve mode ───────────────────────────────────────────────────
 FOUND=
 for m in "${MODES[@]}"; do
-  IFS='|' read -r SN NAME FILE CTX CRAM YF SF MMPROJ <<< "$m"
-  if [ "$SN" = "$MODE" ]; then
+  IFS='|' read -r NAME FILE CTX CRAM YF SF MMPROJ SPEC <<< "$m"
+  if [ "${FILE%.gguf}" = "$MODE" ]; then
     FOUND=1
     EXTRA=()
     [ "$YF" = "YARN" ] && EXTRA+=("${YARN[@]}")
@@ -148,8 +172,9 @@ for m in "${MODES[@]}"; do
       EXTRA+=(${SAMPLE_BASE[@]+"${SAMPLE_BASE[@]}"})
     fi
     [ -n "$MMPROJ" ] && EXTRA+=(--mmproj "$(model_path "$MMPROJ")")
-    case "$SN" in
-      qwen36*|qwopus*)
+    [ -n "${SPEC:-}" ] && EXTRA+=(--spec-type "$SPEC")
+    case "$FILE" in
+      *Uncensored-HauhauCS*)
         EXTRA+=(--chat-template-file "$(dirname "$(realpath "$0")")/qwen3-template.j2")
         ;;
     esac

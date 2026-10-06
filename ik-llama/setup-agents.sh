@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 # Installs agent provider config for ik_llama.cpp / llama.cpp.
 # Parses the start script for model mappings.
-# Usage: ./setup-agents.sh [i9|macbook-air]
+# Usage: ./setup-agents.sh <i9|macbook-air> [--dry-run]
+# Model ids are GGUF stems (file name without .gguf). Besides writing the ik-llama provider,
+# it removes stale references to models that are no longer in start.sh / on disk.
 set -euo pipefail
 
 MACHINE="${1:-}"
+DRY_RUN=0
+case "${2:-}" in
+  "") ;;
+  --dry-run) DRY_RUN=1 ;;
+  *) echo "Usage: $0 <i9|macbook-air> [--dry-run]" >&2; exit 1 ;;
+esac
 
-[ -n "$MACHINE" ] || { echo "Usage: $0 [i9|macbook-air]" >&2; exit 1; }
+[ -n "$MACHINE" ] || { echo "Usage: $0 <i9|macbook-air> [--dry-run]" >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPENCODE_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
@@ -32,7 +40,7 @@ case "$MACHINE" in
     MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
     BASE_URL="http://localhost:${PORT}/v1"
     ;;
-  *) echo "Usage: $0 [i9|macbook-air]" >&2; exit 1 ;;
+  *) echo "Usage: $0 <i9|macbook-air> [--dry-run]" >&2; exit 1 ;;
 esac
 
 # ── write a temporary Python script that auto-collects parameters ──
@@ -56,7 +64,7 @@ with open(start_script) as f:
 # Extract MODES entries within the machine's case block
 in_config = False
 in_block = False
-modes_pattern = re.compile(r'"([^"]+)\|([^"]+)\|([^"]+\.gguf)\|(\d+)\|(\d+)')
+modes_pattern = re.compile(r'"([^"|]+)\|([^"|]+\.gguf)\|(\d+)\|(\d+)')
 
 opencode_models = {}
 pi_models = []
@@ -76,12 +84,13 @@ for line in content.split('\n'):
 
     m = modes_pattern.search(line)
     if m:
-        shortname, _name, filename, ctx, cram = m.groups()
+        _desc, filename, ctx, cram = m.groups()
+        model_id = filename[:-len('.gguf')]
         if os.path.isfile(os.path.join(models_dir, filename)):
             context = int(ctx_override or ctx)
             is_vision = 'mmproj-' in line
             model = {
-                'name': filename,
+                'name': model_id,
                 'limit': {'context': context, 'output': output_limit}
             }
             if is_vision:
@@ -89,10 +98,10 @@ for line in content.split('\n'):
                     'input': ['text', 'image'],
                     'output': ['text']
                 }
-            opencode_models[shortname] = model
+            opencode_models[model_id] = model
             pi_model = {
-                'id': shortname,
-                'name': filename,
+                'id': model_id,
+                'name': model_id,
                 'contextWindow': context,
                 'maxTokens': output_limit,
                 'reasoning': False,
@@ -142,56 +151,140 @@ _apply=$(mktemp)
 cleanup() { rm -f "$_py" "$_apply"; }
 trap cleanup EXIT
 
-cat > "$_apply" << PYEOF
+cat > "$_apply" << 'PYEOF'
 import json, os, sys
 from pathlib import Path
 
-opencode_config_dir = Path(os.environ['OPENCODE_CONFIG_DIR'])
-opencode_config = opencode_config_dir / 'opencode.json'
+opencode_config = Path(os.environ['OPENCODE_CONFIG_DIR']) / 'opencode.json'
 opencode_auth = Path(os.environ['OPENCODE_AUTH_FILE'])
-pi_config_dir = Path(os.environ['PI_CONFIG_DIR'])
-pi_config = pi_config_dir / 'models.json'
+pi_config = Path(os.environ['PI_CONFIG_DIR']) / 'models.json'
+pi_settings = Path(os.environ['PI_CONFIG_DIR']) / 'settings.json'
+dry = os.environ.get('DRY_RUN') == '1'
+PROVIDER = 'ik-llama'
 
-# generated JSON is read from stdin
-MODELS_JSON = sys.stdin.read()
 
-generated = json.loads(MODELS_JSON)
-compact = generated['compaction']
+class ConfigError(Exception):
+    pass
 
-# ── OpenCode ───────────────────────────────────────────────────────
-opencode_config_dir.mkdir(parents=True, exist_ok=True)
 
-if opencode_config.exists():
-    existing = json.loads(opencode_config.read_text())
+def load(path, what):
+    """Existing JSON object, or {} when the file is absent. Anything else aborts the whole run."""
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except ValueError as e:
+        raise ConfigError(f'{path}: not valid JSON ({e}); comments (JSONC) are not supported')
+    if not isinstance(data, dict):
+        raise ConfigError(f'{path}: expected a JSON object at the top level')
+    return data
+
+
+def need_dict(parent, key, path):
+    """parent[key] as a dict (created when missing or null); any other type aborts."""
+    val = parent.get(key)
+    if val is None:
+        val = parent[key] = {}
+    if not isinstance(val, dict):
+        raise ConfigError(f'{path}: "{key}" is {type(val).__name__}, expected an object')
+    return val
+
+
+generated = json.loads(sys.stdin.read())
+valid = set(generated['opencode_provider']['models'])
+removed = []
+
+
+def stale_ref(ref):
+    """True for an 'ik-llama/<id>' reference whose model is no longer served."""
+    return (isinstance(ref, str) and ref.startswith(PROVIDER + '/')
+            and ref.split('/', 1)[1] not in valid)
+
+
+try:
+    # ── phase 1: load and validate everything before changing anything ──
+    oc = load(opencode_config, 'OpenCode config')
+    auth = load(opencode_auth, 'OpenCode auth')
+    pi = load(pi_config, 'Pi models')
+    st = load(pi_settings, 'Pi settings')
+
+    oc_providers = need_dict(oc, 'provider', opencode_config)
+    old_oc = oc_providers.get(PROVIDER)
+    if old_oc is not None and not isinstance(old_oc, dict):
+        raise ConfigError(f'{opencode_config}: provider.{PROVIDER} is not an object')
+    agents = need_dict(oc, 'agent', opencode_config) if 'agent' in oc else {}
+    pi_providers = need_dict(pi, 'providers', pi_config)
+    old_pi = pi_providers.get(PROVIDER)
+    if old_pi is not None:
+        if not isinstance(old_pi, dict) or not isinstance(old_pi.get('models', []), list):
+            raise ConfigError(f'{pi_config}: providers.{PROVIDER}.models is not a list')
+
+    # ── phase 2: compute the new state in memory ──
+    for gone in sorted(set((old_oc or {}).get('models') or {}) - valid):
+        removed.append(f'OpenCode provider model: {gone}')
+    oc_providers[PROVIDER] = generated['opencode_provider']
+    oc['compaction'] = generated['compaction']
+    for key in ('model', 'small_model'):
+        if stale_ref(oc.get(key)):
+            removed.append(f'OpenCode {key}: {oc[key]}')
+            del oc[key]
+    for name, agent in agents.items():
+        if not isinstance(agent, dict):
+            continue
+        for key in ('model', 'small_model'):
+            if stale_ref(agent.get(key)):
+                removed.append(f'OpenCode agent "{name}" {key}: {agent[key]}')
+                del agent[key]
+
+    auth_changed = PROVIDER not in auth
+    if auth_changed:
+        auth[PROVIDER] = {'type': 'api', 'key': 'dummy'}
+
+    old_pi_ids = {m.get('id') for m in (old_pi or {}).get('models', []) if isinstance(m, dict)}
+    for gone in sorted(x for x in old_pi_ids - valid if x):
+        removed.append(f'Pi provider model: {gone}')
+    pi_providers[PROVIDER] = generated['pi_provider']
+
+    st_changed = False
+    if st.get('defaultProvider') == PROVIDER and 'defaultModel' in st and st['defaultModel'] not in valid:
+        removed.append(f'Pi defaultModel: {st["defaultModel"]} (choose a new one with /model)')
+        del st['defaultModel']
+        st_changed = True
+except ConfigError as e:
+    print(f'Refusing to change anything: {e}', file=sys.stderr)
+    sys.exit(1)
+
+# ── phase 3: write ──
+def write(path, data):
+    if dry:
+        print(f'[dry-run] would write {path}')
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2) + '\n')
+        print(f'Wrote {path}')
+
+
+write(opencode_config, oc)
+if auth_changed:
+    write(opencode_auth, auth)
+write(pi_config, pi)
+if st_changed:
+    write(pi_settings, st)
+
+# ── report ──
+print()
+if removed:
+    print('Stale settings ' + ('that would be removed:' if dry else 'removed:'))
+    for r in removed:
+        print(f'  - {r}')
 else:
-    existing = {}
-existing.setdefault('provider', {})['ik-llama'] = generated['opencode_provider']
-existing['compaction'] = compact
-opencode_config.write_text(json.dumps(existing, indent=2) + '\n')
-print(f'Merged ik-llama provider into {opencode_config}')
-
-# ── OpenCode auth ──────────────────────────────────────────────────
-opencode_auth.parent.mkdir(parents=True, exist_ok=True)
-auth = json.loads(opencode_auth.read_text()) if opencode_auth.exists() else {}
-auth.setdefault('ik-llama', {'type': 'api', 'key': 'dummy'})
-opencode_auth.write_text(json.dumps(auth, indent=2) + '\n')
-print(f'Updated {opencode_auth}')
-
-# ── Pi ─────────────────────────────────────────────────────────────
-pi_config_dir.mkdir(parents=True, exist_ok=True)
-pi = json.loads(pi_config.read_text()) if pi_config.exists() else {}
-pi.setdefault('providers', {})['ik-llama'] = generated['pi_provider']
-pi_config.write_text(json.dumps(pi, indent=2) + '\n')
-print(f'Merged ik-llama provider into {pi_config}')
-
-# ── list models ────────────────────────────────────────────────────
+    print('No stale settings found.')
 print()
-print('Available model shortnames:')
-for short, m in generated['opencode_provider']['models'].items():
-    print(f'  ik-llama/{short}  ->  {m["name"]}')
+print('Available models (use as ik-llama/<name>):')
+for mid in generated['opencode_provider']['models']:
+    print(f'  ik-llama/{mid}')
 print()
-print(f'Provider key: ik-llama')
-print(f"Limits: output={os.environ['OPENCODE_OUTPUT_LIMIT']}, compaction reserved={os.environ['OPENCODE_COMPACTION_RESERVED']}")
+print(f'Limits: output={os.environ["OPENCODE_OUTPUT_LIMIT"]}, compaction reserved={os.environ["OPENCODE_COMPACTION_RESERVED"]}')
 PYEOF
 
-echo "$MODELS_JSON" | OPENCODE_CONFIG_DIR="$OPENCODE_CONFIG_DIR" OPENCODE_AUTH_FILE="$OPENCODE_AUTH_FILE" PI_CONFIG_DIR="$PI_CONFIG_DIR" OPENCODE_OUTPUT_LIMIT="$OPENCODE_OUTPUT_LIMIT" OPENCODE_COMPACTION_RESERVED="$OPENCODE_COMPACTION_RESERVED" python3 "$_apply"
+echo "$MODELS_JSON" | DRY_RUN="$DRY_RUN" OPENCODE_CONFIG_DIR="$OPENCODE_CONFIG_DIR" OPENCODE_AUTH_FILE="$OPENCODE_AUTH_FILE" PI_CONFIG_DIR="$PI_CONFIG_DIR" OPENCODE_OUTPUT_LIMIT="$OPENCODE_OUTPUT_LIMIT" OPENCODE_COMPACTION_RESERVED="$OPENCODE_COMPACTION_RESERVED" python3 "$_apply"

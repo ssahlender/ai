@@ -97,7 +97,7 @@ if [ -z "$MACHINE" ]; then
 fi
 
 # Extract entries from the machine case block in start.sh
-# Format: "shortname|desc|filename.gguf|ctx|cram|flags"
+# Format: "desc|filename.gguf|ctx|cram|yarn|sample|mmproj|spec"
 ENTRIES=$(awk -v m="$MACHINE" '
   /# ── machine config/ { in_config=1 }
   !in_config { next }
@@ -120,8 +120,8 @@ configured=0
 missing=0
 
 while IFS= read -r line; do
-  IFS='|' read -r sn desc fn ctx cram rest <<< "$line"
-  [ -z "$sn" ] && continue
+  IFS='|' read -r desc fn ctx cram rest <<< "$line"
+  [ -z "$fn" ] && continue
   configured=$((configured + 1))
 
   # Vision detection: extra fields after cram may contain mmproj-*.gguf
@@ -161,7 +161,7 @@ while IFS= read -r line; do
 
   ctx_human="$((ctx / 1024))K"
   gguf_hsize="$(b2h "$gguf_size")"
-  printf "  %-20s %-65s %5s  %-6s %s\n" "$sn" "$fn" "$gguf_hsize" "$ctx_human" "$status"
+  printf "  %-65s %5s  %-6s %s\n" "${fn%.gguf}" "$gguf_hsize" "$ctx_human" "$status"
 
   if [ "$is_vision" -eq 1 ] && [ -n "$mmproj_file" ]; then
     if [ "$mmproj_ok" -eq 1 ]; then

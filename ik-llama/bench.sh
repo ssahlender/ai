@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Benchmarks CPU thread settings for ik_llama.cpp.
-# Usage: ./bench.sh <machine> [mode|all|qwen36]
+# Usage: ./bench.sh <machine> [mode|number|all]   (mode = GGUF file name without .gguf; no mode = numbered menu)
 #   Machine: i9
 #   (ProBook benchmarks run natively on Windows via llm/bench/)
 set -euo pipefail
@@ -8,7 +8,7 @@ set -euo pipefail
 MACHINE="${1:-}"
 MODE="${2:-}"
 
-[ -n "$MACHINE" ] || { echo "Usage: $0 <i9> [mode|all|qwen36]" >&2; exit 1; }
+[ -n "$MACHINE" ] || { echo "Usage: $0 <i9> [mode|all]" >&2; exit 1; }
 
 case "$MACHINE" in
   i9)
@@ -17,35 +17,31 @@ case "$MACHINE" in
     BENCH="$IK_LLAMA_DIR/build/bin/llama-bench"
     NGL=0
     THREADS_DEFAULT="${BENCH_THREADS:-6 8}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-24 32}"
-    MODE="${MODE:-qwopus35bq5km}"
-    MODES=(qwen36u35bq6kp qwopus35bq5km supergemma4q4km qwen3codernext qwen36u27bq5kp)
-    QWEN_MODES=(qwen36u35bq6kp qwopus35bq5km)
+    # Modes are the GGUF stems listed in start.sh (single source of truth).
+    START_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/start.sh"
+    MODES=()
+    while IFS= read -r gguf; do
+      [ -n "$gguf" ] && MODES+=("${gguf%.gguf}")
+    done < <(awk -v m="$MACHINE" '
+      /# ── machine config/ { in_config=1 }
+      !in_config { next }
+      $0 ~ "^[[:space:]]*" m "\\)[[:space:]]*$" { in_block=1; next }
+      in_block && /;;[[:space:]]*$/ { exit }
+      in_block && /^[[:space:]]*"[^"]*[.]gguf\|/ { split($0, a, "|"); print a[2] }
+    ' "$START_SCRIPT")
+    [ "${#MODES[@]}" -gt 0 ] || { echo "No modes parsed from $START_SCRIPT for $MACHINE" >&2; exit 1; }
     normalize_mode() {
-      case "$1" in
-        qwen36u35b|qwen36u35b:q6kp|qwen36u35bq6kp) echo "qwen36u35bq6kp" ;;
-        qwopus35b|qwopus35b:q5km|qwopus35bq5km) echo "qwopus35bq5km" ;;
-        supergemma4|supergemma4:q4km|supergemma4q4km) echo "supergemma4q4km" ;;
-        qwen3codernext|qwcn|qwcn:q3km) echo "qwen3codernext" ;;
-        qwen36u27b|qwen36u27b:q5kp|qwen36u27bq5kp) echo "qwen36u27bq5kp" ;;
-        *) return 1 ;;
-      esac
+      local m
+      for m in "${MODES[@]}"; do [ "$m" = "$1" ] && { echo "$m"; return 0; }; done
+      return 1
     }
-    model_for_mode() {
-      case "$(normalize_mode "$1")" in
-        qwen36u35bq6kp)   echo "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf" ;;
-        qwopus35bq5km)    echo "Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf" ;;
-        supergemma4q4km)  echo "supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf" ;;
-        qwen3codernext)   echo "Qwen3-Coder-Next-UD-Q3_K_M.gguf" ;;
-        qwen36u27bq5kp)   echo "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf" ;;
-        *) return 1 ;;
-      esac
-    }
+    model_for_mode() { normalize_mode "$1" >/dev/null && echo "$1.gguf"; }
     ;;
   probook)
     echo "WSL is retired on ProBook. Benchmarking runs natively on Windows in llm/bench/ (e.g. powershell -File llm\\bench\\bench-threads.ps1)." >&2
     exit 1
     ;;
-  *) echo "Usage: $0 <i9> [mode|all|qwen36]" >&2; exit 1 ;;
+  *) echo "Usage: $0 <i9> [mode|all]" >&2; exit 1 ;;
 esac
 
 # ── shared benchmark logic ─────────────────────────────────────────
@@ -60,12 +56,42 @@ model_path() {
   echo "$MODELS_DIR/$1"
 }
 
-usage() {
-  echo "Usage: $0 $MACHINE [mode|all${QWEN_MODES:+|qwen36}]" >&2
-  printf 'Modes: %s\n' "${MODES[*]}" >&2
+list_modes() {
+  local i=1 m
+  for m in "${MODES[@]}"; do
+    printf '  %2d) %s\n' "$i" "$m"
+    i=$((i + 1))
+  done
+  printf '   a) all\n'
 }
 
-[ -n "$MODE" ] || { usage; exit 1; }
+usage() {
+  echo "Usage: $0 $MACHINE [mode|number|all]" >&2
+  echo "Modes:" >&2
+  list_modes >&2
+}
+
+if [ -z "$MODE" ]; then
+  if [ -t 0 ] && [ -t 1 ]; then
+    echo "Benchmark which model on $MACHINE?"
+    list_modes
+    read -r -p "Select a number or a: " MODE
+  else
+    usage
+    exit 1
+  fi
+fi
+
+[ "$MODE" = "a" ] || [ "$MODE" = "A" ] && MODE=all
+# A number picks the Nth entry of the list above.
+if [[ "$MODE" =~ ^[0-9]+$ ]]; then
+  if [ "$MODE" -lt 1 ] || [ "$MODE" -gt "${#MODES[@]}" ]; then
+    echo "No model number $MODE (valid: 1-${#MODES[@]})." >&2
+    exit 1
+  fi
+  MODE="${MODES[$((MODE - 1))]}"
+  echo "Selected: $MODE"
+fi
 
 if [ ! -x "$BENCH" ]; then
   echo "Bench binary not found: $BENCH" >&2
@@ -75,9 +101,6 @@ fi
 
 if [ "$MODE" = "all" ]; then
   RUN_MODES=("${MODES[@]}")
-elif [ "$MODE" = "qwen36" ]; then
-  [ ${#QWEN_MODES[@]} -gt 0 ] || { echo "qwen36 group not available for $MACHINE" >&2; exit 1; }
-  RUN_MODES=("${QWEN_MODES[@]}")
 elif normalized_mode=$(normalize_mode "$MODE") && model_for_mode "$normalized_mode" >/dev/null; then
   RUN_MODES=("$normalized_mode")
 else

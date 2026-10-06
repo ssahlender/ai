@@ -22,9 +22,11 @@ is_bad_download() {
   [ "$size" -lt 1048576 ]
 }
 
+# download_if_missing <hf-repo> <remote-file> [expected-bytes] [local-name]
+# local-name saves under a different name (used where two repos ship the same file name).
 download_if_missing() {
-  local repo="$1" file="$2" want="${3:-}"
-  local dest="$MODELS_DIR/$file"
+  local repo="$1" file="$2" want="${3:-}" local_name="${4:-$2}"
+  local dest="$MODELS_DIR/$local_name"
   if [ -f "$dest" ]; then
     if is_bad_download "$dest"; then
       echo "Removing invalid partial/error download: $file"
@@ -84,9 +86,8 @@ case "$MACHINE" in
 
     download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf
     download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
-    download_if_missing Jackrong/Qwopus3.6-35B-A3B-v1-GGUF                       Qwopus3.6-35B-A3B-v1-Q5_K_M.gguf
-    download_if_missing Jackrong/Qwopus3.6-35B-A3B-v1-GGUF                       mmproj-F32.gguf
-    download_if_missing Jiunsong/supergemma4-26b-uncensored-gguf-v2               supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf
+    # Vanilla Qwen3.6 with MTP layers; same file name as unsloth's non-MTP repo, so saved as ...-MTP-...
+    download_if_missing unsloth/Qwen3.6-35B-A3B-MTP-GGUF                          Qwen3.6-35B-A3B-UD-Q6_K.gguf 30011242784 Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf
     download_if_missing unsloth/Qwen3-Coder-Next-GGUF                             Qwen3-Coder-Next-UD-Q3_K_M.gguf
     download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive       Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P.gguf
     ;;

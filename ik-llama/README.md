@@ -18,7 +18,7 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `update.sh <machine>` | Download/update ik_llama.cpp (i9) or brew upgrade llama.cpp (macbook-air) |
 | `download-models.sh <machine>` | Download GGUF + mmproj files for i9/macbook-air |
 | `start.sh <machine> <mode>` | Start llama-server on i9 or macbook-air |
-| `setup-agents.sh <machine>` | Auto-generate OpenCode/Pi provider config (parses start.sh) |
+| `setup-agents.sh <machine> [--dry-run]` | Auto-generate OpenCode/Pi provider config (parses start.sh) and remove stale references to models that are gone |
 | `claude-providers.sh [provider] [model]` | Interactive picker & launch Claude Code with local or remote models (shows live n_ctx from `/props`) |
 | `.secrets.example` | Template for `~/.secrets` (copy, chmod 600, fill in keys) |
 | `ocg-proxy.py` | Anthropic ↔ OpenAI proxy for OpenCode Go (DeepSeek/Kimi/GLM + Claude Code) |
@@ -47,7 +47,7 @@ override so OpenCode uses the correct context window:
 
 ```bash
 IK_LLAMA_CTX_SIZE=32768 ./setup-agents.sh i9
-IK_LLAMA_CTX_SIZE=32768 ./start.sh i9 qwopus35bq5km
+IK_LLAMA_CTX_SIZE=32768 ./start.sh i9 Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P
 ```
 
 Use `OPENCODE_OUTPUT_LIMIT=<tokens>` only to change OpenCode's reserved output
@@ -56,6 +56,25 @@ when testing a different compaction buffer.
 
 Pi config is written to `~/.pi/agent/models.json` with `api:
 "openai-completions"`, `contextWindow`, and `maxTokens` for each local model.
+
+**Model names.** There are no short aliases. A mode, an OpenCode/Pi model id and the
+Claude Code model name are all the GGUF file name without `.gguf` (for example
+`ik-llama/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P`). `start.sh` is the single source of truth:
+`setup-agents.sh`, `cleanup-models.sh`, `model-info.sh` and `bench.sh` all read the
+list from its `MODES` entries.
+
+**Picking a model without typing the name.** Run `./start.sh i9` (or `./bench.sh i9`) with no mode in a
+terminal for a numbered menu, or pass the number from that list (`./start.sh i9 2`). Numbers follow the
+order of `MODES` in `start.sh`, so they shift when the lineup changes; the stem stays stable and is what
+the agent configs use. Outside a terminal, no mode prints the list and exits.
+
+**Stale settings cleanup.** Each `setup-agents.sh` run regenerates the `ik-llama`
+provider, so models that left `start.sh` (or are not on disk) disappear from it. It also
+removes dangling `ik-llama/<id>` references that would otherwise break the agent at
+startup: OpenCode's `model`, `small_model` and per-agent `model`/`small_model`, and Pi's
+`defaultModel`. It prints everything it removed and does not touch other providers or
+unrelated settings. Use `--dry-run` to preview. It refuses to run (and changes nothing)
+when no model is on disk, so an unmounted models directory cannot wipe your config.
 
 ### Quick start: ProBook (Native Windows PowerShell)
 
@@ -80,7 +99,7 @@ pwsh llm\bench\bench-threads.ps1
 ./update.sh i9
 ./download-models.sh i9
 ./setup-agents.sh i9
-./start.sh i9 qwopus35bq5km   # or: qwen36u35bq6kp supergemma4q4km qwen3codernext
+./start.sh i9 Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P   # or: Qwen3.6-35B-A3B-MTP-UD-Q6_K  Qwen3-Coder-Next-UD-Q3_K_M
 ./cleanup-models.sh i9     # dry-run obsolete GGUF cleanup
 ```
 
@@ -92,9 +111,9 @@ All i9 start modes default to `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=2
 brew install llama.cpp             # prerequisite (once)
 ./download-models.sh macbook-air
 ./setup-agents.sh macbook-air
-./start.sh macbook-air qwen36u27b   # daily: 27B dense IQ4_XS, 32K ctx
-./start.sh macbook-air qwen36u35b   # general: 35B MoE IQ4_NL, 16K ctx
-./start.sh macbook-air qwen3coder30b  # coding: 30B MoE IQ4_NL, 32K ctx
+./start.sh macbook-air Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS   # daily: 27B dense IQ4_XS, 32K ctx
+./start.sh macbook-air Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL   # general: 35B MoE IQ4_NL, 16K ctx
+./start.sh macbook-air Qwen3-Coder-30B-A3B-Instruct-IQ4_NL  # coding: 30B MoE IQ4_NL, 32K ctx
 ```
 
 All Mac modes use Metal GPU (`-ngl 99`) with 4 threads. Same HF repos and mmproj as i9.
@@ -110,18 +129,17 @@ For OpenCode edit loops where "Preparing write" feels slow, first try the same c
 model with a smaller active context:
 
 ```bash
-IK_LLAMA_CTX_SIZE=32768 ./start.sh i9 qwopus35bq5km
+IK_LLAMA_CTX_SIZE=32768 ./start.sh i9 Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P
 ```
 
-Use the normal 64K default again when the session really needs the extra context.
+Use the normal 128K default again when the session really needs the extra context.
 
 Benchmark thread settings:
 
 ```bash
-./bench.sh i9 qwopus35bq5km
+./bench.sh i9 Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P
 ./bench.sh i9 all
-./bench.sh i9 qwen36
-BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench.sh i9 qwopus35bq5km
+BENCH_THREADS="6 8" BENCH_THREADS_BATCH="24 32" ./bench.sh i9 Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P
 ```
 
 To compare results, start with the generated `*-summary.tsv`, then inspect the referenced JSON files. Look for the highest prompt processing throughput (`pp`/prompt tok/s) that does not hurt generation throughput (`tg`/generation tok/s). For OpenCode, prefer the best overall balance over the absolute highest prompt-only score.
@@ -147,35 +165,79 @@ Summarize benchmark results:
 
 | Mode | Model | Size | Context | Vision | Notes |
 |---|---|---|---|---|---|
-| `qwen36u27b` | Qwen3.6-27B-Uncensored IQ4\_XS | ~15 GB | 32 K | yes | 27B dense; all params active, daily driver |
-| `qwen36u35b` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 16 K | yes | 35B MoE, 3B active, general + vision |
-| `qwen3coder30b` | Qwen3-Coder-30B-A3B IQ4\_NL | ~17 GB | 32 K | no | Dedicated agentic coder, 262K native ctx |
+| `Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS` | Qwen3.6-27B-Uncensored IQ4\_XS | ~15 GB | 32 K | yes | 27B dense; all params active, daily driver |
+| `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL` | Qwen3.6-35B-A3B-Uncensored IQ4\_NL | ~16 GB | 16 K | yes | 35B MoE, 3B active, general + vision |
+| `Qwen3-Coder-30B-A3B-Instruct-IQ4_NL` | Qwen3-Coder-30B-A3B IQ4\_NL | ~17 GB | 32 K | no | Dedicated agentic coder, 262K native ctx |
 
 Quick start:
 ```bash
 brew install llama.cpp                      # prerequisite
 ./download-models.sh macbook-air             # pull GGUFs + mmproj
 ./setup-agents.sh macbook-air                # wire OpenCode + Pi
-./start.sh macbook-air qwen36u27b            # daily driver: 27B dense, 32K ctx
+./start.sh macbook-air Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS            # daily driver: 27B dense, 32K ctx
 ```
 
-The 27B dense IQ4\_XS is the smarter general pick; all 27B params active vs 3B MoE for the 35B, and still fits at 32K context on 24 GB unified memory. Use `qwen3coder30b` for focused coding sessions. Same HF repos and mmproj files as i9, just different quants (IQ4\_XS/IQ4\_NL for Mac vs K\_P for i9).
+The 27B dense IQ4\_XS is the smarter general pick; all 27B params active vs 3B MoE for the 35B, and still fits at 32K context on 24 GB unified memory. Use `Qwen3-Coder-30B-A3B-Instruct-IQ4_NL` for focused coding sessions. Same HF repos and mmproj files as i9, just different quants (IQ4\_XS/IQ4\_NL for Mac vs K\_P for i9).
 
 ### i9 (64 GB RAM)
 
 | Mode | Model | Size | Context | Vision | Notes |
 |---|---|---|---|---|---|
-| `qwen36u35bq6kp` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline + vision |
-| `qwopus35bq5km` | Qwopus3.6-35B-A3B Q5\_K\_M | ~25 GB | 128 K | yes | Daily driver, fastest, reasoning, vision |
-| `supergemma4q4km` | SuperGemma4-26B-Uncensored Q4\_K\_M | ~17 GB | 128 K | no | Uncensored fallback, text-only |
-| `qwen3codernext` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active, heavy coder test |
-| `qwen36u27bq5kp` | Qwen3.6-27B-Uncensored Q5\_K\_P (dense) | ~19 GB | 128 K | no | Dense, all 27B active, slow (3.4 tg tok/s measured) but higher quality ceiling than 3B-active MoE; kept on hand since no GPU upgrade is coming |
+| `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline + vision |
+| `Qwen3.6-35B-A3B-MTP-UD-Q6_K` | Qwen3.6-35B-A3B MTP UD-Q6\_K (vanilla, unsloth) | ~30 GB | 128 K | no | MTP speculative decoding: ~+25% tg on code, +4-11% on prose; not the uncensored finetune; no vision (`--mmproj` unsupported with MTP) |
+| `Qwen3-Coder-Next-UD-Q3_K_M` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active, heavy coder test |
+| `Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-Q5_K_P` | Qwen3.6-27B-Uncensored Q5\_K\_P (dense) | ~19 GB | 128 K | no | Dense, all 27B active, slow (3.4 tg tok/s measured) but higher quality ceiling than 3B-active MoE; kept on hand since no GPU upgrade is coming |
 
-Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24, about 20% slower than Qwopus due to the larger model footprint (same 3B active params, more bytes to stream). Context set to 128K for long agent sessions; prompt-cache RAM capped via `cram`.
+Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24, about 20% slower than the 35B-A3B models due to the larger model footprint (same 3B active params, more bytes to stream). Context set to 128K for long agent sessions; prompt-cache RAM capped via `cram`.
 
 NVIDIA's Nemotron-3.5-Lightning-30B-A3B was tried and dropped: its architecture interleaves Mamba-2 (SSM) layers with MoE and attention layers, which ik_llama.cpp (an AVX2/quant-kernel-focused `llama.cpp` fork) doesn't implement; it fails to load with `unknown model architecture: 'nemotron_h_moe'`. Confirmed via direct load test, not just a version mismatch.
 
-**`-ub`/`--ubatch-size` default raised to 1024** (`IK_LLAMA_UBATCH` env override) after a sweep on `qwopus35bq5km` showed a free ~2.5% pp gain (135.8 → 139.1 t/s at ub=1024 vs the previous default of 512) with `tg` unaffected. No GPU-style cliff at small ubatch values on this AVX2 CPU path, unlike reports on GPU/ROCm backends.
+**`-ub`/`--ubatch-size` default raised to 1024** (`IK_LLAMA_UBATCH` env override) after a sweep on a 35B-A3B Q5_K_M (since dropped from the lineup) showed a free ~2.5% pp gain (135.8 → 139.1 t/s at ub=1024 vs the previous default of 512) with `tg` unaffected. No GPU-style cliff at small ubatch values on this AVX2 CPU path, unlike reports on GPU/ROCm backends.
+
+### MTP speculative decoding (Qwen3.6-35B-A3B)
+
+Qwen3.6 ships multi-token-prediction layers; ik_llama.cpp runs them with
+`--spec-type mtp:n_max=N,p_min=0.0` (the `Qwen3.6-35B-A3B-MTP-UD-Q6_K` mode uses `n_max=1`).
+The weights come from `unsloth/Qwen3.6-35B-A3B-MTP-GGUF`; `download-models.sh` stores the file
+as `...-MTP-UD-Q6_K.gguf` because unsloth's non-MTP repo ships a different file with the
+same upstream name.
+
+Measured 2026-10-06 on the i9 (ik_llama `main-b5352-b3e6773`, 8/24 threads, ubatch 1024, q8_0 KV,
+256 generated tokens, greedy). Each prompt is one column; `code` and `code2` are two different coding prompts.
+Q6\_K baseline and `n_max=1` are means of 3 runs, Q4\_K\_XL means of 2; `n_max=2` and `n_max=3` are **single runs**.
+Run-to-run spread was about 1 t/s or less. Percentages are against the mean baseline of the same quant.
+
+| Quant / setting | code | code2 | German prose | Draft acceptance (code / code2 / prose) |
+|---|---:|---:|---:|---|
+| Q6\_K, no MTP | 20.2 t/s | 20.3 | 20.3 | - |
+| Q6\_K, MTP `n_max=1` | **25.3** (+25%) | **25.3** (+25%) | **22.6** (+11%) | 90% / 86% / 67% |
+| Q6\_K, MTP `n_max=2` | 25.0 (+24%) | 24.3 (+20%) | 20.1 (-1%) | 77% / 79% / 54% |
+| Q6\_K, MTP `n_max=3` | 24.3 (+20%) | 10.6 (-48%, not reproduced) | 18.7 (-8%) | 69% / 74% / 41% |
+| Q4\_K\_XL, no MTP | 22.5 | 21.9 | 22.8 | - |
+| Q4\_K\_XL, MTP `n_max=1` | 27.7 (+23%) | 27.7 (+27%) | 23.8 (+4%) | 90% / 86% / 66% |
+
+What this means:
+
+- **`n_max=1` improved generation in every measured run; larger drafts add nothing on code and lose on prose.**
+  Verifying more drafted tokens per step wakes more experts on a CPU MoE and reads more weights, so extra
+  draft tokens stop paying for themselves. The one `n_max=3` result of 10.6 t/s (`code2`) was a single run
+  that was not repeated; treat it as a warning, not a measurement.
+- **The gain is about +25% on code and +4-11% on prose**, not the 1.5-2x on the model card.
+- **Prompt processing drops about 16%** (mean 77 to 65 t/s over all prompts), which matters for long agent contexts.
+- **Q4\_K\_XL is only ~10% faster than Q6\_K**, so generation is not purely bandwidth-bound here. We stay at the Q6 tier.
+- **Not the uncensored finetune.** This is vanilla Qwen3.6. The HauhauCS 35B-A3B build has no MTP layers in the GGUF
+  (only its 27B dense build does, which is too slow on CPU). Quality was not compared, only speed.
+- **Production flags cost some of the gain.** The same mode started through `start.sh` (128K ctx, prompt cache,
+  context shift) generated at about 23 t/s on two chat requests at temperature 0.2, with the same ~90% draft
+  acceptance. That is about +15% against the 20.3 t/s baseline above (different prompts and sampling, so only
+  indicative). Expect +15-25% on code in practice, not the harness figure.
+- **Chat template.** The MTP mode uses the GGUF's embedded template, not `qwen3-template.j2` (which patches
+  Claude CLI's late system messages for the HauhauCS/Qwen finetunes). Checked on 2026-10-06: an OpenAI-style tool
+  call round trip works (call emitted, result consumed, answer produced), and a system message placed after other
+  messages is accepted without error (its instruction was not honoured, though). **Not verified:** Claude Code
+  itself against this mode, and prompt-cache reuse / context shift once the 128K window actually fills.
+- `llama-bench` ignores speculation, so `bench.sh` reports the non-MTP speed for this mode. Use a server run
+  (`/completion` timings: `draft_n`, `draft_n_accepted`) to measure MTP.
 
 ## Binaries
 
@@ -212,7 +274,7 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | `--temp` / `--top-p` / `--top-k` | 0.2 / 0.8 / 20 | Conservative i9 Qwen sampling for OpenCode tool-call JSON reliability. Override: `IK_LLAMA_TEMP`, `IK_LLAMA_TOP_P`, `IK_LLAMA_TOP_K` |
 | `-v` | — | Verbose output (shows tok/s, timing) |
 | `--mlock` | — | Lock model in RAM (i9 only, prevents swapping) |
-| `--mmproj <file>` | — | Multimodal projector GGUF for vision (Qwen3.6, Qwopus3.6, Gemma4) |
+| `--mmproj <file>` | — | Multimodal projector GGUF for vision (Qwen3.6; not usable together with MTP) |
 
 ### Qwen3 sampling
 
@@ -256,23 +318,21 @@ Active model throughput at the default `8/24` thread setting:
 
 | Mode | pp2048 (t/s) | tg128 (t/s) | Notes |
 |---|---:|---:|---|
-| `qwopus35bq5km` | **130.9** | **26.4** | Daily driver |
-| `supergemma4q4km` | ~129 | ~23 | Uncensored fallback |
-| `qwen36u35bq6kp` | ~122.8 | ~22.6 | Quality baseline + vision |
-| `qwen3codernext` | ~98 | ~16 | 80B MoE heavy coder |
+| `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` | ~122.8 | ~22.6 | Quality baseline + vision |
+| `Qwen3-Coder-Next-UD-Q3_K_M` | ~98 | ~16 | 80B MoE heavy coder |
 
-Qwopus Q5_K_M is the clear daily driver, fastest on both pp and tg. All models are well above the interactive threshold for OpenCode tool loops.
+All models are well above the interactive threshold for OpenCode tool loops. The MTP mode is faster for generation than these numbers suggest (see the MTP section; `llama-bench` cannot show it).
 
 ### i9 speed notes
 
-The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. Qwen3-Coder-Next 80B-A3B covers the heavy coding slot; Qwopus covers daily use. Ornith-1.0 35B failed manual quality check and is removed.
+The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. Qwen3-Coder-Next 80B-A3B covers the heavy coding slot. Ornith-1.0 35B, Qwopus3.6 and SuperGemma4 failed manual quality checks and were removed.
 
-- Test `qwopus35bq5km` first for daily use.
+- Start with `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` for general use (vision, uncensored), or `Qwen3.6-35B-A3B-MTP-UD-Q6_K` for ~20% faster generation.
 - All i9 modes default to 128K context. Treat that as an emergency ceiling and keep working context at 16K to 32K through agent-side compaction. Rerun provider setup with the same `IK_LLAMA_CTX_SIZE` override when changing the server window.
 - Use `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default i9 startup point.
 - Avoid `IK_LLAMA_THREADS=10` and `12`; benchmarks were consistently worse than `6` and `8`.
 
-### ik_llama.cpp vs standard llama.cpp (i9, qwen3codernext, b9789)
+### ik_llama.cpp vs standard llama.cpp (i9, Qwen3-Coder-Next-UD-Q3_K_M, b9789)
 
 Measured on the same model (Qwen3-Coder-Next UD-Q3\_K\_M) with `p=2048 n=128 r=3`:
 
@@ -315,16 +375,16 @@ Default `8/16` is the best balanced setting for qwen36u35b. Use `8/8` (`IK_LLAMA
 
 | Mode | pp2048 (t/s) | tg128 (t/s) | Notes |
 |---|---:|---:|---|
-| `qwopus35bq5km` | **130.9** | **26.4** | Daily driver |
-| `supergemma4q4km` | 129.1 | 23.2 | Uncensored fallback |
-| `qwen36u35bq6kp` | 122.8 | 22.6 | Quality baseline + vision |
-| `qwen3codernext` | 92.7 | 16.3 | 80B MoE heavy coder |
+| `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` | 122.8 | 22.6 | Quality baseline + vision |
+| `Qwen3-Coder-Next-UD-Q3_K_M` | 92.7 | 16.3 | 80B MoE heavy coder |
 
 **Rejected candidates (historical):**
 
 | Mode | pp2048 (t/s) | tg128 (t/s) | Reason dropped |
 |---|---:|---:|---|
 | `ornith35q6k` | 122.5 | 23.1 | Good throughput, failed manual quality |
+| `Qwopus3.6-35B-A3B-v1-Q5_K_M` | 130.9 | 26.4 | Fastest llama-bench numbers, but not good in real use (dropped 2026-10) |
+| `supergemma4-26b-uncensored-fast-v2-Q4_K_M` | 129.1 | 23.2 | Not good in real use (dropped 2026-10) |
 | `qwen3coderq5km` | 110.6 | 29.8 | Failed manual quality |
 | `qwen3coderq8` | 105.8 | 20.7 | Failed manual quality |
 | `qwen3coderq6k` | 102.1 | 25.6 | Failed manual quality |
@@ -333,7 +393,7 @@ Default `8/16` is the best balanced setting for qwen36u35b. Use `8/8` (`IK_LLAMA
 | `qwen38b:q4/q5` | ~60 | ~13 | Not competitive with MoE |
 | `qwen332b / qwen25coder32b` | ~14 | ~3 | Way too slow on AVX2 |
 
-The benchmark script accepts explicit quantized presets like `qwopus35b:q5km`. The active benchmark set is `qwen36u35bq6kp`, `qwopus35bq5km`, `supergemma4q4km`, and `qwen3codernext`.
+`bench.sh` takes the same mode names as `start.sh` (GGUF stems; the list is read from `start.sh`, run it without a mode to see them) or `all`. `llama-bench` does not do speculative decoding, so the MTP mode benchmarks at its non-MTP speed; see the MTP section for speculative numbers.
 
 **Benchmark output:** TSV summary files (`bench-results/*-summary.tsv`) are metadata indexes pointing to individual JSON files (one per thread combo). Use `summarize-bench.py` to get throughput numbers:
 
@@ -341,10 +401,10 @@ The benchmark script accepts explicit quantized presets like `qwopus35b:q5km`. T
 ./summarize-bench.py bench-results/*-summary.tsv
 ```
 
-For 128K OpenCode sessions on the i9 with `qwen36u35bq6kp`, start with:
+For 128K OpenCode sessions on the i9 with `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P`, start with:
 
 ```bash
-./start.sh i9 qwen36u35bq6kp
+./start.sh i9 Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P
 OPENCODE_COMPACTION_RESERVED=24000 ./setup-agents.sh i9
 ```
 
@@ -370,7 +430,7 @@ The cleanup script derives the whitelist from `start.sh` MODES automatically; an
 9. **Claude Code attribution header causes ~90% silent slowdown**: Claude Code inserts dynamic attribution metadata into request headers on every turn, altering the prompt prefix and forcing 100% cache misses on local servers. Adding `"CLAUDE_CODE_ATTRIBUTION_HEADER": "0"` in `~/.claude/settings.json` stabilizes the prefix.
 10. **The "Empty Answer" thinking budget trap**: on reasoning models, small `max_tokens` budgets (e.g. 32 or 64) spend every token in `reasoning_content` and return empty `content: ""`. Appending `/no_think` does not suppress thinking on these templates. Either provide generous token headroom (1024+) or turn off internal thinking server-side via `-rea off` (which cuts turn latency 50–80% for coding).
 11. **MoE active-parameter ceiling vs dense models**: 35B-A3B MoE routes ~3.2B active parameters per token. While fast on DDR5 (~24 t/s), dense 27B–32B models have full parameter depth on every token. For complex logic, speculative decoding (prompt lookup / n-gram drafting) on dense models can narrow the generation gap without model degradation.
-12. **Vision requires mmproj**: Qwen3.6, Qwopus3.6, and Gemma4 models support image input when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. SuperGemma4 and GLM-4.7-Flash are text-only.
+12. **Vision requires mmproj**: Qwen3.6 models support image input (not combined with MTP) when `--mmproj <file>.gguf` is passed to llama-server. The mmproj file is downloaded alongside the model GGUF. GLM-4.7-Flash is text-only.
 13. **One server slot per active agent**: `--parallel 2` divides the configured context between slots, while unrelated sessions evict each other's cached prefixes. Keep the default `IK_LLAMA_PARALLEL=1`; use separate server instances when concurrent agents need full context and stable cache reuse.
 14. **No YARN for Qwen3 instruct models**: Qwen3 instruct supports 128K context natively. YARN (`--rope-scaling yarn --yarn-orig-ctx 32768`) was a Qwen2.5-era workaround for 32K base models. On Qwen3 it is redundant and silently disables context shift in ik_llama, causing hard 500 errors when context fills. All Qwen3-family modes have YARN removed.
 15. **`--context-shift on` is explicit**: set explicitly in `start_model()` as a guard against version differences. Note that harness-side compaction should always be primary.
