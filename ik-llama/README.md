@@ -246,23 +246,29 @@ What this means:
 
 ### Agent reality round (2026-10-06)
 
-Five small real tasks in throwaway Python repos (parsing, config merging, a CLI flag, a shell-quoting refactor), solved end to end by a coding agent in a sandbox (read-only filesystem, own writable directory), scored by hidden pytest files that run only after the agent finishes. Tasks were proposed by Codex (3) and Claude (2); each was validated first (the unmodified project fails the hidden tests, the reference solution passes). OpenCode ran with a minimal isolated config; Claude Code ran with `--bare` through the max-tokens proxy. One sample per cell, 10-minute cap, no timeouts. The harness is not part of this repository.
+Five small real tasks in throwaway Python repos (parsing, config merging, a CLI flag, a shell-quoting refactor), solved end to end by a coding agent in a sandbox (read-only filesystem, own writable directory) and scored by hidden pytest files that run only after the agent finishes. Tasks were proposed by Codex (3) and Claude (2); each was validated first (the unmodified project fails the hidden tests, the reference solution passes). OpenCode ran with a minimal isolated config; Claude Code ran with `--bare` through the max-tokens proxy. 50 runs in total, 10-minute cap, no timeouts. The harness is not part of this repository.
 
-| Task | MTP + OpenCode | MTP + Claude Code | HauhauCS + OpenCode | Coder-Next + OpenCode |
-|---|---|---|---|---|
-| env-file parser (bugfix) | fail | pass | pass | pass |
-| recursive config merge (feature) | fail | fail | fail | fail |
-| shell-quote refactor | pass | pass | pass | pass |
-| logfmt parser (bugfix) | pass | pass | fail | pass |
-| report `--format json` (feature) | pass | pass | pass | fail |
-| **Passed** | **3/5** | **4/5** | **3/5** | **3/5** |
-| Mean time / tool calls per run | 260 s / 14.6 | 214 s / 12.4 | 193 s / 10.6 | 252 s / 11.4 |
+Pass (P) / fail (F) per sample; most cells have two samples:
 
-- **The three models are indistinguishable on real agent tasks** (3/5 each with OpenCode; every difference is one task, one sample). Coder-Next 80B showed no advantage, and its two failures were the harsher ones: it left four of five tests failing on the config-merge task after only 3 tool calls, and three on the report task. It is also the slowest to generate (~16 t/s) and needs 34 GB of RAM.
-- **Claude Code works against the vanilla MTP mode** through the proxy: 4/5, no protocol failures, 8-15 tool calls per task. Its one-task lead over OpenCode on the same model is within noise. The harness difference that is real and measured is prompt size: ~1.4K tokens for Claude Code `--bare` against ~12K for OpenCode (a cold start costs ~16 s against ~2.3 min on this CPU).
-- **All failures were missed instruction details, not broken tooling:** the config-merge task failed for every model on one explicit clause ("deletion applies inside new dictionaries"); OpenCode+MTP missed the invalid-line error rule; HauhauCS missed "keys without a value"; Coder-Next failed the JSON, empty-input JSON and unknown-format tests. Same weakness as the quality rounds.
-- **Test fairness:** one hidden test (`--format=json` equals syntax) was not promised by the task prompt; it was removed mid-run and all earlier runs were re-scored from their saved work directories (one run flipped from fail to pass).
-- **Caveats:** one sample per cell and five tasks, so a difference of one task is noise; Claude Code was run on the MTP model only, so the harness comparison is confounded by prompt size and tool set; the two agents use different system prompts and tool sets.
+| Task | MTP + OpenCode | MTP + Claude Code | HauhauCS + OpenCode | HauhauCS + Claude Code | Coder-Next + OpenCode | Coder-Next + Claude Code |
+|---|---|---|---|---|---|---|
+| env-file parser (bugfix) | FP | PP | PP | P | PP | P |
+| recursive config merge (feature) | FF | FF | FF | F | FF | F |
+| shell-quote refactor | PP | PP | PP | P | PP | P |
+| logfmt parser (bugfix) | PP | PF | FP | P | PF | P |
+| report `--format json` (feature) | PF | PP | PP | P | FF | F |
+| **Passed** | **6/10** | **7/10** | **7/10** | **4/5** | **5/10** | **3/5** |
+| Mean time / tool calls | 250 s / 13.8 | 186 s / 12.7 | 204 s / 12.0 | 210 s / 11.2 | 251 s / 11.1 | 179 s / 8.6 |
+
+By model, both agents together: HauhauCS **11/15 (73%)**, MTP **13/20 (65%)**, Coder-Next **8/15 (53%)**. By agent: OpenCode 18/30 (60%), Claude Code 14/20 (70%).
+
+- **Run-to-run noise is large:** in 5 of the 20 cells that were sampled twice, the same model and agent gave opposite results on the same task. Differences of one or two tasks between setups are noise.
+- **Coder-Next 80B is lowest with both agents** (53% against 65-73%) and shows no advantage anywhere: not on the general rounds, not here. The gap is within noise for this sample size, but the direction is the same in all three rounds, it generates slowest (~16 t/s) and needs 34 GB of RAM, so the evidence favours dropping it.
+- **HauhauCS and vanilla MTP are indistinguishable on agent work** (73% vs 65%, one noisy task apart). MTP's speed gain therefore costs no measurable quality here either.
+- **Claude Code works against the local MTP mode** through the proxy (no protocol failures, 2-16 tool calls per task). It scored 70% against OpenCode's 60%, ahead or equal on all three models, but that is a small difference and confounded: Claude Code `--bare` sends ~1.4K tokens of prompt against ~12K for OpenCode, and the two use different tools. The prompt-size difference itself is real and measured (cold start ~16 s against ~2.3 min on this CPU).
+- **The config-merge task is a floor:** it failed in all 10 runs, every model and both agents. The prompt states the clause explicitly ("the deletion rule also applies inside override dictionaries that replace a scalar or introduce a new key"), so the task is fair, but it cannot discriminate between setups.
+- **All failures were missed explicit instruction details** (an error message to raise, "keys without a value", an unknown-format exit code), the same weakness as in the quality rounds.
+- **Test fairness:** one hidden test (`--format=json` equals syntax) was not promised by the task prompt; it was removed mid-round and the earlier runs were re-scored from their saved work directories (one run flipped to pass).
 
 ### Prompt cache and slot persistence (measured 2026-10-06)
 
