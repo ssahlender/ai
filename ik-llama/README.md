@@ -408,7 +408,7 @@ All models are well above the interactive threshold for OpenCode tool loops. The
 
 ### i9 speed notes
 
-The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. Qwen3-Coder-Next 80B-A3B, Ornith-1.0 35B, Qwopus3.6 and SuperGemma4 were removed (the first three on quality checks, Coder-Next on the agent rounds).
+The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. Qwen3-Coder-Next 80B-A3B, Ornith-1.0 35B, Qwopus3.6 and SuperGemma4 were removed (Coder-Next on the agent rounds, the others on quality checks).
 
 - Start with `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` for general use (vision, uncensored), or `Qwen3.6-35B-A3B-MTP-UD-Q6_K` for ~20% faster generation.
 - All i9 modes default to 128K context. Treat that as an emergency ceiling and keep working context at 16K to 32K through agent-side compaction. Rerun provider setup with the same `IK_LLAMA_CTX_SIZE` override when changing the server window.
