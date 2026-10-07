@@ -583,3 +583,17 @@ Decode speed, tokens/s (2 runs each, `max_tokens` 2500, same prompts on builds b
 - **HauhauCS gets no drafting by default, and the server refuses it with vision on.** With `--mmproj` loaded the server logs `speculative decoding is not supported by multimodal, it will be disabled`, so `IK_LLAMA_SPEC` has no effect there. `IK_LLAMA_NO_MMPROJ=1` starts the mode without the projector; then `IK_LLAMA_SPEC='--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64'` works. Measured (tokens/s, edit / prose / new code): no vision + suffix **50-54** / 21 / 20-31, against 22 / 22 / 22 with vision and no drafting. Choose per task: vision, or 2x on edit loops. The default stays with vision, without drafting.
 - **Agent reality round with the suffix + MTP chain** (MTP model, 20 runs, both agents, same five tasks): 15/20 (OpenCode 8/10, Claude Code 7/10), against 15/22 with MTP alone. Same failures (the config-merge floor), no protocol errors, wall time about equal (Claude Code 153 s vs 183 s, OpenCode 258 s vs 245 s average). The chain costs no quality; the gain shows on long rewrites, not in agent loops.
 - **Qwen3.8-27B dense (HauhauCS MTP release, Q4_K_P, 16.4 GiB): not usable on the i9.** It loads in ik_llama (`qwen35` arch) but runs prompt processing at 19 tokens/s and decoding at 3.8 tokens/s (`llama-bench`, 24/8 threads), against about 120 and 22 for the 35B-A3B models. A dense model streams all weights per token; embedded MTP cannot close a 5x gap, so the MTP server run was cancelled and the file deleted. The FastMTP sidecar needs a patched mainline llama.cpp. A GPU or Apple Silicon is the right place for this model.
+
+### KV cache q4_0 vs q8_0 (2026-10-07)
+
+MTP model with the default suffix + MTP chain, `IK_LLAMA_EXTRA_ARGS='-ctk q4_0 -ctv q4_0'` against the default q8_0. Three facts hidden at 20/50/80% depth of a code/doc haystack, one question asks for all three plus their sum; 7 runs per setting (8K to 70K tokens, two seeds up to 36K), plus the 13-task battery twice.
+
+| | q8_0 | q4_0 |
+|---|---|---|
+| Needle retrieval (7 runs x 4 answers) | 28/28 | 28/28 |
+| Battery (2 samples) | 11/13, 12/13 | 10/13, 11/13 |
+| Prompt processing at 70K tokens | 48.8 tok/s | 45.6 tok/s |
+| Decode at 70K tokens | 12.5 tok/s | 13.2 tok/s |
+| Prompt processing / decode at 8-36K | same within 5% | same within 5% |
+
+q4_0 loses no retrieval up to 70K tokens, but it gains no speed on this CPU (the dequantization costs about what the smaller cache saves) and the battery is one task lower in both samples, which is within the noise seen elsewhere but is not a win. The only benefit would be memory, and the hybrid Qwen3.6 models keep full attention in only a quarter of their layers, so the cache is small to begin with. **Keep q8_0.** Note that cold prefill slows with depth: 70K tokens took about 24 minutes (49 tok/s), which is the reason to keep agent sessions short and the prompt prefix stable.
