@@ -481,12 +481,6 @@ def render(rows, errs, use_color=True):
             print(f"  {r['window']:<18} {r['note'] or 'n/a'}")
             continue
         col = paint(rem, use_color)
-        if r["expired"]:
-            # Rolled over: the stored figure is PRE-reset. Show a reset marker rather than a
-            # current-looking bar/percentage; the old value stays, clearly labelled as history.
-            hist = "" if rem is None else f"  (last known {rem:.1f}% left)"
-            print(f"  {r['window']:<18} reset{hist}{'  ·stale' if r['stale'] else ''}")
-            continue
         when = ""
         if r["resets_in_s"] is not None:
             if r["resets_in_s"] <= 0:
@@ -527,15 +521,10 @@ def _tag(p):
 def brief(rows, nerrs=0):
     out = []
     for r in rows:
-        tag = f"{_tag(r['provider'])}:{r['window'].split()[0]}"
-        if r["expired"]:
-            # an elapsed window has rolled over: a percentage here would read as current
-            out.append(f"{tag} reset")
-            continue
         if r["remaining_pct"] is None:
             continue
         mark = "?" if r["stale"] else ""       # ? = last known, not current
-        out.append(f"{tag} {r['remaining_pct']:.0f}%{mark}")
+        out.append(f"{_tag(r['provider'])}:{r['window'].split()[0]} {r['remaining_pct']:.0f}%{mark}")
     line = " · ".join(out)
     if nerrs:
         line += f" · !{nerrs}"                 # a source failed: visible even in --brief

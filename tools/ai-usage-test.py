@@ -381,7 +381,7 @@ check("session parses without the resets tail", len(rows) >= 1, str(rows))
 check("unconsumed header reported", any("did not parse" in e for e in errs), str(errs))
 mod.cached = old_cached
 
-print("13) elapsed windows render as reset, not as a current reading")
+print("13) elapsed windows keep the bar and are flagged, not rewritten")
 exp = mod.row("codex (plus)", "5h window", 89.0, resets_at=time.time() - 27000,
               window_s=18000, used=11.0)
 check("expired row is flagged expired", exp["expired"] is True, str(exp))
@@ -389,14 +389,12 @@ buf = _io.StringIO()
 with contextlib.redirect_stdout(buf):
     mod.render([exp], [], use_color=False)
 out = buf.getvalue()
-check("expired row is marked reset", "reset" in out, out)
-check("expired row draws no bar", "█" not in out and "░" not in out, out)
-check("expired row no longer claims a live window",
-      "window elapsed — refresh source" not in out, out)
-check("expired row keeps the value only as labelled history",
-      "last known 89.0% left" in out, out)
-check("brief: expired row reports reset, not a percentage",
-      mod.brief([exp]).endswith("5h reset"), mod.brief([exp]))
+check("expired row keeps its bar", "█" in out or "░" in out, out)
+check("expired row keeps its percentage", "89.0% left" in out, out)
+check("expired row says the window elapsed", "window elapsed — refresh source" in out, out)
+check("expired row is still marked stale", "·stale" in out, out)
+check("brief keeps the percentage with a last-known marker",
+      mod.brief([exp]).endswith("5h 89%?"), mod.brief([exp]))
 check("brief: a live row still reports its percentage",
       mod.brief([mod.row("codex (plus)", "7d window", 81.0, resets_at=time.time() + 200000,
                          window_s=604800, used=19.0)]).endswith("7d 81%"),
