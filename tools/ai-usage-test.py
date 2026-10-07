@@ -510,13 +510,24 @@ except LookupError as ex:
 mod.oc_auth_paths = _saved_paths
 shutil.rmtree(tdir, ignore_errors=True)
 
-print("16) a TLS interception failure names the cause and the remediation")
+print("16) TLS interception: convention-named CA resolution, and a failure that names the remedy")
 import ssl as _ssl
 _td2 = tempfile.mkdtemp(prefix="ai-usage-tls-")
 _af2 = os.path.join(_td2, "auth.json")
 with open(_af2, "w") as fh:
     json.dump({"opencode-go": {"key": "sk-oc-CANARY"}}, fh)
 mod.oc_auth_paths = lambda: [_af2]
+_ca_env_names = ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "SYSTEM_CA_FILE", "IS_I9", "http_proxy",
+                 "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "ALL_PROXY", "all_proxy")
+_saved_ca_env = {k: os.environ.pop(k, None) for k in _ca_env_names}
+
+
+def _restore_ca_env():
+    for k, v in _saved_ca_env.items():
+        os.environ.pop(k, None)
+        if v is not None:
+            os.environ[k] = v
+
 
 _err = _ssl.SSLCertVerificationError(1, "certificate verify failed")
 try:
@@ -527,21 +538,40 @@ rows, errs = [], []
 mod.urllib = _fail_shim(_ue.URLError(_err))
 mod.get_opencode(rows, errs)
 check("TLS failure names verification", any("certificate verify failed" in x for x in errs), str(errs))
-check("TLS failure names the remediation", any("AI_USAGE_CA_BUNDLE" in x for x in errs), str(errs))
+check("TLS failure names the remediation", any("SSL_CERT_FILE" in x for x in errs), str(errs))
+check("TLS failure names the repo's override variable",
+      any("SYSTEM_CA_FILE" in x for x in errs), str(errs))
+check("TLS failure invents no new variable name",
+      not any("AI_USAGE_CA_BUNDLE" in x for x in errs), str(errs))
 check("TLS failure is not misdiagnosed as DNS/proxy",
       not any("set HTTPS_PROXY" in x for x in errs), str(errs))
 check("TLS failure fabricates no rows", rows == [])
 if getattr(_err, "verify_message", None):
     check("TLS failure carries OpenSSL's reason", any("local issuer" in x for x in errs), str(errs))
 
-os.environ["AI_USAGE_CA_BUNDLE"] = os.path.join(_td2, "no-such-ca.pem")
+check("no CA bundle resolved on a plain box", mod.oc_ca_bundle() is None, str(mod.oc_ca_bundle()))
+os.environ["SYSTEM_CA_FILE"] = os.path.join(_td2, "sys.pem")
+check("SYSTEM_CA_FILE is honoured", mod.oc_ca_bundle() == os.environ["SYSTEM_CA_FILE"],
+      str(mod.oc_ca_bundle()))
+os.environ["SSL_CERT_FILE"] = os.path.join(_td2, "ssl.pem")
+check("SSL_CERT_FILE wins (what the sibling scripts export for Python)",
+      mod.oc_ca_bundle() == os.environ["SSL_CERT_FILE"], str(mod.oc_ca_bundle()))
+os.environ.pop("SSL_CERT_FILE", None)
+os.environ.pop("SYSTEM_CA_FILE", None)
+os.environ["http_proxy"] = "http://proxy.invalid:3128"
+check("the proxy environment resolves the system bundle (IS_I9 detection)",
+      mod.oc_ca_bundle() == mod.SYSTEM_CA_FILE, str(mod.oc_ca_bundle()))
+os.environ.pop("http_proxy", None)
+_restore_ca_env()
+
+os.environ["SYSTEM_CA_FILE"] = os.path.join(_td2, "no-such-ca.pem")
 rows, errs = [], []
 mod.get_opencode(rows, errs)
-os.environ.pop("AI_USAGE_CA_BUNDLE", None)
 mod.urllib = old_urllib
 mod.oc_auth_paths = _saved_paths
-check("a missing AI_USAGE_CA_BUNDLE is reported",
-      any("missing file" in x for x in errs), str(errs))
+_restore_ca_env()
+check("a missing CA bundle is reported, not ignored",
+      any("CA bundle not found" in x for x in errs), str(errs))
 check("the bogus CA path yields no rows", rows == [])
 shutil.rmtree(_td2, ignore_errors=True)
 

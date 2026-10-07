@@ -405,20 +405,48 @@ def proxy_env():
                                            "http_proxy", "ALL_PROXY", "all_proxy"))
 
 
+# Corporate TLS, following this repo's documented convention (README: "Corporate CA / proxy TLS").
+# The i9 work PC intercepts TLS and its root is installed into the system bundle, which the sibling
+# scripts hand to each runtime: SSL_CERT_FILE for Python (see ik-llama/ocg-proxy.py) and
+# NODE_EXTRA_CA_CERTS / NPM_CONFIG_CAFILE for Node. Read the same variables — do not invent new ones.
+CA_ENV_VARS = ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "SYSTEM_CA_FILE")
+SYSTEM_CA_FILE = "/etc/ssl/certs/ca-certificates.crt"
+
+
+def office_proxy_env():
+    """True when the corporate-PC proxy environment is present (the repo's IS_I9 detection)."""
+    return bool(os.environ.get("IS_I9")) or proxy_env()
+
+
+def oc_ca_bundle():
+    """The CA bundle to trust, per the repo's corporate-CA convention.
+
+    SSL_CERT_FILE / REQUESTS_CA_BUNDLE first (what the sibling scripts export for Python), then
+    SYSTEM_CA_FILE (the documented override), then the system bundle when the proxy environment
+    marks this as the work PC. None means: leave the interpreter's own defaults alone.
+    """
+    for var in CA_ENV_VARS:
+        p = os.environ.get(var)
+        if p:
+            return p
+    if office_proxy_env() and os.path.isfile(SYSTEM_CA_FILE):
+        return SYSTEM_CA_FILE
+    return None
+
+
 def _oc_ssl_context():
     """TLS context for the usage call.
 
-    A corporate network that intercepts TLS presents a certificate signed by its own root, which the
-    system store may not carry (curl and browsers read that store; Python does not, unless told).
-    AI_USAGE_CA_BUNDLE ADDS such a root on top of the default CAs, so trusting an interception root
-    does not mean giving up the public ones.
+    A resolved bundle is ADDED to the default CAs rather than replacing them, so trusting a
+    corporate interception root cannot drop the public roots.
     """
     ctx = ssl.create_default_context()
-    extra = os.environ.get("AI_USAGE_CA_BUNDLE")
-    if extra:
-        if not os.path.isfile(extra):
-            raise LookupError(f"AI_USAGE_CA_BUNDLE points at a missing file ({_tilde(extra)})")
-        ctx.load_verify_locations(cafile=extra)
+    bundle = oc_ca_bundle()
+    if bundle:
+        if not os.path.isfile(bundle):
+            raise LookupError(f"CA bundle not found ({_tilde(bundle)}) — it came from "
+                              + " / ".join(CA_ENV_VARS) + "; unset it or fix the path")
+        ctx.load_verify_locations(cafile=bundle)
     return ctx
 
 
@@ -551,11 +579,11 @@ def get_opencode(rows, errs):
             # peer), and it is the difference between a missing root and a hostname mismatch.
             vm = getattr(r, "verify_message", None)
             msg += f" \u2014 certificate verify failed: {vm}" if vm else " \u2014 certificate verify failed"
-            msg += ("; this network intercepts TLS \u2014 point AI_USAGE_CA_BUNDLE (or SSL_CERT_FILE) "
-                    "at the corporate root CA")
+            msg += ("; TLS is intercepted here \u2014 trust the corporate root with SSL_CERT_FILE "
+                    "(or SYSTEM_CA_FILE) pointing at its CA bundle")
         elif name in ("SSLError", "SSLEOFError"):
-            msg += (" \u2014 TLS handshake failed; if a proxy intercepts TLS, point AI_USAGE_CA_BUNDLE "
-                    "at its root CA")
+            msg += (" \u2014 TLS handshake failed; if a proxy intercepts TLS, set SSL_CERT_FILE "
+                    "(or SYSTEM_CA_FILE) to its root CA")
         elif hint == "name resolution failed" and not proxy_env():
             msg += " \u2014 host did not resolve and no proxy is set; set HTTPS_PROXY if this network needs one"
         errs.append(msg)
