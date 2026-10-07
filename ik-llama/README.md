@@ -597,3 +597,18 @@ MTP model with the default suffix + MTP chain, `IK_LLAMA_EXTRA_ARGS='-ctk q4_0 -
 | Prompt processing / decode at 8-36K | same within 5% | same within 5% |
 
 q4_0 loses no retrieval up to 70K tokens, but it gains no speed on this CPU (the dequantization costs about what the smaller cache saves) and the battery is one task lower in both samples, which is within the noise seen elsewhere but is not a win. The only benefit would be memory, and the hybrid Qwen3.6 models keep full attention in only a quarter of their layers, so the cache is small to begin with. **Keep q8_0.** Note that cold prefill slows with depth: 70K tokens took about 24 minutes (49 tok/s), which is the reason to keep agent sessions short and the prompt prefix stable.
+
+## Current recommendations (i9, summary of the 2026-10-06/07 testing)
+
+| Topic | Setting | Evidence |
+|---|---|---|
+| Models | `Qwen3.6-35B-A3B-MTP-UD-Q6_K` for speed, `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` for vision/uncensored; nothing else | quality rounds, agent round (HauhauCS 73%, MTP 65-75%, within noise) |
+| Speculation | MTP mode runs `suffix` + `mtp:n_max=1` (default); other `n_max` values and `ngram-mod` lose | speculative sections above |
+| HauhauCS speed | needs `IK_LLAMA_NO_MMPROJ=1` + `IK_LLAMA_SPEC=...` (no vision) for drafting; default keeps vision | server disables speculation when `--mmproj` is loaded |
+| Reasoning | off (`-rea off`, hard-coded in `start.sh`); on only per known-failing task with `-rea on --reasoning-budget 2048` and `max_tokens` >= 8000 | reasoning round: 8-9x slower, no gain overall. A per-request switch while the server runs with reasoning off was not tested |
+| KV cache | q8_0 | q4_0: no speed gain, battery 1 task lower |
+| Sessions | keep context short, prefix stable (`CLAUDE_CODE_ATTRIBUTION_HEADER=0` is set by `claude-providers.sh`), use slot save/restore after restarts | cold prefill is 2 min at 13K and about 24 min at 70K tokens |
+| Agents | OpenCode and Claude Code both work (Claude Code: 14-15/20 on the agent tasks); expect about 25% run-to-run flips per task | agent round |
+| Not usable on this CPU | dense 27B-class models (3.8 t/s), Kolibri-1 (engine support missing) | llama-bench, load test |
+
+Hardware context (estimates, not measured here): decode on this CPU is about 70% of its memory-bandwidth ceiling, so tuning has little left; prompt processing (about 100-120 t/s) is the weak point. A Strix Halo mini PC or Apple M4 Pro would be roughly 2-3x faster on decode and 5x on prompt processing, a used 24 GB GPU more.
