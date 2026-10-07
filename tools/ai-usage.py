@@ -34,6 +34,7 @@ import json
 import math
 import os
 import re
+import ssl
 import subprocess
 import sys
 import time
@@ -404,6 +405,23 @@ def proxy_env():
                                            "http_proxy", "ALL_PROXY", "all_proxy"))
 
 
+def _oc_ssl_context():
+    """TLS context for the usage call.
+
+    A corporate network that intercepts TLS presents a certificate signed by its own root, which the
+    system store may not carry (curl and browsers read that store; Python does not, unless told).
+    AI_USAGE_CA_BUNDLE ADDS such a root on top of the default CAs, so trusting an interception root
+    does not mean giving up the public ones.
+    """
+    ctx = ssl.create_default_context()
+    extra = os.environ.get("AI_USAGE_CA_BUNDLE")
+    if extra:
+        if not os.path.isfile(extra):
+            raise LookupError(f"AI_USAGE_CA_BUNDLE points at a missing file ({_tilde(extra)})")
+        ctx.load_verify_locations(cafile=extra)
+    return ctx
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     """Refuse redirects: urllib re-sends the Authorization header to the target host."""
 
@@ -495,11 +513,21 @@ def get_opencode(rows, errs):
         errs.append("opencode-go: key is empty or contains control characters")
         return
     try:
+        ctx = _oc_ssl_context()
+    except LookupError as e:
+        errs.append(f"opencode-go: {e}")
+        return
+    except Exception as e:
+        errs.append(f"opencode-go: could not build the TLS context ({type(e).__name__})")
+        return
+    try:
         req = urllib.request.Request(OC_USAGE_URL,
                                      headers={"Authorization": "Bearer " + key,
                                               "User-Agent": UA})
         # follow no redirects: urllib re-sends the Authorization header to the redirect target
-        with urllib.request.build_opener(_NoRedirect).open(req, timeout=20) as r:
+        opener = urllib.request.build_opener(_NoRedirect,
+                                             urllib.request.HTTPSHandler(context=ctx))
+        with opener.open(req, timeout=20) as r:
             data = json.load(r)
     except urllib.error.HTTPError as e:
         # status code only: the reason phrase is server-controlled, i.e. untrusted text
@@ -514,10 +542,21 @@ def get_opencode(rows, errs):
         hint = NET_HINTS.get(code)
         if hint is None and type(r).__name__ == "gaierror":
             hint = "name resolution failed"
-        msg = f"opencode-go: network error ({type(r).__name__}"
+        name = type(r).__name__
+        msg = f"opencode-go: network error ({name}"
         msg += f" errno {code}" if code is not None else ""
         msg += f", {hint})" if hint else ")"
-        if hint == "name resolution failed" and not proxy_env():
+        if name == "SSLCertVerificationError":
+            # verify_message is OpenSSL's own reason table, generated locally (not text from the
+            # peer), and it is the difference between a missing root and a hostname mismatch.
+            vm = getattr(r, "verify_message", None)
+            msg += f" \u2014 certificate verify failed: {vm}" if vm else " \u2014 certificate verify failed"
+            msg += ("; this network intercepts TLS \u2014 point AI_USAGE_CA_BUNDLE (or SSL_CERT_FILE) "
+                    "at the corporate root CA")
+        elif name in ("SSLError", "SSLEOFError"):
+            msg += (" \u2014 TLS handshake failed; if a proxy intercepts TLS, point AI_USAGE_CA_BUNDLE "
+                    "at its root CA")
+        elif hint == "name resolution failed" and not proxy_env():
             msg += " \u2014 host did not resolve and no proxy is set; set HTTPS_PROXY if this network needs one"
         errs.append(msg)
         return

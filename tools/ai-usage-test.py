@@ -164,7 +164,8 @@ mod.urllib = types.SimpleNamespace(
     request=types.SimpleNamespace(
         Request=lambda *a, **k: object(),
         build_opener=lambda *a, **k: types.SimpleNamespace(open=lambda *a, **k: _BoomOpen()),
-        HTTPRedirectHandler=object),
+        HTTPRedirectHandler=object,
+        HTTPSHandler=lambda *a, **k: object),
     error=_ue)
 rows, errs = [], []
 mod.get_opencode(rows, errs)
@@ -222,7 +223,8 @@ mod.urllib = types.SimpleNamespace(
         build_opener=lambda *a, **k: types.SimpleNamespace(
             open=lambda *a, **k: _Ok({"usage": {"weekly": {"percent": 0.5,
                                                            "resetsAt": "2026-10-12T00:00:00.000Z"}}})),
-        HTTPRedirectHandler=object),
+        HTTPRedirectHandler=object,
+        HTTPSHandler=lambda *a, **k: object),
     error=_ue)
 rows, errs = [], []
 mod.get_opencode(rows, errs)
@@ -333,7 +335,8 @@ mod.urllib = types.SimpleNamespace(
     request=types.SimpleNamespace(
         Request=lambda *a, **k: object(),
         build_opener=lambda *a, **k: types.SimpleNamespace(open=lambda *a, **k: _Ok(monthly)),
-        HTTPRedirectHandler=object),
+        HTTPRedirectHandler=object,
+        HTTPSHandler=lambda *a, **k: object),
     error=_ue2)
 rows, errs = [], []
 mod.get_opencode(rows, errs)
@@ -408,16 +411,21 @@ saved_proxy = {k: os.environ.pop(k, None) for k in
 
 
 class _URLFail:
+    def __init__(self, exc=None):
+        self.exc = exc
+
     def open(self, *a, **k):
-        raise _ue.URLError(socket.gaierror(-2, "Name or service not known"))
+        raise self.exc if self.exc is not None else _ue.URLError(
+            socket.gaierror(-2, "Name or service not known"))
 
 
-def _fail_shim():
+def _fail_shim(exc=None):
     return types.SimpleNamespace(
         request=types.SimpleNamespace(
             Request=lambda *a, **k: object(),
-            build_opener=lambda *a, **k: _URLFail(),
-            HTTPRedirectHandler=object),
+            build_opener=lambda *a, **k: _URLFail(exc),
+            HTTPRedirectHandler=object,
+            HTTPSHandler=lambda *a, **k: object),
         error=_ue)
 
 
@@ -501,6 +509,41 @@ except LookupError as ex:
     check("a keyless opencode entry names its fields", "fields:" in str(ex), str(ex))
 mod.oc_auth_paths = _saved_paths
 shutil.rmtree(tdir, ignore_errors=True)
+
+print("16) a TLS interception failure names the cause and the remediation")
+import ssl as _ssl
+_td2 = tempfile.mkdtemp(prefix="ai-usage-tls-")
+_af2 = os.path.join(_td2, "auth.json")
+with open(_af2, "w") as fh:
+    json.dump({"opencode-go": {"key": "sk-oc-CANARY"}}, fh)
+mod.oc_auth_paths = lambda: [_af2]
+
+_err = _ssl.SSLCertVerificationError(1, "certificate verify failed")
+try:
+    _err.verify_message = "unable to get local issuer certificate"
+except Exception:
+    pass
+rows, errs = [], []
+mod.urllib = _fail_shim(_ue.URLError(_err))
+mod.get_opencode(rows, errs)
+check("TLS failure names verification", any("certificate verify failed" in x for x in errs), str(errs))
+check("TLS failure names the remediation", any("AI_USAGE_CA_BUNDLE" in x for x in errs), str(errs))
+check("TLS failure is not misdiagnosed as DNS/proxy",
+      not any("set HTTPS_PROXY" in x for x in errs), str(errs))
+check("TLS failure fabricates no rows", rows == [])
+if getattr(_err, "verify_message", None):
+    check("TLS failure carries OpenSSL's reason", any("local issuer" in x for x in errs), str(errs))
+
+os.environ["AI_USAGE_CA_BUNDLE"] = os.path.join(_td2, "no-such-ca.pem")
+rows, errs = [], []
+mod.get_opencode(rows, errs)
+os.environ.pop("AI_USAGE_CA_BUNDLE", None)
+mod.urllib = old_urllib
+mod.oc_auth_paths = _saved_paths
+check("a missing AI_USAGE_CA_BUNDLE is reported",
+      any("missing file" in x for x in errs), str(errs))
+check("the bogus CA path yields no rows", rows == [])
+shutil.rmtree(_td2, ignore_errors=True)
 
 print()
 print(f"RESULT: {len(fails)} failure(s)" + ("" if not fails else f" -> {fails}"))
