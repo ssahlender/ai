@@ -389,13 +389,12 @@ buf = _io.StringIO()
 with contextlib.redirect_stdout(buf):
     mod.render([exp], [], use_color=False)
 out = buf.getvalue()
-check("expired row says reset + current value unknown",
-      "reset — current value unknown" in out, out)
+check("expired row is marked reset", "reset" in out, out)
 check("expired row draws no bar", "█" not in out and "░" not in out, out)
 check("expired row no longer claims a live window",
       "window elapsed — refresh source" not in out, out)
 check("expired row keeps the value only as labelled history",
-      "last known 89.0% left before reset" in out, out)
+      "last known 89.0% left" in out, out)
 check("brief: expired row reports reset, not a percentage",
       mod.brief([exp]).endswith("5h reset"), mod.brief([exp]))
 check("brief: a live row still reports its percentage",

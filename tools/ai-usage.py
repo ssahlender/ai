@@ -482,11 +482,10 @@ def render(rows, errs, use_color=True):
             continue
         col = paint(rem, use_color)
         if r["expired"]:
-            # The window has rolled over: the stored figure is PRE-reset, so it is not a current
-            # reading. Say the window reset instead of printing a value the eye takes as live.
-            last = f"  (last known {rem:.1f}% left before reset)"
-            print(f"  {r['window']:<18} reset — current value unknown{last}"
-                  f"{'  ·stale' if r['stale'] else ''}")
+            # Rolled over: the stored figure is PRE-reset. Show a reset marker rather than a
+            # current-looking bar/percentage; the old value stays, clearly labelled as history.
+            hist = "" if rem is None else f"  (last known {rem:.1f}% left)"
+            print(f"  {r['window']:<18} reset{hist}{'  ·stale' if r['stale'] else ''}")
             continue
         when = ""
         if r["resets_in_s"] is not None:
