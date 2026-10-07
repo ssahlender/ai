@@ -446,6 +446,62 @@ check("no proxy advice when a proxy is already configured",
 check("still reports the errno with a proxy configured",
       any("errno -2" in e for e in errs), str(errs))
 
+print("15) opencode-go key discovery reports what it checked and never borrows a foreign key")
+import tempfile
+import shutil
+tdir = tempfile.mkdtemp(prefix="ai-usage-authtest-")
+_saved_paths = mod.oc_auth_paths
+_missing = os.path.join(tdir, "nope", "auth.json")
+mod.oc_auth_paths = lambda: [_missing]
+r, e = [], []
+mod.get_opencode(r, e)
+check("missing auth.json names the path checked", any("nope/auth.json" in x for x in e), str(e))
+check("missing auth.json names the login command", any("opencode auth login" in x for x in e), str(e))
+check("missing auth.json fabricates no rows", r == [])
+
+_af = os.path.join(tdir, "auth.json")
+with open(_af, "w") as fh:
+    fh.write("{not json")
+mod.oc_auth_paths = lambda: [_af]
+r, e = [], []
+mod.get_opencode(r, e)
+check("malformed auth.json is reported as such", any("not readable JSON" in x for x in e), str(e))
+
+CANARY = "sk-ant-LEAKCANARY-0000"
+with open(_af, "w") as fh:
+    json.dump({"anthropic": {"key": CANARY}}, fh)
+mod.oc_auth_paths = lambda: [_af]
+r, e = [], []
+mod.get_opencode(r, e)
+check("a foreign provider key is never selected", any("no opencode entry" in x for x in e), str(e))
+check("a foreign provider key cannot leak into the error", not any(CANARY in x for x in e), str(e))
+check("present entry names are listed", any("anthropic" in x for x in e), str(e))
+
+os.environ["XDG_DATA_HOME"] = tdir
+mod.oc_auth_paths = _saved_paths
+check("XDG_DATA_HOME is checked before the default",
+      _saved_paths()[0].startswith(tdir), _saved_paths()[0])
+os.environ.pop("XDG_DATA_HOME", None)
+
+with open(_af, "w") as fh:
+    json.dump({"opencode-go": {"type": "api", "key": "sk-oc-CANARY"}}, fh)
+mod.oc_auth_paths = lambda: [_af]
+k, _p = mod._oc_auth_key()
+check("a dict entry's 'key' field is read", k == "sk-oc-CANARY", k)
+with open(_af, "w") as fh:
+    json.dump({"opencode-go": "sk-oc-CANARY"}, fh)
+k, _p = mod._oc_auth_key()
+check("a plain-string entry is read", k == "sk-oc-CANARY", k)
+with open(_af, "w") as fh:
+    json.dump({"opencode-go": {"type": "api"}}, fh)
+try:
+    mod._oc_auth_key()
+    check("a keyless opencode entry raises", False, "no raise")
+except LookupError as ex:
+    check("a keyless opencode entry names its fields", "fields:" in str(ex), str(ex))
+mod.oc_auth_paths = _saved_paths
+shutil.rmtree(tdir, ignore_errors=True)
+
 print()
 print(f"RESULT: {len(fails)} failure(s)" + ("" if not fails else f" -> {fails}"))
 sys.exit(1 if fails else 0)
