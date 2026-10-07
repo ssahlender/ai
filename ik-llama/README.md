@@ -561,3 +561,19 @@ MTP model, round-3 battery (13 tasks), 2 samples per arm, `max_tokens` 1500 (off
 - **A-04 (executed bash script) fails in every arm,** so reasoning does not fix it.
 - **Recommendation:** keep `-rea off` (the `start.sh` default). Use `-rea on --reasoning-budget 2048` only for a single task that is a known failure with it off, such as negative-rule summaries.
 - Caveat: 2 samples, one model; run-to-run noise (think512: 7 vs 10) is about as large as the differences.
+
+## Suffix drafting on top of MTP (2026-10-07)
+
+`start.sh` now starts the MTP mode with a two-stage chain, `--spec-type suffix:... --spec-type mtp:n_max=1,p_min=0.0` (the self-speculation stage must come first). The `suffix` stage drafts from text already in the context, so it pays off when the output repeats the input (edit loops, "rewrite this file with one change"). Drafts are verified by the model, so output is unchanged apart from sampling noise.
+
+Decode speed, tokens/s (2 runs each, `max_tokens` 2500, same prompts on builds b5352 and b5409):
+
+| Setup | Edit a 260-line file | Prose | New code |
+|---|---|---|---|
+| no drafting | 20 | 20 | 20 |
+| MTP alone | 23 | 23 | 24-25 |
+| `ngram-mod` alone | 37-40 | 20-22 | 15 (slower) |
+| `ngram-mod` + MTP | 40 | 22 | 17-18 (slower) |
+| **`suffix` + MTP (default now)** | **50-53** | 21-24 | 22-28 |
+
+`ngram-mod` is not worth it (loses on new code). `IK_LLAMA_SPEC` overrides the mode's speculation flags (raw flags; `none` turns it off), e.g. `IK_LLAMA_SPEC='--spec-type mtp:n_max=1,p_min=0.0' ./start.sh i9 2` for the previous MTP-only setup. Not yet re-run: the agent reality round with this chain, and prompt-processing speed (MTP costs about 16%).

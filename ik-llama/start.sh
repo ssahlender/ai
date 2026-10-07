@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Starts llama-server. Usage: ./start.sh <machine> <mode>
+# IK_LLAMA_SPEC overrides the mode's --spec-type flags (raw; 'none' disables).
 # IK_LLAMA_EXTRA_ARGS appends raw llama-server flags last (later flags win), e.g. '--slot-save-path DIR' or '-rea on'.
 #   Machine: i9 | macbook-air
 #   Mode:    GGUF file name without .gguf, or its number from the list
@@ -43,7 +44,7 @@ case "$MACHINE" in
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
     MODES=(
       "Qwen3.6 35B-A3B Uncensored Q6_K_P|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf|131072|24576||SAMPLE|mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative, ~+25% tg on code)|Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf|131072|24576||SAMPLE||mtp:n_max=1,p_min=0.0"
+      "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative: suffix + MTP, ~2x on edits)|Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf|131072|24576||SAMPLE||--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0"
     )
     ;;
   macbook-air)
@@ -172,7 +173,13 @@ for m in "${MODES[@]}"; do
       EXTRA+=(${SAMPLE_BASE[@]+"${SAMPLE_BASE[@]}"})
     fi
     [ -n "$MMPROJ" ] && EXTRA+=(--mmproj "$(model_path "$MMPROJ")")
-    [ -n "${SPEC:-}" ] && EXTRA+=(--spec-type "$SPEC")
+    # IK_LLAMA_SPEC replaces the mode's speculative setup with raw flags (e.g. two-stage chains, where the
+    # self-spec stage must come before mtp); IK_LLAMA_SPEC=none turns speculation off.
+    if [ -n "${IK_LLAMA_SPEC:-}" ]; then
+      [ "$IK_LLAMA_SPEC" = none ] || EXTRA+=(${IK_LLAMA_SPEC})
+    elif [ -n "${SPEC:-}" ]; then
+      EXTRA+=(${SPEC})
+    fi
     case "$FILE" in
       *Uncensored-HauhauCS*)
         EXTRA+=(--chat-template-file "$(dirname "$(realpath "$0")")/qwen3-template.j2")
