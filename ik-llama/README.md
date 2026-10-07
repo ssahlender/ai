@@ -544,3 +544,20 @@ For other brew formulae with the same issue, either build from source
 manager instead of brew.
 
 Ubuntu 24.04 and macOS are unaffected, brew bottles work natively.
+
+## Reasoning round (2026-10-07)
+
+MTP model, round-3 battery (13 tasks), 2 samples per arm, `max_tokens` 1500 (off), 3000 (scaffold), 6000/8000 (thinking). Thinking was enabled with `IK_LLAMA_EXTRA_ARGS='-rea on --reasoning-budget N'`.
+
+| Arm | Passed (2 samples) | Total time of 2 runs |
+|---|---|---|
+| reasoning off (baseline) | 11/13, 11/13 | 222 s |
+| step-by-step scaffold prompt | 9/13, 9/13 | 496 s |
+| thinking, budget 512 | 7/13, 10/13 | 1753 s |
+| thinking, budget 2048 | 10/13, 10/13 | 1992 s |
+
+- **Thinking does not pay off overall.** It is 8-9x slower and not better than off. It fixed one task (A-05, negative rules in an incident summary: 0/2 -> 2/2 at both budgets) but broke others (K-02 terraform validation 2/2 -> 0/2 at 2048, A-06 PodSpec 2/2 -> 0/2 at 512, K-01, C-06).
+- **The scaffold prompt hurts:** C-04 and C-05 (exact-JSON tasks) went 2/2 -> 0/2.
+- **A-04 (executed bash script) fails in every arm,** so reasoning does not fix it.
+- **Recommendation:** keep `-rea off` (the `start.sh` default). Use `-rea on --reasoning-budget 2048` only for a single task that is a known failure with it off, such as negative-rule summaries.
+- Caveat: 2 samples, one model; run-to-run noise (think512: 7 vs 10) is about as large as the differences.
