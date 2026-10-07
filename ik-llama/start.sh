@@ -172,7 +172,8 @@ for m in "${MODES[@]}"; do
     if [ "$SF" = "SAMPLE" ]; then
       EXTRA+=(${SAMPLE_BASE[@]+"${SAMPLE_BASE[@]}"})
     fi
-    [ -n "$MMPROJ" ] && EXTRA+=(--mmproj "$(model_path "$MMPROJ")")
+    # The server disables speculative decoding while a vision projector is loaded; IK_LLAMA_NO_MMPROJ=1 trades vision for drafting.
+    [ -n "$MMPROJ" ] && [ -z "${IK_LLAMA_NO_MMPROJ:-}" ] && EXTRA+=(--mmproj "$(model_path "$MMPROJ")")
     # IK_LLAMA_SPEC replaces the mode's speculative setup with raw flags (e.g. two-stage chains, where the
     # self-spec stage must come before mtp); IK_LLAMA_SPEC=none turns speculation off.
     if [ -n "${IK_LLAMA_SPEC:-}" ]; then
