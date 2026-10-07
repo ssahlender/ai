@@ -125,6 +125,8 @@ Brew's `uv` bottle also requires GLIBC ≥ 2.38. `_uv-wrapper.sh` skips brew's u
 
 Scripts that download via curl or npm set `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, and `NPM_CONFIG_CAFILE` to `/etc/ssl/certs/ca-certificates.crt` on i9. Override the cert path with `SYSTEM_CA_FILE=/path/to/ca.crt` if your machine uses a different bundle.
 
+Python tools read the bundle themselves, so they need no wrapper: `tools/ai-usage.py` resolves `SSL_CERT_FILE` → `REQUESTS_CA_BUNDLE` → `SYSTEM_CA_FILE`, and falls back to the system bundle when the proxy environment marks the machine as the work PC. It **adds** that bundle to the default CAs rather than replacing them, and names the interception when verification fails instead of reporting a bare network error.
+
 The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` extra is omitted by default on i9, override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office` once the allowlist is updated.
 
 ---
