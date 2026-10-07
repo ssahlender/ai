@@ -190,7 +190,7 @@ The 27B dense IQ4\_XS is the smarter general pick; all 27B params active vs 3B M
 | Mode | Model | Size | Context | Vision | Notes |
 |---|---|---|---|---|---|
 | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline + vision |
-| `Qwen3.6-35B-A3B-MTP-UD-Q6_K` | Qwen3.6-35B-A3B MTP UD-Q6\_K (vanilla, unsloth) | ~30 GB | 128 K | no | MTP speculative decoding: ~+25% tg on code, +4-11% on prose; not the uncensored finetune; no vision (`--mmproj` unsupported with MTP) |
+| `Qwen3.6-35B-A3B-MTP-UD-Q6_K` | Qwen3.6-35B-A3B MTP UD-Q6\_K (vanilla, unsloth) | ~30 GB | 128 K | no | MTP speculative decoding, plus `suffix` drafting by default (edit loops ~2x, see the suffix section): MTP alone ~+25% tg on code, +4-11% on prose; not the uncensored finetune; no vision (`--mmproj` unsupported with MTP) |
 
 **Dropped 2026-10-07** (lowest agent score, no quality edge, slowest; see the rounds below). Measured while it was in the lineup: Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) ran at ~98 pp tok/s and ~16 tg tok/s at 8/24, about 20% slower than the 35B-A3B models due to the larger model footprint (same 3B active params, more bytes to stream). Context set to 128K for long agent sessions; prompt-cache RAM capped via `cram`.
 
@@ -318,7 +318,7 @@ Round 3 bash script task: HauhauCS 2/2 samples, MTP 1/2, Coder-Next 0/2 (the los
 
 - **MTP costs no measurable quality.** It scored equal or higher in every round. With 11-13 questions and single runs this is evidence, not proof; one flipped question changes the totals.
 - **Agent behaviour depends on the system prompt.** With no system prompt both 35B models never called tools and guessed (0/5); with a one-line agent system prompt they passed 5/5 and followed 3-step lookups. In round 3 all three models passed the three agent tasks (error recovery, concurrent-update conflict, two prompt injections) with such a prompt. Test agents with the harness's real system prompt.
-- **Coder-Next 80B is not better on general tasks** (11/13) and about 30% slower than the 35B models. Keep it for heavy coding, not as the daily model.
+- **Coder-Next 80B was not better on general tasks** (11/13) and about 30% slower than the 35B models; it was dropped on 2026-10-07 after the agent round.
 - **Shared weaknesses are instruction details, not knowledge:** both 35B models ignored an explicit "slash date is US month/day" instruction (0/4) and added a time to a date (0/4); one model wrote evidence ids as numbers; one used a forbidden word; and without step-by-step reasoning a short code-tracing question was answered wrongly (15/16 instead of 23; correct when asked to reason).
 - **HauhauCS specifics:** it failed the strict lazy-batching contract and, in round 1, invented an explanation for a fictional country instead of saying it does not exist (one prompt, so only a hint).
 - **Test-harness lesson:** three of the first checkers were wrong (a command deny-list blocked legitimate `trap 'rm -f "$tmp"'`, an over-strict tool-call order, a misreading of `>=` as a redirect). Validate every checker against reference answers, and sandbox instead of deny-listing.
@@ -410,7 +410,7 @@ All models are well above the interactive threshold for OpenCode tool loops. The
 
 The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. Qwen3-Coder-Next 80B-A3B, Ornith-1.0 35B, Qwopus3.6 and SuperGemma4 were removed (Coder-Next on the agent rounds, the others on quality checks).
 
-- Start with `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` for general use (vision, uncensored), or `Qwen3.6-35B-A3B-MTP-UD-Q6_K` for ~20% faster generation.
+- Start with `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` for general use (vision, uncensored), or `Qwen3.6-35B-A3B-MTP-UD-Q6_K` for faster generation (suffix + MTP: ~2x on edit loops, +5-25% elsewhere).
 - All i9 modes default to 128K context. Treat that as an emergency ceiling and keep working context at 16K to 32K through agent-side compaction. Rerun provider setup with the same `IK_LLAMA_CTX_SIZE` override when changing the server window.
 - Use `IK_LLAMA_THREADS=8` and `IK_LLAMA_THREADS_BATCH=24` as the default i9 startup point.
 - Avoid `IK_LLAMA_THREADS=10` and `12`; benchmarks were consistently worse than `6` and `8`.
@@ -459,7 +459,7 @@ Default `8/16` is the best balanced setting for qwen36u35b. Use `8/8` (`IK_LLAMA
 | Mode | pp2048 (t/s) | tg128 (t/s) | Notes |
 |---|---:|---:|---|
 | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` | 122.8 | 22.6 | Quality baseline + vision |
-| `Qwen3-Coder-Next-UD-Q3_K_M` | 92.7 | 16.3 | 80B MoE heavy coder |
+| `Qwen3-Coder-Next-UD-Q3_K_M` (dropped 2026-10-07) | 92.7 | 16.3 | 80B MoE heavy coder |
 
 **Rejected candidates (historical):**
 
