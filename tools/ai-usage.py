@@ -392,6 +392,18 @@ def get_agy(rows, errs, ttl):
 
 
 # --------------------------------------------------------------------------- opencode-go
+NET_HINTS = {-2: "name resolution failed", -3: "temporary name-resolution failure",
+             -8: "name resolution failed",
+             101: "network unreachable", 110: "connection timed out",
+             111: "connection refused", 113: "no route to host"}
+
+
+def proxy_env():
+    """True when a proxy is configured through the usual environment variables."""
+    return any(os.environ.get(v) for v in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY",
+                                           "http_proxy", "ALL_PROXY", "all_proxy"))
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     """Refuse redirects: urllib re-sends the Authorization header to the target host."""
 
@@ -420,8 +432,21 @@ def get_opencode(rows, errs):
         # status code only: the reason phrase is server-controlled, i.e. untrusted text
         errs.append(f"opencode-go: HTTP {e.code}")
         return
-    except urllib.error.URLError:
-        errs.append("opencode-go: network error")
+    except urllib.error.URLError as e:
+        # URLError.reason is either a LOCAL socket error (its errno is safe and diagnostic) or text
+        # handed over by a proxy (untrusted). Report the class + errno + a hint, never the text —
+        # a bare "network error" is what made an office failure impossible to diagnose.
+        r = e.reason
+        code = getattr(r, "errno", None)
+        hint = NET_HINTS.get(code)
+        if hint is None and type(r).__name__ == "gaierror":
+            hint = "name resolution failed"
+        msg = f"opencode-go: network error ({type(r).__name__}"
+        msg += f" errno {code}" if code is not None else ""
+        msg += f", {hint})" if hint else ")"
+        if hint == "name resolution failed" and not proxy_env():
+            msg += " \u2014 host did not resolve and no proxy is set; set HTTPS_PROXY if this network needs one"
+        errs.append(msg)
         return
     except Exception as e:
         # deliberate: NEVER interpolate the exception text here — a header ValueError

@@ -401,6 +401,51 @@ check("brief: a live row still reports its percentage",
       mod.brief([mod.row("codex (plus)", "7d window", 81.0, resets_at=time.time() + 200000,
                          window_s=604800, used=19.0)]))
 
+print("14) opencode-go connection failures are diagnosable but leak nothing")
+import socket
+saved_proxy = {k: os.environ.pop(k, None) for k in
+               ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")}
+
+
+class _URLFail:
+    def open(self, *a, **k):
+        raise _ue.URLError(socket.gaierror(-2, "Name or service not known"))
+
+
+def _fail_shim():
+    return types.SimpleNamespace(
+        request=types.SimpleNamespace(
+            Request=lambda *a, **k: object(),
+            build_opener=lambda *a, **k: _URLFail(),
+            HTTPRedirectHandler=object),
+        error=_ue)
+
+
+mod.urllib = _fail_shim()
+rows, errs = [], []
+mod.get_opencode(rows, errs)
+for k, v in saved_proxy.items():
+    if v is not None:
+        os.environ[k] = v
+check("DNS failure names the cause", any("name resolution failed" in e for e in errs), str(errs))
+check("DNS failure carries the errno", any("errno -2" in e for e in errs), str(errs))
+check("DNS failure suggests a proxy when none is set",
+      any("HTTPS_PROXY" in e for e in errs), str(errs))
+check("failure text leaks no credential",
+      not any("Bearer" in e or "LEAKCANARY" in e for e in errs), str(errs))
+check("no rows fabricated on a connection failure", rows == [])
+
+os.environ["HTTPS_PROXY"] = "http://proxy.invalid:3128"
+mod.urllib = _fail_shim()
+rows, errs = [], []
+mod.get_opencode(rows, errs)
+os.environ.pop("HTTPS_PROXY", None)
+mod.urllib = old_urllib
+check("no proxy advice when a proxy is already configured",
+      not any("set HTTPS_PROXY" in e for e in errs), str(errs))
+check("still reports the errno with a proxy configured",
+      any("errno -2" in e for e in errs), str(errs))
+
 print()
 print(f"RESULT: {len(fails)} failure(s)" + ("" if not fails else f" -> {fails}"))
 sys.exit(1 if fails else 0)
