@@ -392,6 +392,18 @@ def get_agy(rows, errs, ttl):
 
 
 # --------------------------------------------------------------------------- opencode-go
+NET_HINTS = {-2: "name resolution failed", -3: "temporary name-resolution failure",
+             -8: "name resolution failed",
+             101: "network unreachable", 110: "connection timed out",
+             111: "connection refused", 113: "no route to host"}
+
+
+def proxy_env():
+    """True when a proxy is configured through the usual environment variables."""
+    return any(os.environ.get(v) for v in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY",
+                                           "http_proxy", "ALL_PROXY", "all_proxy"))
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     """Refuse redirects: urllib re-sends the Authorization header to the target host."""
 
@@ -399,16 +411,89 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+OC_ENTRY_PREFIX = "opencode"     # only opencode's own entries: this key is sent to opencode.ai
+
+
+def oc_auth_paths():
+    """Candidate auth.json locations, best first.
+
+    opencode resolves its data dir from the platform convention, so ~/.local/share is only the
+    default: an office box can legitimately keep the file under XDG_DATA_HOME, on macOS under
+    Application Support, on Windows under APPDATA. Naming the paths that were tried is what makes
+    a "missing key" fixable instead of mysterious.
+    """
+    cands = []
+    xdg = os.environ.get("XDG_DATA_HOME")
+    if xdg:
+        cands.append(os.path.join(xdg, "opencode", "auth.json"))
+    cands.append(OC_AUTH)                                                   # platform default
+    cands.append(os.path.expanduser("~/Library/Application Support/opencode/auth.json"))
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        cands.append(os.path.join(appdata, "opencode", "auth.json"))
+    seen, out = set(), []
+    for p in cands:
+        if os.path.normpath(p) not in seen:
+            seen.add(os.path.normpath(p))
+            out.append(p)
+    return out
+
+
+def _tilde(path):
+    home = os.path.expanduser("~")
+    return "~" + path[len(home):] if path.startswith(home + os.sep) else path
+
+
+def _oc_auth_key():
+    """Return (key, path) for the opencode-go entry, or raise LookupError explaining what was
+    checked. Entries are reported by NAME only; no credential value ever enters the message.
+
+    Only entries whose name starts with "opencode" are eligible — the key is sent to opencode.ai,
+    so borrowing a different vendor's key (anthropic, openai, ...) would leak it to a third party.
+    """
+    tried = oc_auth_paths()
+    path = next((p for p in tried if os.path.isfile(p)), None)
+    if path is None:
+        raise LookupError("no auth.json found (checked: "
+                          + ", ".join(_tilde(p) for p in tried)
+                          + ") — authenticate with 'opencode auth login'")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except Exception as e:
+        raise LookupError(f"auth.json at {_tilde(path)} is not readable JSON ({type(e).__name__})")
+    if not isinstance(data, dict):
+        raise LookupError(f"auth.json at {_tilde(path)} is not a JSON object ({type(data).__name__})")
+    names = sorted((n for n in data if isinstance(n, str) and n.startswith(OC_ENTRY_PREFIX)),
+                   key=lambda n: (n != "opencode-go", n))       # exact plan first, then the rest
+    for n in names:
+        val = data[n]
+        if isinstance(val, str) and val.strip():
+            return val.strip(), path
+        if isinstance(val, dict):
+            for f in ("key", "apiKey", "token", "accessToken"):
+                if isinstance(val.get(f), str) and val[f].strip():
+                    return val[f].strip(), path
+    if names:
+        val = data[names[0]]
+        have = ", ".join(sorted(val)) if isinstance(val, dict) else type(val).__name__
+        raise LookupError(f"'{names[0]}' entry in {_tilde(path)} carries no key field (fields: {have})")
+    raise LookupError(f"auth.json at {_tilde(path)} has no opencode entry (entries: "
+                      + (", ".join(sorted(n for n in data if isinstance(n, str))) or "none") + ")")
+
+
 def get_opencode(rows, errs):
     try:
-        key = json.load(open(OC_AUTH))["opencode-go"]["key"]
-    except Exception as e:
-        errs.append(f"opencode-go: no readable key in auth.json ({type(e).__name__})")
+        key, _src = _oc_auth_key()
+    except LookupError as e:
+        errs.append(f"opencode-go: {e}")
         return
-    if not isinstance(key, str) or not key.strip() or any(ord(c) < 32 for c in key.strip()):
+    except Exception as e:
+        errs.append(f"opencode-go: could not read the key ({type(e).__name__})")
+        return
+    if any(ord(c) < 32 for c in key):
         errs.append("opencode-go: key is empty or contains control characters")
         return
-    key = key.strip()
     try:
         req = urllib.request.Request(OC_USAGE_URL,
                                      headers={"Authorization": "Bearer " + key,
@@ -420,8 +505,21 @@ def get_opencode(rows, errs):
         # status code only: the reason phrase is server-controlled, i.e. untrusted text
         errs.append(f"opencode-go: HTTP {e.code}")
         return
-    except urllib.error.URLError:
-        errs.append("opencode-go: network error")
+    except urllib.error.URLError as e:
+        # URLError.reason is either a LOCAL socket error (its errno is safe and diagnostic) or text
+        # handed over by a proxy (untrusted). Report the class + errno + a hint, never the text —
+        # a bare "network error" is what made an office failure impossible to diagnose.
+        r = e.reason
+        code = getattr(r, "errno", None)
+        hint = NET_HINTS.get(code)
+        if hint is None and type(r).__name__ == "gaierror":
+            hint = "name resolution failed"
+        msg = f"opencode-go: network error ({type(r).__name__}"
+        msg += f" errno {code}" if code is not None else ""
+        msg += f", {hint})" if hint else ")"
+        if hint == "name resolution failed" and not proxy_env():
+            msg += " \u2014 host did not resolve and no proxy is set; set HTTPS_PROXY if this network needs one"
+        errs.append(msg)
         return
     except Exception as e:
         # deliberate: NEVER interpolate the exception text here — a header ValueError
