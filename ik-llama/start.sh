@@ -44,7 +44,6 @@ case "$MACHINE" in
     MODES=(
       "Qwen3.6 35B-A3B Uncensored Q6_K_P|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf|131072|24576||SAMPLE|mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
       "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative, ~+25% tg on code)|Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf|131072|24576||SAMPLE||mtp:n_max=1,p_min=0.0"
-      "Qwen3-Coder-Next 80B-A3B UD-Q3_K_M|Qwen3-Coder-Next-UD-Q3_K_M.gguf|131072|14336||SAMPLE"
     )
     ;;
   macbook-air)

@@ -88,7 +88,6 @@ case "$MACHINE" in
     download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
     # Vanilla Qwen3.6 with MTP layers; same file name as unsloth's non-MTP repo, so saved as ...-MTP-...
     download_if_missing unsloth/Qwen3.6-35B-A3B-MTP-GGUF                          Qwen3.6-35B-A3B-UD-Q6_K.gguf 30011242784 Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf
-    download_if_missing unsloth/Qwen3-Coder-Next-GGUF                             Qwen3-Coder-Next-UD-Q3_K_M.gguf
     ;;
 
   probook)

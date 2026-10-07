@@ -105,7 +105,7 @@ pwsh llm\bench\bench-threads.ps1
 ./update.sh i9
 ./download-models.sh i9
 ./setup-agents.sh i9
-./start.sh i9 Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P   # or: Qwen3.6-35B-A3B-MTP-UD-Q6_K  Qwen3-Coder-Next-UD-Q3_K_M
+./start.sh i9 Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P   # or: Qwen3.6-35B-A3B-MTP-UD-Q6_K
 ./cleanup-models.sh i9     # dry-run obsolete GGUF cleanup
 ```
 
@@ -191,9 +191,8 @@ The 27B dense IQ4\_XS is the smarter general pick; all 27B params active vs 3B M
 |---|---|---|---|---|---|
 | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` | Qwen3.6-35B-A3B-Uncensored Q6\_K\_P | ~31 GB | 128 K | yes | 35B MoE quality baseline + vision |
 | `Qwen3.6-35B-A3B-MTP-UD-Q6_K` | Qwen3.6-35B-A3B MTP UD-Q6\_K (vanilla, unsloth) | ~30 GB | 128 K | no | MTP speculative decoding: ~+25% tg on code, +4-11% on prose; not the uncensored finetune; no vision (`--mmproj` unsupported with MTP) |
-| `Qwen3-Coder-Next-UD-Q3_K_M` | Qwen3-Coder-Next 80B-A3B UD-Q3\_K\_M | ~36 GB | 128 K | no | 80B MoE, 3B active, heavy coder test |
 
-Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) runs at ~98 pp tok/s and ~16 tg tok/s at 8/24, about 20% slower than the 35B-A3B models due to the larger model footprint (same 3B active params, more bytes to stream). Context set to 128K for long agent sessions; prompt-cache RAM capped via `cram`.
+**Dropped 2026-10-07** (lowest agent score, no quality edge, slowest; see the rounds below). Measured while it was in the lineup: Qwen3-Coder-Next 80B-A3B (UD-Q3_K_M, ~36 GB) ran at ~98 pp tok/s and ~16 tg tok/s at 8/24, about 20% slower than the 35B-A3B models due to the larger model footprint (same 3B active params, more bytes to stream). Context set to 128K for long agent sessions; prompt-cache RAM capped via `cram`.
 
 NVIDIA's Nemotron-3.5-Lightning-30B-A3B was tried and dropped: its architecture interleaves Mamba-2 (SSM) layers with MoE and attention layers, which ik_llama.cpp (an AVX2/quant-kernel-focused `llama.cpp` fork) doesn't implement; it fails to load with `unknown model architecture: 'nemotron_h_moe'`. Confirmed via direct load test, not just a version mismatch.
 
@@ -404,13 +403,12 @@ Active model throughput at the default `8/24` thread setting:
 | Mode | pp2048 (t/s) | tg128 (t/s) | Notes |
 |---|---:|---:|---|
 | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` | ~122.8 | ~22.6 | Quality baseline + vision |
-| `Qwen3-Coder-Next-UD-Q3_K_M` | ~98 | ~16 | 80B MoE heavy coder |
 
 All models are well above the interactive threshold for OpenCode tool loops. The MTP mode is faster for generation than these numbers suggest (see the MTP section; `llama-bench` cannot show it).
 
 ### i9 speed notes
 
-The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. Qwen3-Coder-Next 80B-A3B covers the heavy coding slot. Ornith-1.0 35B, Qwopus3.6 and SuperGemma4 failed manual quality checks and were removed.
+The i9 is CPU-only and AVX2-only, so dense 20 GB-class models are mostly memory-bandwidth bound. Qwen3-Coder-Next 80B-A3B, Ornith-1.0 35B, Qwopus3.6 and SuperGemma4 were removed (the first three on quality checks, Coder-Next on the agent rounds).
 
 - Start with `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P` for general use (vision, uncensored), or `Qwen3.6-35B-A3B-MTP-UD-Q6_K` for ~20% faster generation.
 - All i9 modes default to 128K context. Treat that as an emergency ceiling and keep working context at 16K to 32K through agent-side compaction. Rerun provider setup with the same `IK_LLAMA_CTX_SIZE` override when changing the server window.
