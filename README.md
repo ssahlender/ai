@@ -10,7 +10,7 @@ Scripts for running local AI tools across multiple machines.
 | `llm/` | Native Windows PowerShell tooling for the ProBook: mainline llama.cpp, provider setup, benchmarks, and quality tests |
 | `mlx/` | MLX/oMLX vs llama.cpp/Metal engine comparison (MacBook Air M4), background/history |
 | `ollama/` | **Settled daily-driver engine on the MacBook Air M4**, start/stop/setup-agent, chosen after the `mlx/` comparison |
-| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Docker Agent, Antigravity, Pi, Headroom, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage) |
+| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Docker Agent, Antigravity, Pi, Headroom, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage, Obsidian) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
 ---
@@ -139,7 +139,8 @@ The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` e
 
 Order is defined by the `UPDATE_TOOLS` array in `update-all.sh`:
 `nvm` → `claude` → `opencode` → `codex` → `docker-agent` → `antigravity` → `hf` → `hermes` → `rtk` →
-`context-mode` → `claude-mem` → `graphify` → `pi` → `repomix` → `ccusage`. Ollama is updated
+`context-mode` → `claude-mem` → `graphify` → `pi` → `repomix` → `ccusage` → `headroom` →
+`mattpocock-skills` → `obsidian`. Ollama is updated
 afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
 run last. Each `*-update.sh` upgrades only if already installed and skips
 otherwise; run `*-install.sh` for new tools.
@@ -476,6 +477,22 @@ Claude Code token usage analytics, per-project and per-day breakdowns, cost trac
 ```bash
 ccusage            # today's usage summary
 ccusage --help
+```
+
+---
+
+### Obsidian
+
+| Script | What it does |
+|---|---|
+| `obsidian-install.sh` | `$BREW install --cask obsidian` (Linux: AppImage cask). On i9 the AppImage goes to `/home/linuxbrew/.linuxbrew/share/appimages/` (`--appimagedir`), because brewuser's home is not readable; writes a launcher `~/.local/bin/obsidian`. Reinstalls if the AppImage sits elsewhere. Idempotent |
+| `obsidian-update.sh` | `$BREW upgrade --cask --greedy obsidian` (the cask is `auto_updates`, so plain `brew upgrade` skips it), refreshes the launcher; skips if not installed |
+| `_obsidian-common.sh` | Shared paths/flags/launcher helper (override the AppImage directory with `OBSIDIAN_APPIMAGE_DIR`) |
+
+Markdown vault viewer, used for read-only browsing of wikis (graph view, backlinks). For sensitive vaults keep Sync/Publish off, install no community plugins, and open the vault read-only. Obsidian checks GitHub for updates at startup; turn off automatic updates in its settings if that egress is unwanted.
+
+```bash
+obsidian           # launcher in ~/.local/bin
 ```
 
 ---

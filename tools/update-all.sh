@@ -30,6 +30,7 @@ UPDATE_TOOLS=(
   ccusage
   headroom
   mattpocock-skills
+  obsidian
 )
 
 for tool in "${UPDATE_TOOLS[@]}"; do
