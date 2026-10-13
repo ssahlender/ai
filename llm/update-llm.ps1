@@ -131,7 +131,9 @@ function Install-Asset {
         if (-not $stagedServer) { throw 'archive contains no llama-server.exe; live engine was left untouched' }
         $versionText = (Get-NativeOutput -Exe $stagedServer.FullName -Arguments @('--version')).Trim()
         if ($LASTEXITCODE -ne 0 -or -not $versionText) { throw 'staged llama-server.exe did not run successfully; live engine was left untouched' }
-        if ($versionText -notmatch [regex]::Escape($Asset.Tag)) { throw "staged build did not report expected release '$($Asset.Tag)'; live engine was left untouched" }
+        # Mainline prints "build 11588", not the release tag "b11588"; ik_llama prints the tag. Accept both.
+        $tagNum = $Asset.Tag -replace '^b', ''
+        if ($versionText -notmatch ('(?i)\b' + [regex]::Escape($Asset.Tag) + '\b|\bbuild\s+' + [regex]::Escape($tagNum) + '\b')) { throw "staged build did not report expected release '$($Asset.Tag)'; live engine was left untouched" }
         Write-Host ("    staged binary accepted: {0}" -f ($versionText -replace "`r?`n", ' '))
 
         $prevTag  = if (Test-Path $marker) { (Get-Content $marker -Raw).Trim() } else { 'unknown' }
