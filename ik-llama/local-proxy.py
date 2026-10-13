@@ -13,12 +13,20 @@ import http.client
 import http.server
 import json
 import os
+import queue
 import sys
+import threading
 from urllib.parse import urlparse
 
 PROXY_PORT = int(os.environ.get("LOCAL_PROXY_PORT", "9081"))
 UPSTREAM = os.environ.get("LOCAL_PROXY_UPSTREAM", "http://127.0.0.1:9080")
 MAX_TOKENS_CAP = int(os.environ.get("LOCAL_PROXY_MAX_TOKENS", "16384"))
+# Cold prefill on CPU can run minutes with zero bytes from upstream. Without a
+# keep-alive, Claude Code's idle-read timeout fires intermittently ("API
+# timeout") well before our own 3600s socket timeout. SSE comment lines
+# (leading ":") are inert per spec — any Anthropic-compatible SSE parser
+# ignores them — so send one periodically while waiting for upstream data.
+KEEPALIVE_SECS = float(os.environ.get("LOCAL_PROXY_KEEPALIVE_SECS", "10"))
 
 _up = urlparse(UPSTREAM)
 UPSTREAM_HOST = _up.hostname or "127.0.0.1"
@@ -52,15 +60,49 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.send_header(k, v)
             self.end_headers()
             headers_sent = True
+            is_sse = "text/event-stream" in (resp.getheader("Content-Type") or "")
 
-            # Stream response — use read1 for immediate forwarding of streamed chunks
+            # Read upstream on a background thread so the main loop can inject
+            # keep-alives during gaps (cold prefill) instead of blocking silently.
+            # Only safe for SSE: injecting bytes into a plain JSON body would
+            # corrupt it, so non-SSE responses fall back to a plain blocking read.
             read_fn = getattr(resp, "read1", resp.read)
-            while True:
-                chunk = read_fn(4096)
-                if not chunk:
-                    break
-                self.wfile.write(chunk)
-                self.wfile.flush()
+
+            if not is_sse:
+                while True:
+                    chunk = read_fn(4096)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+            else:
+                chunks: "queue.Queue" = queue.Queue()
+
+                def _reader():
+                    try:
+                        while True:
+                            chunk = read_fn(4096)
+                            chunks.put(chunk)
+                            if not chunk:
+                                return
+                    except Exception as exc:
+                        chunks.put(exc)
+
+                threading.Thread(target=_reader, daemon=True).start()
+
+                while True:
+                    try:
+                        item = chunks.get(timeout=KEEPALIVE_SECS)
+                    except queue.Empty:
+                        self.wfile.write(b":keep-alive\n\n")
+                        self.wfile.flush()
+                        continue
+                    if isinstance(item, Exception):
+                        raise item
+                    if not item:
+                        break
+                    self.wfile.write(item)
+                    self.wfile.flush()
         except Exception as exc:
             if not headers_sent:
                 self.send_error(502, str(exc))
