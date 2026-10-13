@@ -11,13 +11,33 @@ live under `C:\data\llm` and are described in `MODELS.md`.
 
 | | |
 |---|---|
-| engine | mainline llama.cpp CPU, `C:\data\llm\llama.cpp-cpu` |
+| engine | mainline llama.cpp CPU build b11588 (updated 2026-10-13), `C:\data\llm\llama.cpp-cpu` |
 | model | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf` (18.42 GiB) |
 | mode | `qwen36u35b_ml`, **the only live mode**; `-ListOnly` shows it `[OK]` |
 
 The i-quant engine (`ik_llama`) was removed on 2026-09-27 and the other seven modes were retired
 with it. `start-llm.ps1` lists them as a restorable comment block: fetch the file (`MODELS.md` has
 repo + SHA-256) and paste the block back.
+
+## Speculative decoding (re-measured 2026-10-13, mainline b11588)
+
+Mainline now lists `--spec-type draft-mtp`, so the older "speculation is dead here" note (b11201 era) no
+longer holds as a statement about the engine. It still holds as advice: **do not add `--spec-*` flags to
+this box.** Same engine, one model at a time, greedy, 256 tokens, 8 threads, q8_0 KV, reasoning off,
+2 measured runs per cell after a warm-up (decode tok/s; the laptop was in use, so treat gaps under
+~15 % as noise):
+
+| setup | edit | prose | new code | prompt |
+|---|---|---|---|---|
+| incumbent IQ4_NL, plain | 12.8 | 12.9 | 11.6 | ~24 |
+| unsloth MTP build IQ4_NL, plain | 8.7 | 8.8 | 8.8 | ~19 |
+| unsloth MTP build IQ4_NL + `draft-mtp` | 12.9 | 8.2 | 10.1 | ~16 |
+
+`draft-mtp` helps its own file (+48 % on an edit prompt at 99 % draft acceptance, +15 % on new code,
+nothing on prose), but that file decodes about a third slower than the incumbent when plain, at both
+IQ4_NL and IQ4_XS, so the speculated result only ties the incumbent on edits and loses elsewhere. Prompt
+processing is also slower. Cause of the slow plain decode not established. Both MTP files were deleted
+after the test (sizes and SHA-256 are in the unsloth MTP repo listing if the test is repeated).
 
 ## Start, check, stop
 

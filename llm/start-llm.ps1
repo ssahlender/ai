@@ -20,8 +20,9 @@
       legacy quants (Q4_0, Q4_K_M ...) -> mainline llama.cpp
       i-quants     (IQ4_NL, IQ4_XS ...) -> ik_llama   (mainline is the only engine left here)
 
-    Speculative decoding is MEASURED DEAD on this machine (MTP 12-26% slower at k=2/4,
-    n-gram neutral). Do not add --spec-* flags here.
+    Do not add --spec-* flags here. Older builds measured MTP 12-26% slower; on b11588 `draft-mtp` does
+    work (see README, "Speculative decoding"), but the only MTP file tested decodes slower than the
+    incumbent when plain, so the speculated result does not beat it.
 
 .PARAMETER Mode
     Model shortname. Run with no -Mode (or -ListOnly) to list them.

@@ -89,7 +89,10 @@ apart are not comparable on this hardware.
   to the vendor's own unreproduced table. On the long-context task that previously crashed it, it
   passes with `--no-context-shift` (the crash is a partial-context-trim defect upstream, not a
   property of the weights).
-- **Qwen3.8 distill**: no quality gain and no reproducible speed gain against the reference.
+- **Qwen3.8 distill**: no quality gain and no reproducible speed gain against the reference. Note the name:
+  the model card lists `Qwen/Qwen3.6-35B-A3B` as its base model and the architecture is the 3.6 one, so it is a
+  3.6 fine-tune trained on 3.8-style outputs, not a Qwen3.8 model. The Qwen org's own 3.8 releases are a 27B
+  dense model, Flash-Next (~180 B) and a 2.4T-A95B; there is no official 3.8 35B-A3B (checked 2026-10-13).
 - **AgentWorld**: screened out earlier; that verdict is provisional, because it was measured
   while the evaluation harness still had known defects.
 
