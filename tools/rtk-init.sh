@@ -26,12 +26,12 @@ RTK="$(find_rtk)" || {
   exit 1
 }
 
-"$RTK" init -g
+"$RTK" init -g --no-patch
 "$RTK" init -g --codex
-"$RTK" init -g --opencode
-"$RTK" init -g --agent pi
+"$RTK" init -g --opencode --no-patch
+"$RTK" init -g --agent pi --no-patch
 if command -v hermes >/dev/null 2>&1; then
-  "$RTK" init -g --agent hermes
+  "$RTK" init -g --agent hermes --no-patch
 else
   echo "hermes not found — skipping Hermes RTK init"
 fi
