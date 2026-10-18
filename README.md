@@ -10,7 +10,7 @@ Scripts for running local AI tools across multiple machines.
 | `llm/` | Native Windows PowerShell tooling for the ProBook: mainline llama.cpp, provider setup, benchmarks, and quality tests |
 | `mlx/` | MLX/oMLX vs llama.cpp/Metal engine comparison (MacBook Air M4), background/history |
 | `ollama/` | **Settled daily-driver engine on the MacBook Air M4**, start/stop/setup-agent, chosen after the `mlx/` comparison |
-| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Docker Agent, Antigravity, Pi, Headroom, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage, Obsidian) |
+| `tools/` | Install/update scripts for AI coding tools (Claude Code, OpenCode, Codex, Docker Agent, Antigravity, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage, Obsidian) |
 | `docker/openwebui/` | Open WebUI docker-compose for Ollama |
 
 ---
@@ -139,7 +139,7 @@ The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` e
 
 Order is defined by the `UPDATE_TOOLS` array in `update-all.sh`:
 `nvm` → `claude` → `opencode` → `codex` → `docker-agent` → `antigravity` → `hf` → `hermes` → `rtk` →
-`context-mode` → `claude-mem` → `graphify` → `pi` → `repomix` → `ccusage` → `headroom` →
+`context-mode` → `claude-mem` → `graphify` → `pi` → `repomix` → `ccusage` →
 `mattpocock-skills` → `obsidian`. Ollama is updated
 afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
 run last. Each `*-update.sh` upgrades only if already installed and skips

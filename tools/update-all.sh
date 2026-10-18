@@ -28,7 +28,6 @@ UPDATE_TOOLS=(
   pi
   repomix
   ccusage
-  headroom
   mattpocock-skills
   obsidian
 )
