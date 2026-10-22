@@ -17,7 +17,17 @@ Run the setup script for your machine; it parses `start.sh` for model mappings a
 powershell -File llm/setup-agent-providers.ps1
 ```
 
-The generated config uses `http://localhost:9080/v1`. The port can be overridden with `IK_LLAMA_PORT`.
+The generated config uses `http://localhost:9081/v1` — `local-proxy.py`, not llama-server's own port
+9080 directly. `start.sh` auto-starts the proxy alongside llama-server (same mechanism
+`claude-providers.sh` already used for Claude Code), so OpenCode/Pi also get SSE keep-alives during
+cold-prefill or queued-request gaps instead of a bare "Timed out waiting for response headers" from
+the client. Override the agent-facing port with `IK_LLAMA_AGENT_PORT`; llama-server's own port is
+still `IK_LLAMA_PORT` (default 9080).
+
+**Caveat:** this only helps if local-proxy.py is actually running. It auto-starts the next time you
+(re)launch the model via `start.sh`; if llama-server was already running from before this existed (or
+started some other way), restart it via `start.sh` once, or start the proxy by hand:
+`LOCAL_PROXY_UPSTREAM=http://127.0.0.1:9080 LOCAL_PROXY_PORT=9081 python3 local-proxy.py &`.
 
 Model ids are the GGUF file names without `.gguf`, derived from the `MODES` entries in `start.sh` (the Windows path still uses `llm/start-llm.ps1` names). Run `setup-agents.sh` to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
 
@@ -55,7 +65,8 @@ Use `docker-agent-providers.sh` to pick local or remote models interactively, mi
 ```
 
 The bash setup script (`./setup-agents.sh i9`) configures the `ik-llama` provider in `~/.config/cagent/config.yaml`
-pointing to `http://localhost:9080/v1` (merging with any existing options).
+pointing to `http://localhost:9081/v1` — through `local-proxy.py`, same as OpenCode and Pi above (merging
+with any existing options).
 
 - **Local models**: Run directly with `--model ik-llama/<gguf-stem>`, for example:
   ```bash

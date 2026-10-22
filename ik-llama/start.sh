@@ -129,12 +129,45 @@ model_path() {
   echo "$MODELS_DIR/$1"
 }
 
+# ── local-proxy (keep-alive for cold prefill) ─────────────────────
+# OpenCode/Pi talk to llama-server directly on $PORT by default, with no
+# idle-read keep-alive. Cold prefill on CPU can run minutes with zero bytes
+# from upstream, which trips the client's own idle-read timeout ("Timed out
+# waiting for response headers") well before the request actually fails.
+# local-proxy.py (same one claude-providers.sh uses) sends SSE keep-alives
+# during those gaps, so start it here too and leave it running for any agent
+# wired to port 9081 instead of $PORT.
+ensure_local_proxy() {
+  local expected="ok upstream=127.0.0.1:${PORT} max_tokens_cap="
+  local health_out
+  health_out=$(curl -sf --max-time 2 "http://localhost:9081/proxy-health" 2>/dev/null || true)
+  case "$health_out" in
+    "${expected}"*) return 0 ;;
+  esac
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  LOCAL_PROXY_UPSTREAM="http://127.0.0.1:${PORT}" \
+  LOCAL_PROXY_PORT=9081 \
+    nohup python3 "$script_dir/local-proxy.py" >/tmp/local-proxy.log 2>&1 &
+  disown
+  local i
+  for i in {1..10}; do
+    sleep 0.3
+    health_out=$(curl -sf --max-time 1 "http://localhost:9081/proxy-health" 2>/dev/null || true)
+    case "$health_out" in
+      "${expected}"*) echo "Started local-proxy on port 9081 (upstream 127.0.0.1:${PORT})."; return 0 ;;
+    esac
+  done
+  echo "Warning: local-proxy did not come up; agents pointed at 9081 won't work. Check /tmp/local-proxy.log" >&2
+}
+
 # ── start_model ────────────────────────────────────────────────────
 start_model() {
   local name="$1" model="$2" ctx="${3:-32768}" cram="${4:-16384}"; shift 4
   ctx="${IK_LLAMA_CTX_SIZE:-$ctx}"
   cram="${IK_LLAMA_CRAM_MB:-$cram}"
   local extra=("$@")
+  ensure_local_proxy
   echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB, threads=${THREADS}/${THREADS_BATCH}, ubatch=${UBATCH:-default}, parallel=${PARALLEL})..."
   exec "$SERVER" \
     -m "$(model_path "$model")" \

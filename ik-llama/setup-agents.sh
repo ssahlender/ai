@@ -26,7 +26,10 @@ OPENCODE_OUTPUT_LIMIT="${OPENCODE_OUTPUT_LIMIT:-8192}"
 OPENCODE_COMPACTION_RESERVED="${OPENCODE_COMPACTION_RESERVED:-10000}"
 START_SCRIPT="$SCRIPT_DIR/start.sh"
 
-PORT="${IK_LLAMA_PORT:-9080}"
+# Agents point at local-proxy.py (started by start.sh alongside llama-server),
+# not llama-server's own port, so cold-prefill/queued-request gaps get SSE
+# keep-alives instead of tripping the agent's idle-read timeout.
+PORT="${IK_LLAMA_AGENT_PORT:-9081}"
 
 case "$MACHINE" in
   i9)

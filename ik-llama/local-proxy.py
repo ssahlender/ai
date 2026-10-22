@@ -44,6 +44,63 @@ class Handler(http.server.BaseHTTPRequestHandler):
         length = self.headers.get("Content-Length")
         return self.rfile.read(int(length)) if length else b""
 
+    def _forward_stream_optimistic(self, body: bytes):
+        # A plain _forward() blocks on conn.getresponse() until upstream sends its
+        # headers — which llama-server with --parallel 1 won't do until a slot frees
+        # and this request's prefill finishes. Under load that's the same silent gap
+        # the keep-alive was built for, just one step earlier: it happens *before* we
+        # have anything to relay, so the ordinary body-gap keep-alive never runs and
+        # the client times out waiting for our headers. The caller already knows the
+        # request asked for `"stream": true`, so commit to a 200/SSE response now and
+        # keep-alive while the upstream connection is still queued/prefilling.
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+
+        items: "queue.Queue" = queue.Queue()
+
+        def _connect_and_read():
+            conn = http.client.HTTPConnection(UPSTREAM_HOST, UPSTREAM_PORT, timeout=3600)
+            headers = {k: v for k, v in self.headers.items()
+                       if k.lower() not in _SKIP_REQ_HEADERS}
+            if body:
+                headers["Content-Length"] = str(len(body))
+            try:
+                conn.request(self.command, self.path, body=body or None, headers=headers)
+                resp = conn.getresponse()
+                if resp.status != 200:
+                    items.put(Exception(f"upstream status {resp.status}: {resp.read()[:500]!r}"))
+                    return
+                read_fn = getattr(resp, "read1", resp.read)
+                while True:
+                    chunk = read_fn(4096)
+                    items.put(chunk)
+                    if not chunk:
+                        return
+            except Exception as exc:
+                items.put(exc)
+            finally:
+                conn.close()
+
+        threading.Thread(target=_connect_and_read, daemon=True).start()
+
+        while True:
+            try:
+                item = items.get(timeout=KEEPALIVE_SECS)
+            except queue.Empty:
+                self.wfile.write(b":keep-alive\n\n")
+                self.wfile.flush()
+                continue
+            if isinstance(item, Exception):
+                sys.stderr.write(f"  stream error (after optimistic headers): {item}\n")
+                sys.stderr.flush()
+                return
+            if not item:
+                return
+            self.wfile.write(item)
+            self.wfile.flush()
+
     def _forward(self, body: bytes):
         conn = http.client.HTTPConnection(UPSTREAM_HOST, UPSTREAM_PORT, timeout=3600)
         headers = {k: v for k, v in self.headers.items()
@@ -125,21 +182,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         body = self._read_body()
         parsed = urlparse(self.path)
-        if parsed.path == "/v1/messages" and body:
+        stream = False
+        if body:
             try:
                 data = json.loads(body)
-                orig = data.get("max_tokens", 0)
-                if orig > MAX_TOKENS_CAP:
-                    data["max_tokens"] = MAX_TOKENS_CAP
-                    sys.stderr.write(
-                        f"[local-proxy] capped max_tokens {orig} → {MAX_TOKENS_CAP}\n"
-                    )
-                    sys.stderr.flush()
-                body = json.dumps(data).encode()
+                stream = bool(data.get("stream"))
+                if parsed.path == "/v1/messages":
+                    orig = data.get("max_tokens", 0)
+                    if orig > MAX_TOKENS_CAP:
+                        data["max_tokens"] = MAX_TOKENS_CAP
+                        sys.stderr.write(
+                            f"[local-proxy] capped max_tokens {orig} → {MAX_TOKENS_CAP}\n"
+                        )
+                        sys.stderr.flush()
+                        body = json.dumps(data).encode()
             except Exception as exc:
                 sys.stderr.write(f"[local-proxy] body parse error: {exc}\n")
                 sys.stderr.flush()
-        self._forward(body)
+        if stream:
+            self._forward_stream_optimistic(body)
+        else:
+            self._forward(body)
 
 
 class _QuietServer(http.server.ThreadingHTTPServer):
