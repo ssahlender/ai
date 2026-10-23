@@ -45,7 +45,7 @@ case "$MACHINE" in
     MODES=(
       "Qwen3.6 35B-A3B Uncensored Q6_K_P|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf|131072|24576||SAMPLE|mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
       "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative: suffix + MTP, ~2x on edits)|Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf|131072|24576||SAMPLE||--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0"
-      "Qwen3.6 35B-A3B MTP UD-Q5_K_M, 256K ctx (lower quant, longer sessions; unverified quality vs Q6_K)|Qwen3.6-35B-A3B-MTP-UD-Q5_K_M.gguf|262144|24576||SAMPLE||--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0"
+      "Qwen3.6 35B-A3B MTP UD-Q5_K_XL, 256K ctx (dynamic quant, matches a colleague's setup; unverified quality vs Q6_K)|Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf|262144|24576||SAMPLE||--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0"
     )
     ;;
   macbook-air)

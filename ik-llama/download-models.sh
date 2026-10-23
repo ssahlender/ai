@@ -88,8 +88,9 @@ case "$MACHINE" in
     download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
     # Vanilla Qwen3.6 with MTP layers; same file name as unsloth's non-MTP repo, so saved as ...-MTP-...
     download_if_missing unsloth/Qwen3.6-35B-A3B-MTP-GGUF                          Qwen3.6-35B-A3B-UD-Q6_K.gguf 30011242784 Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf
-    # Lower quant, smaller footprint, paired with a 256K ctx mode in start.sh (see MODES).
-    download_if_missing unsloth/Qwen3.6-35B-A3B-MTP-GGUF                          Qwen3.6-35B-A3B-UD-Q5_K_M.gguf 27087812896 Qwen3.6-35B-A3B-MTP-UD-Q5_K_M.gguf
+    # Unsloth dynamic quant (mixed per-layer precision), what a colleague runs; paired with a
+    # 256K ctx mode in start.sh (see MODES).
+    download_if_missing unsloth/Qwen3.6-35B-A3B-MTP-GGUF                          Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf 27159116064 Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf
     ;;
 
   probook)
