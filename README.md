@@ -531,3 +531,27 @@ The i9-13900 (Debian) uses [ik_llama.cpp](https://github.com/Thireus/ik_llama.cp
 See [`ik-llama/README.md`](ik-llama/README.md) for full details: hardware, models, flags, benchmark scripts, performance, and lessons learned.
 
 Generated benchmark output goes into `bench-results/` and is intentionally ignored by git. Python bytecode caches such as `__pycache__/` and `*.pyc` are also ignored.
+
+### Remote control policy
+
+Codex and Claude install/update scripts enforce remote control off, including when
+called by `tools/update-all.sh`. Requires Python 3.11+ and permission to write
+system policy files through noninteractive `sudo`; a policy failure stops the run.
+For the first application, run `sudo -v` in your terminal first. Later runs only
+need elevation if the policy is missing or has changed.
+Run as your normal login user, not with `sudo ./update-all.sh`.
+
+- Codex: merges `allow_remote_control = false` into `/etc/codex/requirements.toml`
+  and runs `codex app-server daemon disable-remote-control` for the current user.
+- Claude: merges `disableRemoteControl: true` into Linux's
+  `/etc/claude-code/managed-settings.json` or macOS's
+  `/Library/Application Support/ClaudeCode/managed-settings.json`.
+
+Existing unrelated policy keys are preserved; malformed files cause an error.
+Restart existing Claude sessions after applying the policy. These shell scripts
+support Linux and macOS; native Windows requires separate policy deployment.
+To apply without upgrading, run `bash tools/disable-remote-control.sh codex` and
+`bash tools/disable-remote-control.sh claude`.
+
+Policy references: [Codex managed configuration](https://learn.chatgpt.com/docs/enterprise/managed-configuration),
+[Claude Remote Control](https://code.claude.com/docs/en/remote-control).
