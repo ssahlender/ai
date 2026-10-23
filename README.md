@@ -138,7 +138,7 @@ The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` e
 ```
 
 Order is defined by the `UPDATE_TOOLS` array in `update-all.sh`:
-`nvm` → `claude` → `opencode` → `codex` → `docker-agent` → `antigravity` → `hf` → `hermes` → `rtk` →
+`nvm` → `claude` → `opencode` → `codex` → `docker-agent` → `antigravity` → `llama-swap` → `hf` → `hermes` → `rtk` →
 `context-mode` → `claude-mem` → `graphify` → `pi` → `repomix` → `ccusage` →
 `mattpocock-skills` → `obsidian`. Ollama is updated
 afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
@@ -211,6 +211,19 @@ Supported on Linux and macOS (amd64/arm64, glibc and musl).
   `~/.gemini/antigravity-cli/builtin/`, which is managed/overwritten on
   updates). See the built-in `agy-customizations` skill for the full
   customization system reference.
+
+---
+
+### llama-swap (local model routing/lifecycle)
+
+| Script | What it does |
+|---|---|
+| `llama-swap-install.sh` | `$BREW tap mostlygeek/llama-swap` then `$BREW install mostlygeek/llama-swap/llama-swap` |
+| `llama-swap-update.sh` | `$BREW upgrade llama-swap` (skips if not installed) |
+
+The CLI only installs the binary; see [`ik-llama/AGENTS.md`](ik-llama/AGENTS.md) for the
+i9-specific config generator (`ik-llama/llama-swap-setup.sh`) and stop script
+(`ik-llama/llama-swap-stop.sh`) that wire it into the local model stack.
 
 ---
 

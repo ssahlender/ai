@@ -18,6 +18,7 @@ UPDATE_TOOLS=(
   codex
   docker-agent
   antigravity
+  llama-swap
   hf
   mlx-lm
   hermes
