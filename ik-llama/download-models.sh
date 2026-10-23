@@ -84,8 +84,6 @@ case "$MACHINE" in
     export UV_NATIVE_TLS=1
     mkdir -p "$MODELS_DIR"
 
-    download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P.gguf
-    download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
     # Vanilla Qwen3.6 with MTP layers; same file name as unsloth's non-MTP repo, so saved as ...-MTP-...
     download_if_missing unsloth/Qwen3.6-35B-A3B-MTP-GGUF                          Qwen3.6-35B-A3B-UD-Q6_K.gguf 30011242784 Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf
     # Unsloth dynamic quant (mixed per-layer precision), what a colleague runs; paired with a
