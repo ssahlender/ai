@@ -2,6 +2,41 @@
 
 How to wire OpenCode and Claude Code to the local ik_llama.cpp server.
 
+## Optional: llama-swap (model routing/lifecycle, i9 only so far)
+
+By default `start.sh i9 <mode>` runs one model at a time on port 9080, picked manually. For
+switching models by name from the harness instead, [llama-swap](https://github.com/mostlygeek/llama-swap)
+can sit between the proxy and llama-server:
+
+```
+harness -> local-proxy.py (9081, keep-alive) -> llama-swap (9082, routing/lifecycle) -> llama-server
+```
+
+Install (brew tap, works through the i9 corporate proxy): `brew tap mostlygeek/llama-swap && brew install mostlygeek/llama-swap/llama-swap`
+(use `source tools/_brew-i9.sh && $BREW ...` on i9).
+
+```bash
+./llama-swap-setup.sh i9
+```
+
+This generates `~/.config/llama-swap/config.yaml` from `start.sh`'s `MODES` list (one entry per
+GGUF present on disk), each model's `cmd` driving `start.sh i9 <mode>` itself via
+`IK_LLAMA_PRINT_CMD=1` + `eval` so llama-swap reuses the exact flags `start.sh` would use (SAMPLE/
+YARN/MMPROJ/SPEC conditionals included) instead of a second copy of that logic drifting out of
+sync. It then starts llama-swap on 9082 and repoints `local-proxy.py`'s upstream at it, leaving
+the agent-facing port (9081) and model ids (GGUF stems) unchanged — `setup-agents.sh` output does
+not need to change either way.
+
+**Do not run both at once against the same model.** `start.sh i9 <mode>` run manually (port 9080)
+and llama-swap are two independent supervisors; llama-swap doesn't know about a manually-started
+`llama-server`, so requesting that same model through llama-swap would load a second ~30 GB+
+mlock'd copy alongside it — on a 62 GiB box that's an OOM risk, not just wasted RAM. Stop the
+manual instance first (or don't point any harness at 9081 while it's serving a live session) before
+routing requests through llama-swap.
+
+To go back to manual mode: `pkill -f llama-swap`, then restart `local-proxy.py` via `start.sh i9
+<mode>` as usual (it auto-starts pointed at 9080 again).
+
 ## OpenCode
 
 Run the setup script for your machine; it parses `start.sh` for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. Vision models automatically get `modalities` for image input. OpenCode config is written only when `opencode` is installed.

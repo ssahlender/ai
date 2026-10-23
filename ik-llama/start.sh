@@ -119,7 +119,14 @@ if [[ "$MODE" =~ ^[0-9]+$ ]]; then
   echo "Selected: $MODE"
 fi
 
-if [ -n "$PGREP_NAME" ] && pgrep -x "$PGREP_NAME" >/dev/null 2>&1; then
+# IK_LLAMA_PRINT_CMD=1 is how llama-swap drives this script: it wants the fully-built
+# llama-server argv for one mode, not an actual exec here. llama-swap itself serializes
+# model switching (stops the old backend before starting the new one), so the
+# already-running guard and the proxy-ensure step below (both meant for ad-hoc manual
+# starts) don't apply to that path.
+PRINT_CMD="${IK_LLAMA_PRINT_CMD:-0}"
+
+if [ "$PRINT_CMD" != 1 ] && [ -n "$PGREP_NAME" ] && pgrep -x "$PGREP_NAME" >/dev/null 2>&1; then
   echo "$PGREP_NAME is already running. Stop it first." >&2
   exit 1
 fi
@@ -161,12 +168,54 @@ ensure_local_proxy() {
   echo "Warning: local-proxy did not come up; agents pointed at 9081 won't work. Check /tmp/local-proxy.log" >&2
 }
 
+# ── print_cmd (for llama-swap) ────────────────────────────────────
+# Prints the exact argv start_model would exec, shell-quoted on one line, so
+# llama-swap's cmd can do: bash -c 'eval "$(IK_LLAMA_PRINT_CMD=1 ... start.sh i9 <mode>)"'
+# and get the real llama-server process under its own supervision — no duplicated
+# flag-building logic to keep in sync.
+print_cmd() {
+  local model="$1" ctx="$2" cram="$3"; shift 3
+  local extra=("$@")
+  local argv=(
+    "$SERVER"
+    -m "$(model_path "$model")"
+    -ngl "$NGL"
+    --threads "$THREADS"
+    --threads-batch "$THREADS_BATCH"
+    ${UBATCH:+--ubatch-size "$UBATCH"}
+    --parallel "$PARALLEL"
+    --ctx-size "$ctx"
+    -sps 0.5
+    -cram "$cram"
+    -crs 0.5
+    -ctk q8_0
+    -ctv q8_0
+    -dt 0.1
+    ${MLOCK:-}
+    --port "$PORT"
+    --host "${IK_LLAMA_BIND:-${IK_LLAMA_HOST:-127.0.0.1}}"
+    --jinja
+    --context-shift on
+    -rea off
+    -v
+    ${extra[@]+"${extra[@]}"}
+    ${IK_LLAMA_EXTRA_ARGS:-}
+  )
+  printf 'exec'
+  printf ' %q' "${argv[@]}"
+  printf '\n'
+}
+
 # ── start_model ────────────────────────────────────────────────────
 start_model() {
   local name="$1" model="$2" ctx="${3:-32768}" cram="${4:-16384}"; shift 4
   ctx="${IK_LLAMA_CTX_SIZE:-$ctx}"
   cram="${IK_LLAMA_CRAM_MB:-$cram}"
   local extra=("$@")
+  if [ "$PRINT_CMD" = 1 ]; then
+    print_cmd "$model" "$ctx" "$cram" ${extra[@]+"${extra[@]}"}
+    return 0
+  fi
   ensure_local_proxy
   echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB, threads=${THREADS}/${THREADS_BATCH}, ubatch=${UBATCH:-default}, parallel=${PARALLEL})..."
   exec "$SERVER" \
