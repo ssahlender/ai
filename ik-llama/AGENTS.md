@@ -19,7 +19,7 @@ Install (brew tap, works through the i9 corporate proxy): `brew tap mostlygeek/l
 ./llama-swap-setup.sh i9
 ```
 
-This generates `~/.config/llama-swap/config.yaml` from `start.sh`'s `MODES` list (one entry per
+This generates `~/.config/llama-swap/config.yaml` from `models.json` (one entry per
 GGUF present on disk), each model's `cmd` driving `start.sh i9 <mode>` itself via
 `IK_LLAMA_PRINT_CMD=1` + `eval` so llama-swap reuses the exact flags `start.sh` would use (SAMPLE/
 YARN/MMPROJ/SPEC conditionals included) instead of a second copy of that logic drifting out of
@@ -39,7 +39,7 @@ To go back to manual mode: `pkill -f llama-swap`, then restart `local-proxy.py` 
 
 ## OpenCode
 
-Run the setup script for your machine; it parses `start.sh` for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. Vision models automatically get `modalities` for image input. OpenCode config is written only when `opencode` is installed.
+Run the setup script for your machine; it reads `models.json` for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. Vision models automatically get `modalities` for image input. OpenCode config is written only when `opencode` is installed.
 
 ```bash
 # i9 (Linux)
@@ -64,7 +64,7 @@ still `IK_LLAMA_PORT` (default 9080).
 started some other way), restart it via `start.sh` once, or start the proxy by hand:
 `LOCAL_PROXY_UPSTREAM=http://127.0.0.1:9080 LOCAL_PROXY_PORT=9081 python3 local-proxy.py &`.
 
-Model ids are the GGUF file names without `.gguf`, derived from the `MODES` entries in `start.sh` (the Windows path still uses `llm/start-llm.ps1` names). Run `setup-agents.sh` to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
+Model ids are the GGUF file names without `.gguf`, derived from `models.json` (the Windows path still uses `llm/start-llm.ps1` names). Run `setup-agents.sh` to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
 
 ## Pi
 

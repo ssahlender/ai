@@ -6,10 +6,10 @@ set -euo pipefail
 MACHINE="${1:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-START_SCRIPT="$SCRIPT_DIR/start.sh"
+MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-$SCRIPT_DIR/models.json}"
 
-if [ ! -f "$START_SCRIPT" ]; then
-  echo "Missing $START_SCRIPT" >&2
+if [ ! -f "$MODELS_JSON_FILE" ]; then
+  echo "Missing $MODELS_JSON_FILE" >&2
   exit 1
 fi
 
@@ -96,20 +96,16 @@ if [ -z "$MACHINE" ]; then
   exit 0
 fi
 
-# Extract entries from the machine case block in start.sh
-# Format: "desc|filename.gguf|ctx|cram|yarn|sample|mmproj|spec"
-ENTRIES=$(awk -v m="$MACHINE" '
-  /# ── machine config/ { in_config=1 }
-  !in_config { next }
-  $0 ~ "^[[:space:]]*" m "\\)[[:space:]]*$" { in_block=1; next }
-  in_block && /;;[[:space:]]*$/ { exit }
-  in_block && /\".*[.]gguf\|/ {
-    if (match($0, /"[^"]+[.]gguf\|[0-9]+\|[0-9]+[^"]*"/)) {
-      entry = substr($0, RSTART+1, RLENGTH-2)
-      print entry
-    }
-  }
-' "$START_SCRIPT")
+# Extract entries from models.json (the one place model lists live)
+ENTRIES=$(MACHINE="$MACHINE" MODELS_JSON_FILE="$MODELS_JSON_FILE" python3 - << 'PYEOF'
+import json, os
+with open(os.environ['MODELS_JSON_FILE']) as f:
+    data = json.load(f)
+for mode in data.get('machines', {}).get(os.environ['MACHINE'], []):
+    mmproj = (mode.get('mmproj') or {}).get('file', '')
+    print('\t'.join([mode['desc'], mode['file'], str(mode['ctx']), str(mode['cram']), mmproj]))
+PYEOF
+)
 
 if [ -z "$ENTRIES" ]; then
   echo "  No model entries found for machine '$MACHINE'"
@@ -119,22 +115,12 @@ fi
 configured=0
 missing=0
 
-while IFS= read -r line; do
-  IFS='|' read -r desc fn ctx cram rest <<< "$line"
+while IFS=$'\t' read -r desc fn ctx cram mmproj_file; do
   [ -z "$fn" ] && continue
   configured=$((configured + 1))
 
-  # Vision detection: extra fields after cram may contain mmproj-*.gguf
   is_vision=0
-  mmproj_file=""
-  if echo "$rest" | grep -q 'mmproj-'; then
-    is_vision=1
-    for f in $(echo "$rest" | tr '|' ' '); do
-      case "$f" in
-        mmproj-*) mmproj_file="$f" ;;
-      esac
-    done
-  fi
+  [ -n "$mmproj_file" ] && is_vision=1
 
   # Check disk
   gguf_ok=0; gguf_size=0

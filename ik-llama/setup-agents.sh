@@ -24,7 +24,7 @@ CAGENT_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cagent"
 SECRETS_FILE="$HOME/.secrets"
 OPENCODE_OUTPUT_LIMIT="${OPENCODE_OUTPUT_LIMIT:-8192}"
 OPENCODE_COMPACTION_RESERVED="${OPENCODE_COMPACTION_RESERVED:-10000}"
-START_SCRIPT="$SCRIPT_DIR/start.sh"
+MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-$SCRIPT_DIR/models.json}"
 
 # Agents point at local-proxy.py (started by start.sh alongside llama-server),
 # not llama-server's own port, so cold-prefill/queued-request gaps get SSE
@@ -55,67 +55,49 @@ cleanup() { rm -f "${_py:-}" "${_apply:-}"; }
 trap cleanup EXIT
 
 cat > "$_py" << 'PYEOF'
-import re, json, os, sys
+import json, os
 
 models_dir = os.environ['MODELS_DIR']
-start_script = os.environ['START_SCRIPT']
+models_json = os.environ['MODELS_JSON_FILE']
 machine = os.environ['MACHINE']
 output_limit = int(os.environ.get('OPENCODE_OUTPUT_LIMIT', '8192'))
 ctx_override = os.environ.get('IK_LLAMA_CTX_SIZE')
 compaction_reserved = int(os.environ.get('OPENCODE_COMPACTION_RESERVED', '10000'))
 
-with open(start_script) as f:
-    content = f.read()
-
-# Extract MODES entries within the machine's case block
-in_config = False
-in_block = False
-modes_pattern = re.compile(r'"([^"|]+)\|([^"|]+\.gguf)\|(\d+)\|(\d+)')
+with open(models_json) as f:
+    data = json.load(f)
 
 opencode_models = {}
 pi_models = []
 
-for line in content.split('\n'):
-    if '# ── machine config' in line:
-        in_config = True
-    if not in_config:
+for mode in data.get('machines', {}).get(machine, []):
+    filename = mode['file']
+    model_id = filename[:-len('.gguf')]
+    if not os.path.isfile(os.path.join(models_dir, filename)):
         continue
-    if re.match(r'^\s*' + re.escape(machine) + r'\)\s*$', line):
-        in_block = True
-        continue
-    if in_block and re.search(r';;\s*$', line):
-        break
-    if not in_block:
-        continue
-
-    m = modes_pattern.search(line)
-    if m:
-        _desc, filename, ctx, cram = m.groups()
-        model_id = filename[:-len('.gguf')]
-        if os.path.isfile(os.path.join(models_dir, filename)):
-            context = int(ctx_override or ctx)
-            is_vision = 'mmproj-' in line
-            model = {
-                'name': model_id,
-                'limit': {'context': context, 'output': output_limit}
-            }
-            if is_vision:
-                model['modalities'] = {
-                    'input': ['text', 'image'],
-                    'output': ['text']
-                }
-            opencode_models[model_id] = model
-            pi_model = {
-                'id': model_id,
-                'name': model_id,
-                'contextWindow': context,
-                'maxTokens': output_limit,
-                'reasoning': False,
-            }
-            if is_vision:
-                pi_model['attachment'] = True
-                pi_model['input'] = ['text', 'image']
-            pi_models.append(pi_model)
+    context = int(ctx_override or mode['ctx'])
+    is_vision = bool(mode.get('mmproj'))
+    model = {
+        'name': model_id,
+        'limit': {'context': context, 'output': output_limit}
+    }
+    if is_vision:
+        model['modalities'] = {
+            'input': ['text', 'image'],
+            'output': ['text']
+        }
+    opencode_models[model_id] = model
+    pi_model = {
+        'id': model_id,
+        'name': model_id,
+        'contextWindow': context,
+        'maxTokens': output_limit,
+        'reasoning': False,
+    }
+    if is_vision:
+        pi_model['attachment'] = True
+        pi_model['input'] = ['text', 'image']
+    pi_models.append(pi_model)
 
 compaction = {
     'auto': True,
@@ -144,7 +126,7 @@ print(json.dumps(result, indent=2))
 PYEOF
 
 # ── execute the Python script ──────────────────────────────────────
-MODELS_JSON=$(START_SCRIPT="$START_SCRIPT" MODELS_DIR="$MODELS_DIR" MACHINE="$MACHINE" OPENCODE_OUTPUT_LIMIT="$OPENCODE_OUTPUT_LIMIT" OPENCODE_COMPACTION_RESERVED="$OPENCODE_COMPACTION_RESERVED" BASE_URL="$BASE_URL" python3 "$_py")
+MODELS_JSON=$(MODELS_JSON_FILE="$MODELS_JSON_FILE" MODELS_DIR="$MODELS_DIR" MACHINE="$MACHINE" OPENCODE_OUTPUT_LIMIT="$OPENCODE_OUTPUT_LIMIT" OPENCODE_COMPACTION_RESERVED="$OPENCODE_COMPACTION_RESERVED" BASE_URL="$BASE_URL" python3 "$_py")
 
 model_count=$(echo "$MODELS_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d.get("opencode_provider",{}).get("models",{})))')
 if [ "$model_count" -eq 0 ]; then

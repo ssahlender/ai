@@ -18,7 +18,7 @@ Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vul
 | `update.sh <machine>` | Download/update ik_llama.cpp (i9) or brew upgrade llama.cpp (macbook-air) |
 | `download-models.sh <machine>` | Download GGUF + mmproj files for i9/macbook-air |
 | `start.sh <machine> <mode>` | Start llama-server on i9 or macbook-air |
-| `setup-agents.sh <machine> [--dry-run]` | Auto-generate OpenCode/Pi/Docker Agent provider config (parses start.sh) and remove stale references to models that are gone |
+| `setup-agents.sh <machine> [--dry-run]` | Auto-generate OpenCode/Pi/Docker Agent provider config (reads models.json) and remove stale references to models that are gone |
 | `docker-agent-providers.sh [provider] [model]` | Interactive picker & launch Docker Agent with local or remote models |
 | `claude-providers.sh [provider] [model]` | Interactive picker & launch Claude Code with local or remote models (shows live n_ctx from `/props`) |
 | `.secrets.example` | Template for `~/.secrets` (copy, chmod 600, fill in keys) |
@@ -65,14 +65,16 @@ with the `ik-llama` provider (`http://localhost:9080/v1`), and credentials
 
 **Model names.** There are no short aliases. A mode, an OpenCode/Pi model id and the
 Claude Code model name are all the GGUF file name without `.gguf` (for example
-`ik-llama/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P`). `start.sh` is the single source of truth:
-`setup-agents.sh`, `cleanup-models.sh`, `model-info.sh` and `bench.sh` all read the
-list from its `MODES` entries.
+`ik-llama/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P`). `models.json` is the single
+source of truth for the i9/Mac lineups: `start.sh`, `download-models.sh`, `setup-agents.sh`,
+`llama-swap-setup.sh`, `cleanup-models.sh`, `model-info.sh` and `bench.sh` all read it instead of
+keeping their own list. Add or change a model there, not in any script. (ProBook is not in this
+file yet — it's a separate native PowerShell runtime with its own table in `llm/*.ps1`.)
 
 **Picking a model without typing the name.** Run `./start.sh i9` (or `./bench.sh i9`) with no mode in a
 terminal for a numbered menu, or pass the number from that list (`./start.sh i9 2`). Numbers follow the
-order of `MODES` in `start.sh`, so they shift when the lineup changes; the stem stays stable and is what
-the agent configs use. Outside a terminal, no mode prints the list and exits.
+order of each machine's entries in `models.json`, so they shift when the lineup changes; the stem
+stays stable and is what the agent configs use. Outside a terminal, no mode prints the list and exits.
 
 **Stale settings cleanup.** Each `setup-agents.sh` run regenerates the `ik-llama`
 provider, so models that left `start.sh` (or are not on disk) disappear from it. It also

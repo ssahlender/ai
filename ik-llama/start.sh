@@ -10,6 +10,32 @@ set -euo pipefail
 
 MACHINE="${1:-}"
 MODE="${2:-}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODELS_JSON="${IK_LLAMA_MODELS_JSON:-$SCRIPT_DIR/models.json}"
+
+# ── load_modes: one source of truth (models.json) for every script ──
+# Renders each machine's model list in the same pipe-delimited shape MODES always used
+# internally, so the resolve-mode loop below didn't need to change: only where the data
+# comes from did.
+load_modes() {
+  python3 - "$1" "$MODELS_JSON" <<'PYEOF'
+import json, sys
+machine, path = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    data = json.load(f)
+for m in data.get('machines', {}).get(machine, []):
+    mmproj = (m.get('mmproj') or {}).get('file') or ''
+    fields = [
+        m['desc'], m['file'], str(m['ctx']), str(m['cram']),
+        'YARN' if m.get('yarn') else '',
+        'SAMPLE' if m.get('sample') else '',
+        mmproj,
+        m.get('spec') or '',
+        'CT' if m.get('chat_template') else '',
+    ]
+    print('|'.join(fields))
+PYEOF
+}
 
 # ── host reality (2026-09-27) ──────────────────────────────────────
 # Checked before the per-host config: the branches below bail out on their own terms (a missing
@@ -47,10 +73,6 @@ case "$MACHINE" in
     # flag, verified present in this build's --help; not applied on macbook-air, which may run
     # brew's mainline llama.cpp instead and has not been checked for it.
     CTX_CKPT=(-ctx-ckpt-t "${IK_LLAMA_CTX_CKPT_T:-64}")
-    MODES=(
-      "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative: suffix + MTP, ~2x on edits)|Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf|131072|24576||SAMPLE||--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0"
-      "Qwen3.6 35B-A3B MTP UD-Q5_K_XL, 256K ctx (dynamic quant, matches a colleague's setup; unverified quality vs Q6_K)|Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf|262144|24576||SAMPLE||--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0"
-    )
     ;;
   macbook-air)
     SERVER="${IK_LLAMA_SERVER:-}"
@@ -77,14 +99,15 @@ case "$MACHINE" in
     SAMPLE_BASE=()
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
     CTX_CKPT=()
-    MODES=(
-      "Qwen3.6 27B IQ4_XS|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf|32768|8192|||mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "Qwen3.6 35B-A3B IQ4_NL|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf|16384|4096|||mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
-      "Qwen3-Coder 30B-A3B IQ4_NL|Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf|32768|8192"
-    )
     ;;
   *) echo "Usage: $0 <i9|macbook-air> <mode>" >&2; exit 1 ;;
 esac
+
+mapfile -t MODES < <(load_modes "$MACHINE")
+if [ "${#MODES[@]}" -eq 0 ]; then
+  echo "No models for '$MACHINE' in $MODELS_JSON." >&2
+  exit 1
+fi
 
 
 # Keep one full-context slot by default. Multiple unrelated agent sessions on
@@ -157,11 +180,9 @@ ensure_local_proxy() {
   case "$health_out" in
     "${expected}"*) return 0 ;;
   esac
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   LOCAL_PROXY_UPSTREAM="http://127.0.0.1:${PORT}" \
   LOCAL_PROXY_PORT=9081 \
-    nohup python3 "$script_dir/local-proxy.py" >/tmp/local-proxy.log 2>&1 &
+    nohup python3 "$SCRIPT_DIR/local-proxy.py" >/tmp/local-proxy.log 2>&1 &
   disown
   local i
   for i in {1..10}; do
@@ -254,7 +275,7 @@ start_model() {
 # ── resolve mode ───────────────────────────────────────────────────
 FOUND=
 for m in "${MODES[@]}"; do
-  IFS='|' read -r NAME FILE CTX CRAM YF SF MMPROJ SPEC <<< "$m"
+  IFS='|' read -r NAME FILE CTX CRAM YF SF MMPROJ SPEC CT <<< "$m"
   if [ "${FILE%.gguf}" = "$MODE" ]; then
     FOUND=1
     EXTRA=()
@@ -271,11 +292,7 @@ for m in "${MODES[@]}"; do
     elif [ -n "${SPEC:-}" ]; then
       EXTRA+=(${SPEC})
     fi
-    case "$FILE" in
-      *Uncensored-HauhauCS*)
-        EXTRA+=(--chat-template-file "$(dirname "$(realpath "$0")")/qwen3-template.j2")
-        ;;
-    esac
+    [ "$CT" = "CT" ] && EXTRA+=(--chat-template-file "$SCRIPT_DIR/qwen3-template.j2")
     start_model "$NAME" "$FILE" "$CTX" "$CRAM" ${EXTRA[@]+"${EXTRA[@]}"}
   fi
 done

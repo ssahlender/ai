@@ -17,7 +17,7 @@ case "$ARG" in
 esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-START_SCRIPT="$SCRIPT_DIR/start.sh"
+MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-$SCRIPT_DIR/models.json}"
 
 case "$MACHINE" in
   i9)          MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}" ;;
@@ -29,37 +29,18 @@ case "$MACHINE" in
   *) echo "Usage: $0 <i9|macbook-air> [--apply]" >&2; exit 1 ;;
 esac
 
-# Build whitelist by parsing start.sh MODES for this machine
-active_files=$(python3 - << PYEOF
-import re
+# Build whitelist from models.json (the one place model lists live) for this machine
+active_files=$(MACHINE="$MACHINE" MODELS_JSON_FILE="$MODELS_JSON_FILE" python3 - << 'PYEOF'
+import json, os
 
-machine = "$MACHINE"
-with open("$START_SCRIPT") as f:
-    content = f.read()
+with open(os.environ['MODELS_JSON_FILE']) as f:
+    data = json.load(f)
 
-in_config = False
-in_block = False
 files = set()
-for line in content.split('\n'):
-    if '# ── machine config' in line:
-        in_config = True
-    if not in_config:
-        continue
-    if re.match(r'^\s*' + re.escape(machine) + r'\)\s*$', line):
-        in_block = True
-        continue
-    if in_block and re.search(r';;\s*$', line):
-        break
-    if not in_block:
-        continue
-    m = re.search(r'"([^"]+)"', line.strip())
-    if not m:
-        continue
-    parts = m.group(1).split('|')
-    if len(parts) >= 2 and parts[1].endswith('.gguf'):
-        files.add(parts[1])
-    if len(parts) >= 7 and parts[6].endswith('.gguf'):
-        files.add(parts[6])
+for mode in data.get('machines', {}).get(os.environ['MACHINE'], []):
+    files.add(mode['file'])
+    if mode.get('mmproj'):
+        files.add(mode['mmproj']['file'])
 
 for f in sorted(files):
     print(f)
@@ -67,7 +48,7 @@ PYEOF
 )
 
 if [ -z "$active_files" ]; then
-  echo "Error: Whitelist is empty (failed to parse active models from $START_SCRIPT for $MACHINE). Refusing to proceed." >&2
+  echo "Error: Whitelist is empty (failed to parse active models from $MODELS_JSON_FILE for $MACHINE). Refusing to proceed." >&2
   exit 1
 fi
 

@@ -16,6 +16,7 @@ MACHINE="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
 START_SCRIPT="$SCRIPT_DIR/start.sh"
+MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-$SCRIPT_DIR/models.json}"
 SWAP_LISTEN="${IK_LLAMA_SWAP_PORT:-9082}"
 AGENT_PORT="${IK_LLAMA_AGENT_PORT:-9081}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/llama-swap"
@@ -25,44 +26,27 @@ HEALTH_TIMEOUT="${IK_LLAMA_SWAP_HEALTH_TIMEOUT:-600}"
 LLAMA_SWAP_BIN="${LLAMA_SWAP_BIN:-$(command -v llama-swap || echo /home/linuxbrew/.linuxbrew/bin/llama-swap)}"
 [ -x "$LLAMA_SWAP_BIN" ] || { echo "llama-swap not found. Install: brew tap mostlygeek/llama-swap && brew install mostlygeek/llama-swap/llama-swap" >&2; exit 1; }
 
-# ── build config.yaml from start.sh's MODES (same regex setup-agents.sh uses) ──
+# ── build config.yaml from models.json (the one place model lists live) ──
 _py=$(mktemp)
 trap 'rm -f "$_py"' EXIT
 cat > "$_py" << 'PYEOF'
-import os, re, sys
+import json, os, sys
 
 models_dir = os.environ['MODELS_DIR']
-start_script = os.environ['START_SCRIPT']
+models_json = os.environ['MODELS_JSON_FILE']
 machine = os.environ['MACHINE']
-start_script_abs = os.path.abspath(start_script)
+start_script_abs = os.path.abspath(os.environ['START_SCRIPT'])
 health_timeout = int(os.environ['HEALTH_TIMEOUT'])
 
-with open(start_script) as f:
-    content = f.read()
-
-in_config = False
-in_block = False
-modes_pattern = re.compile(r'"([^"|]+)\|([^"|]+\.gguf)\|(\d+)\|(\d+)')
+with open(models_json) as f:
+    data = json.load(f)
 
 entries = []
-for line in content.split('\n'):
-    if '# ── machine config' in line:
-        in_config = True
-    if not in_config:
-        continue
-    if re.match(r'^\s*' + re.escape(machine) + r'\)\s*$', line):
-        in_block = True
-        continue
-    if in_block and re.search(r';;\s*$', line):
-        break
-    if not in_block:
-        continue
-    m = modes_pattern.search(line)
-    if m:
-        _desc, filename, _ctx, _cram = m.groups()
-        model_id = filename[:-len('.gguf')]
-        if os.path.isfile(os.path.join(models_dir, filename)):
-            entries.append(model_id)
+for mode in data.get('machines', {}).get(machine, []):
+    filename = mode['file']
+    model_id = filename[:-len('.gguf')]
+    if os.path.isfile(os.path.join(models_dir, filename)):
+        entries.append(model_id)
 
 if not entries:
     print(f"No models found in {models_dir} for machine {machine}.", file=sys.stderr)
@@ -87,7 +71,7 @@ for model_id in entries:
 PYEOF
 
 mkdir -p "$CONFIG_DIR"
-MODELS_DIR="$MODELS_DIR" START_SCRIPT="$START_SCRIPT" MACHINE="$MACHINE" HEALTH_TIMEOUT="$HEALTH_TIMEOUT" \
+MODELS_DIR="$MODELS_DIR" START_SCRIPT="$START_SCRIPT" MODELS_JSON_FILE="$MODELS_JSON_FILE" MACHINE="$MACHINE" HEALTH_TIMEOUT="$HEALTH_TIMEOUT" \
   python3 "$_py" > "$CONFIG_FILE.new"
 mv "$CONFIG_FILE.new" "$CONFIG_FILE"
 echo "Wrote $CONFIG_FILE:"

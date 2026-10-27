@@ -1,0 +1,111 @@
+{
+  "_comment": "Single source of truth for ik_llama.cpp model lineups. start.sh, download-models.sh, setup-agents.sh, llama-swap-setup.sh, model-info.sh, cleanup-models.sh and bench.sh all read this instead of each keeping their own list. Edit this file to add/change a model; do not hardcode one in a script. ProBook (Windows) is intentionally not here -- it's a separate native PowerShell runtime with its own table in llm/*.ps1.",
+  "_fields": {
+    "desc": "Human-readable label, shown in the interactive menu",
+    "file": "Local GGUF filename -- this is the model id used everywhere (OpenCode/Pi provider keys, llama-swap model names, etc.)",
+    "ctx": "Context size passed to --ctx-size",
+    "cram": "Prompt-cache RAM limit (MB) passed to -cram",
+    "yarn": "Apply the machine's YARN rope-scaling flags",
+    "sample": "Apply the machine's SAMPLE_BASE sampling flags (--temp/--top-p/--top-k)",
+    "spec": "Raw --spec-type speculative-decoding flags, or null",
+    "chat_template": "Needs qwen3-template.j2 (models whose built-in template doesn't handle tool calling well)",
+    "mmproj": "Vision projector: {file, repo, repo_file, bytes} or null. repo_file is the filename on HuggingFace when it differs from the local file name.",
+    "download": "{repo, repo_file, bytes} for download-models.sh. bytes is null where the exact size hasn't been pinned (not verified on download)."
+  },
+  "machines": {
+    "i9": [
+      {
+        "desc": "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative: suffix + MTP, ~2x on edits)",
+        "file": "Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf",
+        "ctx": 131072,
+        "cram": 24576,
+        "yarn": false,
+        "sample": true,
+        "spec": "--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0",
+        "chat_template": false,
+        "mmproj": null,
+        "download": {
+          "repo": "unsloth/Qwen3.6-35B-A3B-MTP-GGUF",
+          "repo_file": "Qwen3.6-35B-A3B-UD-Q6_K.gguf",
+          "bytes": 30011242784
+        }
+      },
+      {
+        "desc": "Qwen3.6 35B-A3B MTP UD-Q5_K_XL, 256K ctx (dynamic quant, matches a colleague's setup; unverified quality vs Q6_K)",
+        "file": "Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf",
+        "ctx": 262144,
+        "cram": 24576,
+        "yarn": false,
+        "sample": true,
+        "spec": "--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0",
+        "chat_template": false,
+        "mmproj": null,
+        "download": {
+          "repo": "unsloth/Qwen3.6-35B-A3B-MTP-GGUF",
+          "repo_file": "Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf",
+          "bytes": 27159116064
+        }
+      }
+    ],
+    "macbook-air": [
+      {
+        "desc": "Qwen3.6 27B IQ4_XS",
+        "file": "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf",
+        "ctx": 32768,
+        "cram": 8192,
+        "yarn": false,
+        "sample": false,
+        "spec": null,
+        "chat_template": true,
+        "mmproj": {
+          "file": "mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf",
+          "repo": "HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive",
+          "repo_file": "mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf",
+          "bytes": null
+        },
+        "download": {
+          "repo": "HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive",
+          "repo_file": "Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf",
+          "bytes": null
+        }
+      },
+      {
+        "desc": "Qwen3.6 35B-A3B IQ4_NL",
+        "file": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf",
+        "ctx": 16384,
+        "cram": 4096,
+        "yarn": false,
+        "sample": false,
+        "spec": null,
+        "chat_template": true,
+        "mmproj": {
+          "file": "mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf",
+          "repo": "HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive",
+          "repo_file": "mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf",
+          "bytes": null
+        },
+        "download": {
+          "repo": "HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive",
+          "repo_file": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf",
+          "bytes": null
+        }
+      },
+      {
+        "desc": "Qwen3-Coder 30B-A3B IQ4_NL",
+        "file": "Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf",
+        "ctx": 32768,
+        "cram": 8192,
+        "yarn": false,
+        "sample": false,
+        "spec": null,
+        "chat_template": false,
+        "mmproj": null,
+        "download": {
+          "repo": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+          "repo_file": "Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf",
+          "bytes": null
+        }
+      }
+    ]
+  }
+}

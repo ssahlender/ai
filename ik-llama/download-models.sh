@@ -4,6 +4,8 @@
 set -euo pipefail
 
 MACHINE="${1:-}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODELS_JSON="${IK_LLAMA_MODELS_JSON:-$SCRIPT_DIR/models.json}"
 
 usage() {
   echo "Usage: $0 [i9|macbook-air]" >&2
@@ -124,38 +126,48 @@ case "$MACHINE" in
     export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
     export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
     export UV_NATIVE_TLS=1
-    mkdir -p "$MODELS_DIR"
-
-    preflight_disk_space \
-      Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf 30011242784 \
-      Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf 27159116064
-
-    # Vanilla Qwen3.6 with MTP layers; same file name as unsloth's non-MTP repo, so saved as ...-MTP-...
-    download_if_missing unsloth/Qwen3.6-35B-A3B-MTP-GGUF                          Qwen3.6-35B-A3B-UD-Q6_K.gguf 30011242784 Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf
-    # Unsloth dynamic quant (mixed per-layer precision), what a colleague runs; paired with a
-    # 256K ctx mode in start.sh (see MODES).
-    download_if_missing unsloth/Qwen3.6-35B-A3B-MTP-GGUF                          Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf 27159116064 Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf
     ;;
-
   probook)
     echo "WSL is retired on ProBook. To download models natively on Windows, run PowerShell:" >&2
     echo "  powershell -File llm/fetch-model.ps1 <model>  (or ..\\llm\\fetch-model.ps1 from ik-llama)" >&2
     exit 1
     ;;
-
   macbook-air)
     MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
-    mkdir -p "$MODELS_DIR"
-    # Models calibrated for Apple Silicon unified memory (24 GB+):
-    # 27B dense (IQ4_XS + mmproj), 35B MoE (IQ4_NL + mmproj), and 30B coder (IQ4_NL).
-    download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive  Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf
-    download_if_missing HauhauCS/Qwen3.6-27B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf
-    download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf
-    download_if_missing HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive  mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf
-    download_if_missing unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF                Qwen3-Coder-30B-A3B-Instruct-IQ4_NL.gguf
     ;;
-
   *) usage ;;
 esac
+mkdir -p "$MODELS_DIR"
+
+# ── one row per downloadable file (model + its mmproj, if any) from models.json ──
+_py=$(mktemp)
+trap 'rm -f "$_py"' EXIT
+cat > "$_py" << 'PYEOF'
+import json, os
+
+with open(os.environ['MODELS_JSON']) as f:
+    data = json.load(f)
+
+for m in data.get('machines', {}).get(os.environ['MACHINE'], []):
+    rows = [(m['file'], m['download'])]
+    if m.get('mmproj'):
+        rows.append((m['mmproj']['file'], m['mmproj']))
+    for local_name, d in rows:
+        bytes_ = d.get('bytes')
+        print('\t'.join([local_name, d['repo'], d['repo_file'], '' if bytes_ is None else str(bytes_)]))
+PYEOF
+
+ENTRIES=$(MACHINE="$MACHINE" MODELS_JSON="$MODELS_JSON" python3 "$_py")
+[ -n "$ENTRIES" ] || { echo "No models for '$MACHINE' in $MODELS_JSON." >&2; exit 1; }
+
+PREFLIGHT_ARGS=()
+while IFS=$'\t' read -r local_name _repo _repo_file bytes; do
+  [ -n "$bytes" ] && PREFLIGHT_ARGS+=("$local_name" "$bytes")
+done <<< "$ENTRIES"
+[ "${#PREFLIGHT_ARGS[@]}" -gt 0 ] && preflight_disk_space "${PREFLIGHT_ARGS[@]}"
+
+while IFS=$'\t' read -r local_name repo repo_file bytes; do
+  download_if_missing "$repo" "$repo_file" "$bytes" "$local_name"
+done <<< "$ENTRIES"
 
 echo "All models ready in $MODELS_DIR"
