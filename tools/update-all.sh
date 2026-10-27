@@ -36,7 +36,10 @@ UPDATE_TOOLS=(
 for tool in "${UPDATE_TOOLS[@]}"; do
   script="./${tool}-update.sh"
   if [ -x "$script" ]; then
-    run "$script"
+    # A single tool's update script can fail for reasons unrelated to the others (e.g.
+    # claude/codex's remote-control-policy enforcement needs `sudo -v` run beforehand and
+    # fails loudly rather than prompting); don't let one failure abort the whole batch.
+    run "$script" || echo "$script failed — continuing"
   else
     echo "$script missing — skipping"
   fi
