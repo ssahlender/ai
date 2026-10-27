@@ -9,12 +9,14 @@
     place, and writes a .tag marker so "up to date" is a cheap comparison.
 
     Which engines live where (and why):
-      mainline        C:\data\llm\llama.cpp-cpu   daily engine  (legacy quants / Q4_0)
-      ik_llama        C:\data\llm\ik_llama        i-quant specialist (IQ4_NL/IQ4_XS)
+      mainline        <profile>\.local\share\llama.cpp\llama.cpp-cpu   daily engine  (legacy quants / Q4_0)
+      ik_llama        <profile>\.local\share\llama.cpp\ik_llama        i-quant specialist (IQ4_NL/IQ4_XS)
+    (<profile> = Get-LlmRoot's parent, i.e. $env:USERPROFILE; override via lib\common.ps1's
+    Get-LlmRoot -Override or by passing -Dest-equivalent params on the scripts that take them.)
     Not tracked on purpose: ROCm (no HIP device for gfx1103 on this box).
 
     Engines get separate directories because each ships its own llama.dll / ggml.dll;
-    mixing them loads the wrong kernels. Models are shared in C:\data\llm\models.
+    mixing them loads the wrong kernels. Models are shared in <profile>\.local\share\llama.cpp\models.
 
 .PARAMETER Engine
     One or more engine keys, or 'all'. Default: mainline. ik_llama was removed 2026-09-27
@@ -62,14 +64,14 @@ $EngineTable = @(
         Key     = 'mainline'
         Repo    = 'ggml-org/llama.cpp'
         Pattern = '^llama-(?!cudart\b).+-bin-win-cpu-x64\.zip$'
-        Dest    = 'C:\data\llm\llama.cpp-cpu'
+        Dest    = (Join-Path (Get-LlmRoot) 'llama.cpp-cpu')
         Role    = 'daily engine (legacy quants / Q4_0)'
     }
     [pscustomobject]@{
         Key     = 'ik_llama'
         Repo    = 'Thireus/ik_llama.cpp'
         Pattern = '^ik_llama-(?!cudart\b).+-bin-win-cpu-x64-avx512_vnni_vbmi_bf16\.zip$'
-        Dest    = 'C:\data\llm\ik_llama'
+        Dest    = (Join-Path (Get-LlmRoot) 'ik_llama')
         Role    = 'i-quant specialist (IQ4_NL / IQ4_XS)'
     }
 )

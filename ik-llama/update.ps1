@@ -7,7 +7,7 @@
     (For the unified suite, use llm\update-llm.ps1).
 
     Difference from the bash version, deliberate:
-      * same install location as the bash script: the canonical C:\data\llm\ik_llama
+      * same install location as the bash script: the canonical $env:USERPROFILE\.local\share\llama.cpp\ik_llama
         (.tag marker convention preserved, so both scripts agree on "up to date").
       * never destroys the previous build — existing exe/dll files are copied to
         _backup-<previous-tag>\ before the new files land, so a bad update is one
@@ -16,8 +16,8 @@
       * -ListOnly resolves and reports without downloading anything.
 
 .PARAMETER Dest
-    Install directory. Default C:\data\llm\ik_llama (the canonical path start.ps1
-    and the historical bash setup both use).
+    Install directory. Default $env:USERPROFILE\.local\share\llama.cpp\ik_llama (the canonical
+    path start.ps1 and the historical bash setup both use).
 
 .PARAMETER ListOnly
     Resolve the newest matching release and exit without downloading.
@@ -34,7 +34,7 @@
 param(
     [string]$Repo        = 'Thireus/ik_llama.cpp',
     [string]$ArchPattern = '^ik_llama-(?!cudart).+-bin-win-cpu-x64-avx512_vnni_vbmi_bf16\.zip$',
-    [string]$Dest        = 'C:\data\llm\ik_llama',
+    [string]$Dest        = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\ik_llama'),
     [switch]$ListOnly,
     [switch]$Force
 )

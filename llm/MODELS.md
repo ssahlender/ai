@@ -1,6 +1,6 @@
 # Local model provenance: exact sources
 
-Every GGUF used for local inference on the x86 box (`C:\data\llm\models`), with its exact
+Every GGUF used for local inference on the x86 box (`$env:USERPROFILE\.local\share\llama.cpp\models`), with its exact
 HuggingFace repo, file, byte size and upstream SHA-256. **Verify after download**; the sizes are
 exact, not rounded, and the hashes are the LFS object IDs published by HuggingFace.
 
@@ -23,7 +23,7 @@ Base URL pattern: `https://huggingface.co/<repo>/resolve/main/<file>`
 
 | host | runtime | model | size |
 |---|---|---|---|
-| ProBook (Windows) | mainline llama.cpp CPU, `C:\data\llm\llama.cpp-cpu` | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf` | 18.42 GiB |
+| ProBook (Windows) | mainline llama.cpp CPU, `$env:USERPROFILE\.local\share\llama.cpp\llama.cpp-cpu` | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf` | 18.42 GiB |
 | MacBook Air M4 (macOS) | Ollama (`ollama serve`) | `qwen36-35b-a3b` = `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` (13 GB) | 11.45 GiB |
 
 The recorded inventory lists only these models. Ollama manages the Mac's

@@ -5,13 +5,15 @@ harness. Everything here is PowerShell and runs natively on Windows; no WSL, no 
 
 The **Mac** does not use this directory: its daily driver is Ollama (`../ollama/README.md`), and
 `../mlx/` holds the retired comparison. Model *files* are not stored here; engines and shared GGUFs
-live under `C:\data\llm` and are described in `MODELS.md`.
+live under `$env:USERPROFILE\.local\share\llama.cpp` (matching the Linux/Mac convention; override
+via `lib\common.ps1`'s `Get-LlmRoot -Override`) and are described in `MODELS.md`. Migrating from
+the old `C:\data\llm` layout: `.\move-to-home.ps1` (`-WhatIf` first).
 
 ## What is installed right now (verified 2026-09-27)
 
 | | |
 |---|---|
-| engine | mainline llama.cpp CPU build b11588 (updated 2026-10-13), `C:\data\llm\llama.cpp-cpu` |
+| engine | mainline llama.cpp CPU build b11588 (updated 2026-10-13), `$env:USERPROFILE\.local\share\llama.cpp\llama.cpp-cpu` |
 | model | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf` (18.42 GiB) |
 | mode | `qwen36u35b_ml`, **the only live mode**; `-ListOnly` shows it `[OK]` |
 

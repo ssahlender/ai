@@ -22,7 +22,7 @@ START_SCRIPT="$SCRIPT_DIR/start.sh"
 case "$MACHINE" in
   i9)          MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}" ;;
   probook)
-    echo "WSL is retired on ProBook. Model cleanup runs natively on Windows in C:\data\llm\models." >&2
+    echo 'WSL is retired on ProBook. Model cleanup runs natively on Windows in $env:USERPROFILE\.local\share\llama.cpp\models.' >&2
     exit 1
     ;;
   macbook-air) MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}" ;;

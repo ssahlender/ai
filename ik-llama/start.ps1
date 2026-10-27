@@ -5,7 +5,7 @@
 .DESCRIPTION
     Native Windows startup script for standalone ik_llama on ProBook (AMD Ryzen 7 250).
     (For the unified suite covering mainline and ik_llama, use llm\start-llm.ps1).
-    Installs stay at the canonical C:\data\llm\ik_llama.
+    Installs stay at the canonical $env:USERPROFILE\.local\share\llama.cpp\ik_llama.
 
     Two deliberate improvements over the bash original:
       * the mode table uses NAMED fields, so the "NOSAMPLE in the YF column" bug
@@ -28,8 +28,8 @@
 param(
     [string]$Mode,
     [int]$Port      = 9080,
-    [string]$Dir    = 'C:\data\llm\ik_llama',
-    [string]$ModelDir = 'C:\data\llm\models',
+    [string]$Dir    = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\ik_llama'),
+    [string]$ModelDir = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\models'),
     [string]$ChatTemplate = 'C:\data\git\ai-tools\ik-llama\qwen3-template.j2',
     [int]$Ctx, [int]$Cram, [int]$Threads = 8, [int]$ThreadsBatch = 8,
     [switch]$Background,

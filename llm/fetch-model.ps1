@@ -19,7 +19,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Url,
     [Parameter(Mandatory = $true)][string]$FileName,
     [Parameter(Mandatory = $true)][long]$ExpectedBytes,
-    [string]$ModelsDir = 'C:\data\llm\models'
+    [string]$ModelsDir = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\models')
 )
 $ErrorActionPreference = 'Stop'
 

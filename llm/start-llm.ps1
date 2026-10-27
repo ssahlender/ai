@@ -43,10 +43,10 @@
 param(
     [string]$Mode,
     [int]$Port        = 9080,
-    [string]$ModelDir = 'C:\data\llm\models',
-    [string]$MainlineDir = 'C:\data\llm\llama.cpp-cpu',   # CPU build on purpose; the
-    [string]$IkLlamaDir  = 'C:\data\llm\ik_llama',        # Vulkan build cannot even
-                                                          # run CPU-only here (512 MiB heap)
+    # CPU build on purpose for MainlineDir; the Vulkan build cannot even run CPU-only here (512 MiB heap)
+    [string]$ModelDir = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\models'),
+    [string]$MainlineDir = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\llama.cpp-cpu'),
+    [string]$IkLlamaDir  = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\ik_llama'),
     [string]$ChatTemplate = 'C:\data\git\ai-tools\ik-llama\qwen3-template.j2',
     [int]$Ctx, [int]$Threads = 8, [int]$ThreadsBatch = 8,
     [switch]$Background,

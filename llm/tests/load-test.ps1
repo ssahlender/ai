@@ -13,20 +13,21 @@
     Full path to the .gguf to test.
 
 .EXAMPLE
-    .\load-test.ps1 -Model C:\data\llm\models\Some-Model-Q3_K_M.gguf
+    .\load-test.ps1 -Model $env:USERPROFILE\.local\share\llama.cpp\models\Some-Model-Q3_K_M.gguf
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$Model,
     [int]$Port = 9080,
     [int]$Ctx = 32768,
-    [string]$ServerExe = 'C:\data\llm\llama.cpp-cpu\llama-server.exe',
+    [string]$ServerExe = '',
     [int]$TimeoutSec = 900,
     [string]$OutFile = ''
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'lib\common.ps1')
+if (-not $ServerExe) { $ServerExe = Join-Path (Get-LlmRoot) 'llama.cpp-cpu\llama-server.exe' }
 if (-not $OutFile) { $OutFile = New-RunLogPath -Name 'load-test' }
 $status = "$OutFile.status"
 

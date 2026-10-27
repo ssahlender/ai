@@ -16,13 +16,22 @@ function Get-ScriptDir {
 }
 
 function Get-LlmRoot {
-    # The data root for engines, models and logs. Explicit override wins; otherwise the
-    # conventional box layout. Never derived from $env:USERPROFILE - under a SYSTEM scheduled
-    # task that resolves to C:\windows\system32\config\systemprofile and writes land in the
-    # wrong profile while still reporting success.
+    # The data root for engines, models and logs. Explicit override wins; otherwise under the
+    # interactive user's own profile. Guarded against the one real way this breaks: a script
+    # that calls this while running as a SYSTEM scheduled task (see run-as-system-task.ps1,
+    # used for jobs that cannot survive a PSRP session dying, e.g. a multi-GB download).
+    # $env:USERPROFILE under SYSTEM resolves to C:\windows\system32\config\systemprofile and
+    # writes would land in the wrong profile while still reporting success - so refuse rather
+    # than do that silently. The documented SYSTEM-task caller (download-model.ps1) already
+    # requires its destination as an explicit, mandatory parameter computed by the interactive
+    # caller beforehand; any script relying on this default must do the same.
     param([string]$Override)
     if ($Override) { return $Override }
-    return 'C:\data\llm'
+    $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    if ($sid -eq 'S-1-5-18') {
+        throw 'Get-LlmRoot has no safe default under the SYSTEM account (S-1-5-18): $env:USERPROFILE would resolve to the system profile, not the real user''s. Pass -Override/-LlmRoot/-ModelsDir explicitly, resolved by the interactive caller before launching the SYSTEM task.'
+    }
+    return (Join-Path $env:USERPROFILE '.local\share\llama.cpp')
 }
 
 function Get-RunLogDir {

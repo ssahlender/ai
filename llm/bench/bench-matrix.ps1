@@ -14,7 +14,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$LlmRoot = 'C:\data\llm',
+    [string]$LlmRoot = '',
     [string]$BenchExe = '',
     [int]$Repeats = 3
 )
@@ -24,6 +24,7 @@ $ProgressPreference = 'SilentlyContinue'
 
 # llm/bench/ -> llm/lib/common.ps1
 . (Join-Path (Split-Path $PSScriptRoot -Parent) 'lib\common.ps1')
+if (-not $LlmRoot) { $LlmRoot = Get-LlmRoot }
 
 if (-not $BenchExe) { $BenchExe = Join-Path $LlmRoot 'llama.cpp-cpu\llama-bench.exe' }
 if (-not (Test-Path $BenchExe)) { throw "installed benchmark executable not found: $BenchExe. Run update-llm.ps1 separately; this script will not install it." }

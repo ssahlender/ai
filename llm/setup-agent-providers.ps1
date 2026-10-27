@@ -36,7 +36,7 @@ param(
     # NOTE: never compute this in the param block - $PSScriptRoot is EMPTY there under
     # Windows PowerShell 5.1 and Join-Path then throws on a null Path. Resolved in the body.
     [string]$StartScript = '',
-    [string]$ModelDir    = 'C:\data\llm\models',
+    [string]$ModelDir    = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\models'),
     [string]$ConfigPath  = (Join-Path $env:USERPROFILE '.config\opencode\opencode.json'),
     [string]$BaseUrl     = 'http://127.0.0.1:9080/v1',
     [string]$ProviderKey = 'llamacpp',   # named for the engine that actually serves, not ik_llama which was retired 2026-09-27

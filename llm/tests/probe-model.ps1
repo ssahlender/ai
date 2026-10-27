@@ -11,7 +11,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$ModelFile,
-    [string]$LlmRoot = 'C:\data\llm',
+    [string]$LlmRoot = (Join-Path $env:USERPROFILE '.local\share\llama.cpp'),
     [string]$Label = '',
     [int]$Port = 9077,
     [int]$WaitSeconds = 180,
