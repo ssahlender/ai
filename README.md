@@ -549,9 +549,10 @@ Generated benchmark output goes into `bench-results/` and is intentionally ignor
 
 Codex and Claude install/update scripts enforce remote control off, including when
 called by `tools/update-all.sh`. Requires Python 3.11+ and permission to write
-system policy files through noninteractive `sudo`; a policy failure stops the run.
-For the first application, run `sudo -v` in your terminal first. Later runs only
-need elevation if the policy is missing or has changed.
+system policy files through noninteractive `sudo`; a policy failure for one tool is
+reported and `update-all.sh` continues with the rest of the batch (it does not stop
+the whole run). For the first application, run `sudo -v` in your terminal first.
+Later runs only need elevation if the policy is missing or has changed.
 Run as your normal login user, not with `sudo ./update-all.sh`.
 
 - Codex: merges `allow_remote_control = false` into `/etc/codex/requirements.toml`
