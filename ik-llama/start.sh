@@ -42,6 +42,11 @@ case "$MACHINE" in
     PGREP_NAME="llama-server"
     SAMPLE_BASE=(--temp "${IK_LLAMA_TEMP:-0.2}" --top-p "${IK_LLAMA_TOP_P:-0.8}" --top-k "${IK_LLAMA_TOP_K:-20}")
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
+    # Widens how many tokens before an exact-prefix match a context checkpoint still gets reused
+    # (default 5 is stingy for an agent harness's small per-turn edits). ik_llama.cpp-specific
+    # flag, verified present in this build's --help; not applied on macbook-air, which may run
+    # brew's mainline llama.cpp instead and has not been checked for it.
+    CTX_CKPT=(-ctx-ckpt-t "${IK_LLAMA_CTX_CKPT_T:-64}")
     MODES=(
       "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative: suffix + MTP, ~2x on edits)|Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf|131072|24576||SAMPLE||--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0"
       "Qwen3.6 35B-A3B MTP UD-Q5_K_XL, 256K ctx (dynamic quant, matches a colleague's setup; unverified quality vs Q6_K)|Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf|262144|24576||SAMPLE||--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0"
@@ -71,6 +76,7 @@ case "$MACHINE" in
     PGREP_NAME="llama-server"
     SAMPLE_BASE=()
     YARN=(--rope-scaling yarn --yarn-orig-ctx 32768 --yarn-beta-fast 32 --yarn-beta-slow 1)
+    CTX_CKPT=()
     MODES=(
       "Qwen3.6 27B IQ4_XS|Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf|32768|8192|||mmproj-Qwen3.6-27B-Uncensored-HauhauCS-Aggressive-f16.gguf"
       "Qwen3.6 35B-A3B IQ4_NL|Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf|16384|4096|||mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf"
@@ -191,6 +197,7 @@ print_cmd() {
     -ctk q8_0
     -ctv q8_0
     -dt 0.1
+    ${CTX_CKPT[@]+"${CTX_CKPT[@]}"}
     ${MLOCK:-}
     --port "$PORT"
     --host "${IK_LLAMA_BIND:-${IK_LLAMA_HOST:-127.0.0.1}}"
@@ -232,6 +239,7 @@ start_model() {
     -ctk q8_0 \
     -ctv q8_0 \
     -dt 0.1 \
+    ${CTX_CKPT[@]+"${CTX_CKPT[@]}"} \
     ${MLOCK:-} \
     --port "$PORT" \
     --host "${IK_LLAMA_BIND:-${IK_LLAMA_HOST:-127.0.0.1}}" \

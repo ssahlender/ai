@@ -16,6 +16,18 @@ usage() {
 HF_BASE="https://huggingface.co"
 HF_TOKEN="${HF_TOKEN:-}"
 
+# Unauthenticated HF downloads hit a lower rate limit (429s on repeated/parallel pulls).
+# `hf auth login` (or the older `huggingface-cli login`) already saved a token for this
+# exact purpose; use it instead of making every run export HF_TOKEN by hand.
+if [ -z "$HF_TOKEN" ]; then
+  _hf_token_file="${HF_HOME:-$HOME/.cache/huggingface}/token"
+  if [ -f "$_hf_token_file" ]; then
+    HF_TOKEN="$(tr -d '[:space:]' < "$_hf_token_file")"
+    [ -n "$HF_TOKEN" ] && echo "Using HF token from $_hf_token_file"
+  fi
+  unset _hf_token_file
+fi
+
 is_bad_download() {
   local file="$1" size
   size=$(wc -c < "$file")
@@ -75,6 +87,36 @@ download_if_missing() {
   mv "$tmp" "$dest"
 }
 
+# preflight_disk_space <local-name> <expected-bytes> [<local-name> <expected-bytes> ...]
+# Sums only the files that are actually missing or wrong-size (not the whole lineup), and
+# refuses before starting rather than discovering a full disk partway through a 20+ GB
+# download. Only meaningful where every file has a known expected size (i9 below); skipped
+# for machines where it doesn't.
+preflight_disk_space() {
+  local needed=0 name want dest have avail margin=2147483648
+  while [ $# -ge 2 ]; do
+    name="$1" want="$2"; shift 2
+    dest="$MODELS_DIR/$name"
+    if [ -f "$dest" ]; then
+      have=$(wc -c < "$dest" | tr -d ' ')
+      [ "$have" = "$want" ] && continue
+    fi
+    needed=$((needed + want))
+  done
+  [ "$needed" -eq 0 ] && return 0
+  avail=$(df --output=avail -B1 "$MODELS_DIR" 2>/dev/null | tail -1 | tr -d ' ')
+  if [ -z "$avail" ]; then
+    echo "Could not read free disk space for $MODELS_DIR; skipping the preflight check." >&2
+    return 0
+  fi
+  echo "Preflight: $(( (needed + 1073741823) / 1073741824 )) GiB left to download, $(( avail / 1073741824 )) GiB free at $MODELS_DIR."
+  if [ "$avail" -lt $((needed + margin)) ]; then
+    echo "Not enough free disk space: need ~$(( (needed + 1073741823) / 1073741824 )) GiB (+2 GiB margin)," \
+         "only $(( avail / 1073741824 )) GiB free. Free up space or point MODELS_DIR elsewhere." >&2
+    exit 1
+  fi
+}
+
 # ── machine setup ─────────────────────────────────────────────────
 case "$MACHINE" in
   i9)
@@ -83,6 +125,10 @@ case "$MACHINE" in
     export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
     export UV_NATIVE_TLS=1
     mkdir -p "$MODELS_DIR"
+
+    preflight_disk_space \
+      Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf 30011242784 \
+      Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf 27159116064
 
     # Vanilla Qwen3.6 with MTP layers; same file name as unsloth's non-MTP repo, so saved as ...-MTP-...
     download_if_missing unsloth/Qwen3.6-35B-A3B-MTP-GGUF                          Qwen3.6-35B-A3B-UD-Q6_K.gguf 30011242784 Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf

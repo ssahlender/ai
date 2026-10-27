@@ -351,6 +351,7 @@ Note: Use the generic `avx512_vnni_vbmi_bf16` build on ProBook, **not** `znver5`
 | `-ctk q8_0` | q8_0 | Quantize K cache (requires flash attention) |
 | `-ctv q8_0` | q8_0 | Quantize V cache (requires flash attention) |
 | `-dt 0.1` | 0.1 | Defragmentation threshold |
+| `-ctx-ckpt-t <N>` | 64 (i9 only) | Tokens of slack before an exact-prefix match a context checkpoint is still reused (ik_llama.cpp default: 5); widened for an agent harness's small per-turn edits. Override: `IK_LLAMA_CTX_CKPT_T` |
 | `--host <ip>` | 127.0.0.1 | Listen interface (override with IK_LLAMA_HOST) |
 | `--jinja` | — | Enable Jinja templates (required for tool calling) |
 | `--context-shift on` | on | Explicitly enable context shift (soft-rolls old KV instead of erroring when context fills) |
