@@ -80,7 +80,8 @@ Invoke-RestMethod http://127.0.0.1:9080/v1/chat/completions -Method Post -Body $
 .\claude-local.ps1                     # Claude Code against the local server
 ```
 
-`setup-agent-providers.ps1` parses the mode table out of `start-llm.ps1` and includes a mode only
+`setup-agent-providers.ps1` reads the mode table out of `../ik-llama/models.json` (shared with
+`start-llm.ps1` and the i9/Mac bash scripts, instead of each keeping its own list) and includes a mode only
 when **both its GGUF and its engine's `llama-server.exe` exist**, so it cannot advertise something
 that would fail at launch. It merges into the global OpenCode config (existing keys preserved),
 names the provider for the engine that serves (`llamacpp`), and backs the old file up as

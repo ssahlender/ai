@@ -4,8 +4,9 @@
 
 .DESCRIPTION
     Windows replacement for ik-llama/setup-agents.sh, which is bash-only. Reads the mode
-    table out of start-llm.ps1, keeps only the modes whose GGUF actually exists on disk,
-    and merges an openai-compatible provider into the OpenCode global config.
+    table out of ik-llama/models.json (shared with start-llm.ps1 and the i9/Mac bash
+    scripts), keeps only the modes whose GGUF actually exists on disk, and merges an
+    openai-compatible provider into the OpenCode global config.
 
     Global config path is ~/.config/opencode/opencode.json on every platform, including
     Windows (only the *managed* config differs: %ProgramData%\opencode).
@@ -33,9 +34,11 @@
 #>
 [CmdletBinding()]
 param(
-    # NOTE: never compute this in the param block - $PSScriptRoot is EMPTY there under
+    # NOTE: never compute these in the param block - $PSScriptRoot is EMPTY there under
     # Windows PowerShell 5.1 and Join-Path then throws on a null Path. Resolved in the body.
-    [string]$StartScript = '',
+    [string]$ModelsJson  = '',
+    [string]$MainlineDir = '',
+    [string]$IkLlamaDir  = '',
     [string]$ModelDir    = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\models'),
     [string]$ConfigPath  = (Join-Path $env:USERPROFILE '.config\opencode\opencode.json'),
     [string]$BaseUrl     = 'http://127.0.0.1:9080/v1',
@@ -47,58 +50,37 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-if (-not $StartScript) {
-    $root = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-    $StartScript = Join-Path $root 'start-llm.ps1'
-}
+$root = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+if (-not $ModelsJson) { $ModelsJson = Join-Path (Split-Path $root -Parent) 'ik-llama\models.json' }
+# Same defaults start-llm.ps1 uses, so the two scripts cannot disagree about where an engine
+# lives without an explicit -MainlineDir/-IkLlamaDir override on both.
+if (-not $MainlineDir) { $MainlineDir = Join-Path $env:USERPROFILE '.local\share\llama.cpp\llama.cpp-cpu' }
+if (-not $IkLlamaDir)  { $IkLlamaDir  = Join-Path $env:USERPROFILE '.local\share\llama.cpp\ik_llama' }
 
-if (-not (Test-Path $StartScript)) { throw "start-llm.ps1 not found: $StartScript" }
+if (-not (Test-Path $ModelsJson)) { throw "models.json not found: $ModelsJson" }
 
-# ── read the mode table out of start-llm.ps1 ───────────────────────
-# Each mode is a [pscustomobject]@{ Short=...; File=...; Ctx=... } block; parse those
-# fields rather than sourcing the launcher (sourcing it would run its launch logic).
-$text  = Get-Content $StartScript -Raw
-# Engine directories also come from the launcher, so the two scripts cannot disagree.
-# Single-quoted on purpose: in a double-quoted PowerShell string `$MainlineDir` would be
-# expanded as a variable before the regex ran, leaving a pattern that matches nothing.
-$reMainlineDir = '\$MainlineDir\s*=\s*''([^'']+)'''
-$reIkLlamaDir  = '\$IkLlamaDir\s*=\s*''([^'']+)'''
-$engineDirs = @{
-    'mainline' = [regex]::Match($text, $reMainlineDir).Groups[1].Value
-    'ik_llama' = [regex]::Match($text, $reIkLlamaDir).Groups[1].Value
-}
-foreach ($k in $engineDirs.Keys) {
-    if (-not $engineDirs[$k]) { throw "could not read the '$k' engine directory out of $StartScript; refusing to generate a provider config that may point at a missing engine" }
-}
-$table = [regex]::Match($text, '(?s)\$ModeTable\s*=\s*@\((.*?)\n\)')
-if (-not $table.Success) { throw "could not locate `$ModeTable in $StartScript" }
+# ── read the mode table out of models.json (shared with start-llm.ps1 and the i9/Mac
+# bash scripts) instead of regex-scraping start-llm.ps1's source text ──
+$modelsData = Get-Content $ModelsJson -Raw | ConvertFrom-Json
+$engineDirs = @{ 'mainline' = $MainlineDir; 'ik_llama' = $IkLlamaDir }
 
 $modes = @()
-foreach ($block in [regex]::Matches($table.Groups[1].Value, '(?s)\[pscustomobject\]@\{(.*?)\}')) {
-    $body = $block.Groups[1].Value
-    $short = [regex]::Match($body, "Short\s*=\s*'([^']+)'").Groups[1].Value
-    $file  = [regex]::Match($body, "File\s*=\s*'([^']+)'").Groups[1].Value
-    $ctx   = [regex]::Match($body, 'Ctx\s*=\s*(\d+)').Groups[1].Value
-    $name  = [regex]::Match($body, "Name\s*=\s*'([^']+)'").Groups[1].Value
-    $eng   = [regex]::Match($body, "Engine\s*=\s*'([^']+)'").Groups[1].Value
-    if (-not $short -or -not $file -or -not $ctx -or -not $name -or -not $eng) {
-        throw "mode-table parse failed for a mode block in $StartScript; refusing to generate an incomplete provider config"
-    }
-    if ($short -and $file) {
-        $modes += [pscustomobject]@{
-            Short = $short; File = $file; Ctx = [int]$ctx; Name = $name; Engine = $eng
-            # A mode needs BOTH its GGUF and its engine's llama-server.exe. Checking only the
-            # model used to advertise modes whose engine had been removed, which then fail at
-            # launch. Same two-state check start-llm.ps1 -ListOnly performs.
-            EngineOk = Test-Path (Join-Path $engineDirs[$eng] 'llama-server.exe')
-            Exists   = (Test-Path (Join-Path $ModelDir $file)) -and (Test-Path (Join-Path $engineDirs[$eng] 'llama-server.exe'))
-        }
+foreach ($m in $modelsData.machines.probook) {
+    $eng = $m.engine
+    if (-not $engineDirs.ContainsKey($eng)) { throw "models.json: probook mode '$($m.short)' has unknown engine '$eng'" }
+    $modes += [pscustomobject]@{
+        Short = $m.short; File = $m.file; Ctx = [int]$m.ctx; Name = $m.desc; Engine = $eng
+        # A mode needs BOTH its GGUF and its engine's llama-server.exe. Checking only the
+        # model used to advertise modes whose engine had been removed, which then fail at
+        # launch. Same two-state check start-llm.ps1 -ListOnly performs.
+        EngineOk = Test-Path (Join-Path $engineDirs[$eng] 'llama-server.exe')
+        Exists   = (Test-Path (Join-Path $ModelDir $m.file)) -and (Test-Path (Join-Path $engineDirs[$eng] 'llama-server.exe'))
     }
 }
 
-if ($modes.Count -eq 0) { throw "mode-table parse found zero usable modes in $StartScript; launcher syntax likely changed" }
+if ($modes.Count -eq 0) { throw "models.json has zero probook modes" }
 
-Write-Host ("modes found in start-llm.ps1: {0}" -f $modes.Count)
+Write-Host ("modes found in models.json: {0}" -f $modes.Count)
 $models = [ordered]@{}
 foreach ($m in $modes) {
     if ($m.Exists) {

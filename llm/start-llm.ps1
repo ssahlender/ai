@@ -48,6 +48,9 @@ param(
     [string]$MainlineDir = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\llama.cpp-cpu'),
     [string]$IkLlamaDir  = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\ik_llama'),
     [string]$ChatTemplate = 'C:\data\git\ai-tools\ik-llama\qwen3-template.j2',
+    # Never compute this in the param block - $PSScriptRoot is EMPTY there under Windows
+    # PowerShell 5.1 and Join-Path then throws on a null Path. Resolved in the body.
+    [string]$ModelsJson = '',
     [int]$Ctx, [int]$Threads = 8, [int]$ThreadsBatch = 8,
     [switch]$Background,
     [switch]$ListOnly,
@@ -71,23 +74,32 @@ $ErrorActionPreference = 'Stop'
 if ($BindAddress -ne '127.0.0.1') {
     if (-not $AllowNonLoopback -or -not $ApiKey) { throw 'non-loopback binding requires -AllowNonLoopback and a non-empty -ApiKey; the previous all-interface dummy-key default exposed the server unnecessarily' }
 }
+if (-not $ModelsJson) { $ModelsJson = Join-Path (Split-Path $PSScriptRoot -Parent) 'ik-llama\models.json' }
 
 # ── mode table ─────────────────────────────────────────────────────
-# Named fields, no positional columns (the bash launcher's machine table had NOSAMPLE sitting
-# in the sample-flag column, which silently applied sampling flags to a NOSAMPLE mode).
+# Read from models.json (shared with the i9/Mac bash scripts) instead of a literal here, so
+# setup-agent-providers.ps1 and anything else that needs the lineup reads the same data instead
+# of regex-scraping this file's source text.
+if (-not (Test-Path $ModelsJson)) { throw "models.json not found: $ModelsJson" }
+$modelsData = Get-Content $ModelsJson -Raw | ConvertFrom-Json
+# Named fields, no positional columns (the original bash launcher's machine table had NOSAMPLE
+# sitting in the sample-flag column, which silently applied sampling flags to a NOSAMPLE mode).
 # NOTE: never name this variable after a [string]-typed parameter — assigning an array
 # to a type-constrained parameter silently coerces it to a single string, emptying the
 # table and corrupting the model path.
-$ModeTable = @(
+$ModeTable = @($modelsData.machines.probook | ForEach-Object {
     [pscustomobject]@{
-        Short  = 'qwen36u35b_ml'
-        Name   = 'Qwen3.6 35B-A3B Uncensored IQ4_NL on mainline (the only model on this box)'
-        Engine = 'mainline'
-        File   = 'Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf'
-        Ctx    = 32768; Cram = 0
-        Template = $null; Mmproj = $null
+        Short  = $_.short
+        Name   = $_.desc
+        Engine = $_.engine
+        File   = $_.file
+        Ctx    = $_.ctx; Cram = $_.cram
+        # Template only matters for the 'mainline' branch below (ik_llama always tries the
+        # global -ChatTemplate param unconditionally, regardless of this field).
+        Template = $(if ($_.chat_template) { $ChatTemplate } else { $null })
+        Mmproj = $(if ($_.mmproj) { $_.mmproj.file } else { $null })
     }
-)
+})
 
 # RETIRED MODES (2026-09-27). Each of these named a GGUF that is no longer on this box, so as a
 # live entry it could only ever report [MISSING] and clutter -ListOnly. Kept here as the recipe:
