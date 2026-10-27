@@ -16,7 +16,7 @@ fi
 # Default models dir based on machine arg, or try to auto-detect
 if [ -n "$MACHINE" ]; then
   case "$MACHINE" in
-    i9) MODELS_DIR="${MODELS_DIR:-/data/llm/models}" ;;
+    i9) MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}" ;;
     probook)
       echo "WSL is retired on ProBook. Run model inspection natively on Windows via llm/ (e.g. llm\\fetch-model.ps1 -List)." >&2
       exit 1
@@ -26,13 +26,13 @@ if [ -n "$MACHINE" ]; then
   esac
 else
   # Auto-detect: try paths
-  for d in /data/llm/models "$HOME/.local/share/llama.cpp/models"; do
+  for d in "$HOME/.local/share/llama.cpp/models"; do
     if [ -d "$d" ] && ls "$d"/*.gguf >/dev/null 2>&1; then
       MODELS_DIR="$d"
       break
     fi
   done
-  MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
+  MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
 fi
 
 b2h() {

@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 START_SCRIPT="$SCRIPT_DIR/start.sh"
 
 case "$MACHINE" in
-  i9)          MODELS_DIR="${MODELS_DIR:-/data/llm/models}" ;;
+  i9)          MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}" ;;
   probook)
     echo "WSL is retired on ProBook. Model cleanup runs natively on Windows in C:\data\llm\models." >&2
     exit 1

@@ -12,8 +12,8 @@ MODE="${2:-}"
 
 case "$MACHINE" in
   i9)
-    IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
-    MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
+    IK_LLAMA_DIR="${IK_LLAMA_DIR:-$HOME/.local/share/llama.cpp/ik_llama}"
+    MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
     BENCH="$IK_LLAMA_DIR/build/bin/llama-bench"
     NGL=0
     THREADS_DEFAULT="${BENCH_THREADS:-6 8}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-24 32}"

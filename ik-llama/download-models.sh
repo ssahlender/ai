@@ -78,7 +78,7 @@ download_if_missing() {
 # ── machine setup ─────────────────────────────────────────────────
 case "$MACHINE" in
   i9)
-    MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
+    MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
     export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
     export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
     export UV_NATIVE_TLS=1

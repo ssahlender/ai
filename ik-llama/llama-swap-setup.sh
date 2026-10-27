@@ -14,7 +14,7 @@ MACHINE="${1:-}"
 [ "$MACHINE" = i9 ] || { echo "Usage: $0 i9  (llama-swap config is only generated for i9 so far)" >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
+MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
 START_SCRIPT="$SCRIPT_DIR/start.sh"
 SWAP_LISTEN="${IK_LLAMA_SWAP_PORT:-9082}"
 AGENT_PORT="${IK_LLAMA_AGENT_PORT:-9081}"

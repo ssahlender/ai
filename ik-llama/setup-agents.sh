@@ -33,7 +33,7 @@ PORT="${IK_LLAMA_AGENT_PORT:-9081}"
 
 case "$MACHINE" in
   i9)
-    MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
+    MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
     BASE_URL="http://localhost:${PORT}/v1"
     ;;
   probook)

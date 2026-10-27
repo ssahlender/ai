@@ -32,9 +32,9 @@ fi
 # ── machine config ─────────────────────────────────────────────────
 case "$MACHINE" in
   i9)
-    IK_LLAMA_DIR="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
+    IK_LLAMA_DIR="${IK_LLAMA_DIR:-$HOME/.local/share/llama.cpp/ik_llama}"
     SERVER="$IK_LLAMA_DIR/build/bin/llama-server"
-    MODELS_DIR="${MODELS_DIR:-/data/llm/models}"
+    MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
     PORT="${IK_LLAMA_PORT:-9080}"
     NGL=0; THREADS="${IK_LLAMA_THREADS:-8}"; THREADS_BATCH="${IK_LLAMA_THREADS_BATCH:-24}"
     UBATCH="${IK_LLAMA_UBATCH:-1024}"

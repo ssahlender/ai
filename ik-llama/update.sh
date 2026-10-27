@@ -12,7 +12,7 @@ case "$MACHINE" in
     export SSL_CERT_FILE="${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}"
     export REQUESTS_CA_BUNDLE="${REQUESTS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
     export UV_NATIVE_TLS=1
-    DEST="${IK_LLAMA_DIR:-/data/llm/ik_llama}"
+    DEST="${IK_LLAMA_DIR:-$HOME/.local/share/llama.cpp/ik_llama}"
     REPO="Thireus/ik_llama.cpp"
     ARCH_PATTERN='^ik_llama-(?!cudart).+-bin-ubuntu-x64-avx2\.zip$'
     ;;
