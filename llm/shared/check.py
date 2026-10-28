@@ -91,8 +91,12 @@ def check_syntax():
     script = ('$bad=0; foreach ($f in $args) { $t=$null; $e=$null; '
               '[System.Management.Automation.Language.Parser]::ParseFile($f,[ref]$t,[ref]$e) | Out-Null; '
               'foreach ($x in $e) { Write-Output ("$f" + ": " + $x.Message); $bad++ } }; exit $bad')
-    r = run([pwsh, '-NoProfile', '-Command', script, *files])
-    (ok if r.returncode == 0 else fail)(f'PowerShell parse: {len(files)} files' + ('' if r.returncode == 0 else '\n' + r.stdout))
+    with tempfile.NamedTemporaryFile('w', suffix='.ps1', delete=False) as t:
+        t.write(script)
+    r = run([pwsh, '-NoProfile', '-File', t.name, *files])   # -File: the rest are $args, not script text
+    os.unlink(t.name)
+    (ok if r.returncode == 0 else fail)(f'PowerShell parse: {len(files)} files'
+                                         + ('' if r.returncode == 0 else '\n' + (r.stdout + r.stderr).strip()[:1500]))
 
 
 REQUIRED = {'i9': ('name', 'file', 'ctx', 'download'), 'probook': ('name', 'short', 'file', 'ctx', 'engine'),
@@ -138,7 +142,7 @@ def check_public():
     print('public-repo rule')
     hits = []
     for f in tracked('*'):
-        if f.suffix in ('.png', '.jpg', '.gguf', '.pyc') or not f.is_file():
+        if f.suffix in ('.png', '.jpg', '.gguf', '.pyc') or not f.is_file() or f.resolve() == Path(__file__).resolve():
             continue
         try:
             for n, line in enumerate(f.read_text(encoding='utf-8', errors='ignore').splitlines(), 1):
@@ -190,6 +194,10 @@ def sandbox():
 
 def check_i9(env):
     print('i9 dry run')
+    major = run(['bash', '-c', 'echo ${BASH_VERSINFO[0]}']).stdout.strip()
+    if not major.isdigit() or int(major) < 4:
+        note(f'i9 scripts need bash >= 4, this bash is {major or "unknown"} (macOS ships 3.2); CI and the i9 run them')
+        return
     for m in models.load_modes('i9'):
         mid = m['file'][:-len('.gguf')]
         r = run(['bash', str(LLM / 'i9' / 'start.sh'), mid], env={**env, 'IK_LLAMA_PRINT_CMD': '1'})
@@ -292,7 +300,9 @@ def check_this_machine():
     else:
         (ok if find_bin('ollama') else fail)('ollama binary')
     r = run([sys.executable, str(SHARED / 'llama_swap_config.py'), '--machine', machine])
-    if r.returncode != 0:
+    if r.returncode != 0 and 'Ollama is not answering' in r.stderr:
+        note('llama-swap config: Ollama is not running, so it cannot be validated (start: llm/llama-swap-setup.sh)')
+    elif r.returncode != 0:
         fail(f'llama-swap config for this machine: {r.stderr.strip()[:200]}')
     elif swap:
         with tempfile.NamedTemporaryFile('w', suffix='.yaml', delete=False) as t:
