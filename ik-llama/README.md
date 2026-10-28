@@ -11,25 +11,39 @@ CPU-only local LLM inference using [ik_llama.cpp](https://github.com/ikawrakow/i
 
 Neither machine has a usable GPU. The ProBook's integrated AMD Radeon causes Vulkan OOM crashes; always use `-ngl 0`.
 
+## Where files live
+
+Engine binaries and GGUFs live under `~/.local/share/llama.cpp/{ik_llama,models}` on i9 and Mac
+alike (same convention on ProBook: `$env:USERPROFILE\.local\share\llama.cpp\...`, see
+`llm/README.md`) — not a separate data drive. Migrating from an old `/data/llm` (or
+`C:\data\llm`) layout: `./move-to-home.sh --dry-run` then without `--dry-run` (`llm/move-to-home.ps1`
+on ProBook). Override either root with `IK_LLAMA_DIR`/`MODELS_DIR`.
+
 ## Scripts
 
 | Script | Purpose |
 |---|---|
 | `update.sh <machine>` | Download/update ik_llama.cpp (i9) or brew upgrade llama.cpp (macbook-air) |
-| `download-models.sh <machine>` | Download GGUF + mmproj files for i9/macbook-air |
+| `move-to-home.sh [--dry-run]` | One-time migration from an old `/data/llm` layout to `~/.local/share/llama.cpp` |
+| `download-models.sh <machine>` | Download GGUF + mmproj files for i9/macbook-air, with a disk-space preflight check |
 | `start.sh <machine> <mode>` | Start llama-server on i9 or macbook-air |
+| `llama-swap-setup.sh <machine>` | Optional model routing/lifecycle via llama-swap (i9 and macbook-air); see AGENTS.md |
+| `llama-swap-stop.sh` | Stop llama-swap and repoint `local-proxy.py` back to manual mode |
 | `setup-agents.sh <machine> [--dry-run]` | Auto-generate OpenCode/Pi/Docker Agent provider config (reads models.json) and remove stale references to models that are gone |
 | `docker-agent-providers.sh [provider] [model]` | Interactive picker & launch Docker Agent with local or remote models |
 | `claude-providers.sh [provider] [model]` | Interactive picker & launch Claude Code with local or remote models (shows live n_ctx from `/props`) |
 | `.secrets.example` | Template for `~/.secrets` (copy, chmod 600, fill in keys) |
 | `ocg-proxy.py` | Anthropic ↔ OpenAI proxy for OpenCode Go (DeepSeek/Kimi/GLM + Claude Code) |
+| `docker-compose.yml` | Containerized `local-proxy`/`ocg-proxy` (alternative to running them natively) and a place to add your own MCP server containers |
 | `bench.sh <machine> <mode>` | Benchmark CPU thread settings with llama-bench (i9) |
 | `model-info.sh` | Show on-disk models, file sizes, mmproj status |
-| `cleanup-models.sh <machine>` | Remove GGUFs not in active start.sh lineup, whitelist-driven, dry-run by default |
+| `cleanup-models.sh <machine>` | Remove GGUFs not in active lineup (models.json), whitelist-driven, dry-run by default |
+| `models.json` | Single source of truth for every machine's model lineup; see "Model names" below |
+| `models.local.json.example` | Template for a private, gitignored lineup (`models.local.json`) that overrides `models.json` without touching it |
 
 `setup-agents.sh` writes the `ik-llama` provider for OpenCode, Pi, and Docker
-Agent (`docker-agent` / `cagent`). Per-model context values are parsed
-from `start.sh`. Vision models get `modalities: {input: [text, image], output: [text]}`.
+Agent (`docker-agent` / `cagent`). Per-model context values are read
+from `models.json`. Vision models get `modalities: {input: [text, image], output: [text]}`.
 OpenCode gets a conservative `limit.output` of
 8192 tokens and:
 

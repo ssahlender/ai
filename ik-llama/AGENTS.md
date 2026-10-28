@@ -39,6 +39,28 @@ serving a live session) before routing requests through llama-swap.
 To go back to manual mode: `pkill -f llama-swap`, then restart `local-proxy.py` via `start.sh
 <machine> <mode>` as usual (it auto-starts pointed at 9080 again).
 
+## Optional: docker-compose for the tooling (not the engine)
+
+`docker-compose.yml` containerizes `local-proxy.py` and `ocg-proxy.py` -- the same two
+scripts documented natively above, same env vars, same ports, nothing in `setup-agents.sh`
+or any agent config needs to change either way. It's an alternative way to run them, not an
+additional one: don't run a proxy both natively and via compose at once.
+
+```bash
+docker compose up -d                  # local-proxy only, no secrets required
+docker compose --profile ocg up -d    # + ocg-proxy (needs OCG_PROXY_API_KEY)
+```
+
+The engine itself (llama-server/llama-swap) is deliberately **not** in this file. Docker
+Desktop has no Metal GPU passthrough on Mac (that's the whole reason the Mac's daily driver
+is native Ollama), and Docker Desktop's performance backend on Windows is WSL2 -- which was
+already tried and rejected for the ProBook ("all tooling is native Windows," operator
+decision). Both proxies have no such dependency: `local-proxy.py` just relays HTTP/SSE to
+whatever `LOCAL_PROXY_UPSTREAM` points at (`host.docker.internal:9080` from inside the
+container, reaching the native engine on the host), and `ocg-proxy.py` talks straight to the
+internet. The compose file also has a commented-out example service for adding your own MCP
+server containers (most ship one already) alongside the proxies.
+
 ## OpenCode
 
 Run the setup script for your machine; it reads `models.json` for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. Vision models automatically get `modalities` for image input. OpenCode config is written only when `opencode` is installed.
