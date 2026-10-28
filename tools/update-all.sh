@@ -20,7 +20,6 @@ UPDATE_TOOLS=(
   antigravity
   llama-swap
   hf
-  mlx-lm
   hermes
   rtk
   context-mode

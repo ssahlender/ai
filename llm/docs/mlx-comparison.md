@@ -1,6 +1,6 @@
 # MLX (MacBook Air M4, 24 GB)
 
-> Archived 2026-10-28: the `mlx/` folder and its scripts were removed; this writeup is the record. Paths below refer to the old layout.
+> Archived 2026-10-28: MLX is retired. The `mlx/` folder, its scripts and the `tools/mlx-lm-*.sh` installers were removed and mlx-lm is no longer in `update-all.sh`; this writeup is the record. Paths and install commands below refer to the old layout.
 
 > [!NOTE]
 > **Historical Archive**: This directory records the September 2026 engine comparison. The settled daily-driver engine on MacBook Air M4 is Ollama ([`mac.md`](mac.md)).
