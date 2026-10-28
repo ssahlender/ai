@@ -84,9 +84,21 @@ if ($entries.Count -eq 0) { throw "no usable probook modes (model + engine both 
 # ── build config.yaml ──────────────────────────────────────────────
 function ConvertTo-YamlSingleQuoted {
     # Minimal and deliberate: single-quote with '' doubling, exactly what a Windows path or
-    # flag value here ever needs -- not a general-purpose YAML emitter.
+    # flag value here ever needs -- not a general-purpose YAML emitter. Used for YAML keys only;
+    # cmd tokens go through ConvertTo-WindowsArg.
     param([string]$Value)
     return "'" + ($Value -replace "'", "''") + "'"
+}
+
+function ConvertTo-WindowsArg {
+    # llama-swap on Windows splits cmd Windows-style, NOT like a POSIX shell: single quotes stay
+    # literal, so 'C:\...\llama-server.exe' was looked up as a file whose name includes the quotes
+    # ("file does not exist", measured 2026-10-28 on llama-swap v268). Double quotes, with embedded
+    # quotes escaped and trailing backslashes doubled so they cannot escape the closing quote.
+    param([string]$Value)
+    $v = $Value -replace '"', '\"'
+    $v = $v -replace '(\\+)$', '$1$1'
+    return '"' + $v + '"'
 }
 
 $lines = @(
@@ -98,13 +110,13 @@ $lines = @(
     'models:'
 )
 foreach ($e in $entries) {
-    $quotedServer = ConvertTo-YamlSingleQuoted $e.Server
-    $quotedArgs   = $e.Args | ForEach-Object { ConvertTo-YamlSingleQuoted "$_" }
+    $quotedServer = ConvertTo-WindowsArg $e.Server
+    $quotedArgs   = $e.Args | ForEach-Object { ConvertTo-WindowsArg "$_" }
     $cmdLine = (@($quotedServer) + $quotedArgs) -join ' '
     $lines += ("  {0}:" -f (ConvertTo-YamlSingleQuoted $e.Short))
     # Block scalar, not a plain value: a plain scalar that starts with a quote is parsed as one
     # quoted string, so "'C:\...exe' '-m' ..." was a YAML syntax error. Inside a block scalar the
-    # single quotes are literal text, left for llama-swap's own shell-style splitting.
+    # quotes are literal text, left for llama-swap's own (Windows-style) argument splitting.
     $lines += '    cmd: |'
     $lines += ("      {0}" -f $cmdLine)
     $lines += '    proxy: "http://127.0.0.1:${PORT}"'
