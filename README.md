@@ -11,14 +11,15 @@ Scripts for running AI coding tools and local models across a few machines. This
 
 ## Local models: which machine runs what
 
-| machine | engine + model | start | details |
-|---|---|---|---|
-| ProBook (Windows) | mainline llama.cpp, Qwen3.6-35B-A3B IQ4_NL + MTP | `llm\probook\start-llm.ps1 qwen36_35b_ml -Background`, then `opencode` or `llm\probook\claude-local.ps1` | [`llm/README.md`](llm/README.md#probook-from-llmprobook) |
-| i9 (Debian) | ik_llama.cpp, Qwen3.6-35B-A3B MTP UD-Q6_K | `llm/i9/start.sh i9 Qwen3.6-35B-A3B-MTP-UD-Q6_K` | [`llm/README.md`](llm/README.md#i9-from-llmi9) |
-| MacBook Air M4 | Ollama, `qwen36-35b-a3b` (UD-Q2_K_XL) | `llm/mac/start.sh` | [`llm/README.md`](llm/README.md#mac-from-llmmac) |
+| machine | engine + model | start |
+|---|---|---|
+| ProBook (Windows) | mainline llama.cpp, Qwen3.6-35B-A3B IQ4_NL + MTP | `llm\probook\llama-swap-setup.ps1`, then `opencode` or `llm\probook\claude-local.ps1` |
+| i9 (Debian) | ik_llama.cpp, Qwen3.6-35B-A3B MTP UD-Q6_K | `llm/i9/llama-swap-setup.sh i9` |
+| MacBook Air M4 | Ollama, Qwen3.6-35B-A3B UD-Q2_K_XL | `llm/mac/llama-swap-setup.sh` |
 
-Stop with `stop-llm.ps1` / `stop.sh` in the same folder. Thinking is off by default on the ProBook and the
-i9; on the Mac it is set per request. The folders `ik-llama/`, `ollama/` and `mlx/` were merged into `llm/`
+Every machine runs the same chain: agents → `local-proxy.py` (9081) → llama-swap (9082, web UI with stats at
+http://127.0.0.1:9082/ui) → engine. Stop with `stop-llm.ps1` / `stop.sh` in the same folder. Thinking is off
+by default everywhere. Details, first setup and the bare-server path: [`llm/README.md`](llm/README.md). The folders `ik-llama/`, `ollama/` and `mlx/` were merged into `llm/`
 on 2026-10-28: [`llm/README.md`](llm/README.md#moved-here-on-2026-10-28) maps old paths to new.
 
 Generated benchmark output (`bench-results/`) and Python caches are ignored by git.

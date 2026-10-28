@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Optional model routing/lifecycle via llama-swap, natively on Windows (ProBook).
+    Starts the ProBook's default chain: local-proxy (9081) -> llama-swap (9082, web UI) -> llama-server.
 
 .DESCRIPTION
     Windows counterpart to llm/i9/llama-swap-setup.sh. Generates a llama-swap config.yaml

@@ -204,9 +204,9 @@ Supported on Linux and macOS (amd64/arm64, glibc and musl).
 | `llama-swap-install.sh` | `$BREW tap mostlygeek/llama-swap` then `$BREW install mostlygeek/llama-swap/llama-swap` |
 | `llama-swap-update.sh` | `$BREW upgrade llama-swap` (skips if not installed) |
 
-The CLI only installs the binary; the config generators that wire it into the local model stack
-are `llm/i9/llama-swap-setup.sh` and `llm/probook/llama-swap-setup.ps1` (see
-[`../llm/README.md`](../llm/README.md)).
+Used on the i9 and the Mac (the ProBook installs it with `llm\probook\update-llm.ps1 -Engine llama-swap`).
+llama-swap is the default chain on every machine; the per-machine `llm/*/llama-swap-setup.*` scripts write
+its config and start it. See [`../llm/README.md`](../llm/README.md).
 
 ---
 

@@ -224,7 +224,9 @@ Claude Code inspects `context_window` in the Anthropic `/v1/models` response. Be
 
 The first message with a large system prompt requires a cold prefill. A short "hi" can warm the shared prefix; subsequent requests benefit when that prefix stays unchanged and the server retains the cache.
 
-## Optional: llama-swap (model routing/lifecycle, i9 and ProBook)
+## llama-swap (the default chain on every machine since 2026-10-28)
+
+The short version, including the Mac (llama-swap in front of Ollama as a peer), is in [`../README.md`](../README.md). The details below are the i9 and ProBook implementation.
 
 By default `llm/i9/start.sh i9 <mode>` runs one model at a time on port 9080, picked manually. For
 switching models by name from the harness instead, [llama-swap](https://github.com/mostlygeek/llama-swap)
