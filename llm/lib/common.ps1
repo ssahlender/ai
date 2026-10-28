@@ -233,6 +233,172 @@ function Invoke-NativeToFile {
     }
 }
 
+function Get-ProbookModeTable {
+    # Reads models.json's probook entries into the shape start-llm.ps1 and
+    # llama-swap-setup.ps1 both need (Short/Name/Engine/File/Ctx/Cram/Template/Mmproj).
+    # Shared so the two scripts can't drift on how a models.json field maps to this shape.
+    param(
+        [Parameter(Mandatory = $true)][string]$ModelsJson,
+        [string]$ChatTemplate = ''
+    )
+    if (-not (Test-Path $ModelsJson)) { throw "models.json not found: $ModelsJson" }
+    $modelsData = Get-Content $ModelsJson -Raw | ConvertFrom-Json
+    # NOTE: never name the result after a [string]-typed parameter in the caller — assigning
+    # an array to a type-constrained parameter silently coerces it to a single string.
+    return @($modelsData.machines.probook | ForEach-Object {
+        [pscustomobject]@{
+            Short  = $_.short
+            Name   = $_.desc
+            Engine = $_.engine
+            File   = $_.file
+            Ctx    = $_.ctx; Cram = $_.cram
+            # Template only matters for the 'mainline' engine branch in Get-ServerInvocation
+            # (ik_llama always tries the global -ChatTemplate param unconditionally).
+            Template = $(if ($_.chat_template) { $ChatTemplate } else { $null })
+            Mmproj = $(if ($_.mmproj) { $_.mmproj.file } else { $null })
+        }
+    })
+}
+
+function Resolve-ModelsJsonPath {
+    # Same resolution every script here uses: an explicit path wins; otherwise a colleague's
+    # gitignored models.local.json next to models.json; otherwise the committed models.json.
+    param([string]$Explicit = '', [Parameter(Mandatory = $true)][string]$ScriptDir)
+    if ($Explicit) { return $Explicit }
+    $ikLlamaDirPath = Join-Path (Split-Path $ScriptDir -Parent) 'ik-llama'
+    $localJson = Join-Path $ikLlamaDirPath 'models.local.json'
+    if (Test-Path $localJson) { return $localJson }
+    return (Join-Path $ikLlamaDirPath 'models.json')
+}
+
+function Get-ServerInvocation {
+    # Resolves the exact engine exe + argv for one mode table entry (Short/Name/Engine/File/
+    # Ctx/Cram/Template/Mmproj), exactly as start-llm.ps1 runs it. Shared so llama-swap-setup.ps1
+    # can reuse this instead of a second copy of the flag-building logic drifting out of sync --
+    # the Windows analog of the bash launchers' IK_LLAMA_PRINT_CMD + eval trick, except as a real
+    # shared function call, since PowerShell doesn't need a text-templating workaround to share
+    # logic between two scripts the way a separate bash process does.
+    #
+    # -Port accepts an [int] for a real launch, or the literal string '${PORT}' when generating
+    # a llama-swap config.yaml entry -- llama-swap substitutes that token itself at listen time.
+    param(
+        [Parameter(Mandatory = $true)]$Mode,
+        [Parameter(Mandatory = $true)]$Port,
+        [Parameter(Mandatory = $true)][string]$ModelDir,
+        [Parameter(Mandatory = $true)][hashtable]$EngineDirs,
+        [string]$ChatTemplate = '',
+        [int]$Threads = 8,
+        [int]$ThreadsBatch = 8,
+        [int]$Ctx = 0,
+        [string]$BindAddress = '127.0.0.1',
+        [string]$ApiKey = '',
+        [string[]]$ExtraArgs = @(),
+        [switch]$NoThinking
+    )
+    $dir = $EngineDirs[$Mode.Engine]
+    if (-not $dir) { throw "Unknown engine '$($Mode.Engine)' in mode table" }
+    $server = Join-Path $dir 'llama-server.exe'
+    if (-not (Test-Path $server)) { throw "llama-server.exe not found for engine '$($Mode.Engine)' at $server" }
+
+    $modelPath = Join-Path $ModelDir $Mode.File
+    $effectiveCtx = $Ctx
+    if (-not $effectiveCtx) { $effectiveCtx = $Mode.Ctx }
+
+    # $args is an automatic variable in PowerShell — never assign to it.
+    $serverArgs = @(
+        '-m', $modelPath
+        '-ngl', '0'
+        '--threads', $Threads
+        '--threads-batch', $ThreadsBatch
+        '--parallel', 1
+        '--ctx-size', $effectiveCtx
+        '-ctk', 'q8_0'
+        '-ctv', 'q8_0'
+        '--port', $Port
+        '--host', $BindAddress
+        '-v'
+    )
+
+    switch ($Mode.Engine) {
+        'mainline' {
+            # mainline llama.cpp: --jinja + built-in template resolution; no ik_llama-only
+            # flags (-cram/-crs/-sps/-dt/-rea/--context-shift do not exist here).
+            $serverArgs += @('--jinja')
+            if ($Mode.Template -and (Test-Path $Mode.Template)) {
+                $serverArgs += @('--chat-template-file', $Mode.Template)
+            }
+        }
+        'ik_llama' {
+            $serverArgs += @(
+                '-sps', '0.5'
+                '-cram', $Mode.Cram
+                '-crs', '0.5'
+                '-dt', '0.1'
+                '--jinja'
+                '--context-shift', 'on'
+                '-rea', 'off'
+            )
+            if ($ChatTemplate -and (Test-Path $ChatTemplate)) { $serverArgs += @('--chat-template-file', $ChatTemplate) }
+        }
+    }
+    if ($Mode.Mmproj) { $serverArgs += @('--mmproj', (Join-Path $ModelDir $Mode.Mmproj)) }
+    if ($ApiKey) { $serverArgs += @('--api-key', $ApiKey) }
+    if ($ExtraArgs) { $serverArgs += $ExtraArgs }
+    if ($NoThinking) { $serverArgs += @('--reasoning', 'off') }
+
+    return [pscustomobject]@{ Server = $server; ModelPath = $modelPath; Args = $serverArgs }
+}
+
+function Resolve-Python {
+    # local-proxy.py (and llama-swap-setup.ps1's own proxy handoff) is pure-stdlib Python,
+    # travels with the repo, and needs a real interpreter - the Microsoft Store alias for
+    # `python` is not one and must be skipped explicitly.
+    $candidates = @(
+        (Join-Path $env:USERPROFILE '.local\bin\python3.11.exe'),
+        (Join-Path $env:USERPROFILE '.local\bin\python.exe')
+    )
+    foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
+    $cmd = Get-Command python -ErrorAction SilentlyContinue |
+           Where-Object { $_.Source -notlike '*WindowsApps*' } | Select-Object -First 1
+    if ($cmd) { return $cmd.Source }
+    throw "no real Python found (the Microsoft Store alias does not count); install uv or Python"
+}
+
+function Resolve-LocalProxyScript {
+    # local-proxy.py travels with the repo; the clone location differs per machine, so probe
+    # the known layouts rather than guessing one. Shared by claude-local.ps1 and
+    # llama-swap-setup.ps1, which both need to hand off to the same script.
+    param([string]$ScriptDir, [string]$Explicit = '')
+    if ($Explicit) { return $Explicit }
+    $candidates = @(
+        (Join-Path $env:USERPROFILE 'git\ai-tools\ik-llama\local-proxy.py'),
+        'C:\data\git\ai-tools\ik-llama\local-proxy.py',
+        (Join-Path $ScriptDir 'local-proxy.py'),
+        (Join-Path $ScriptDir '..\ik-llama\local-proxy.py')
+    )
+    $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $found) { throw ("local-proxy.py not found. Looked in:`n  " + ($candidates -join "`n  ")) }
+    return $found
+}
+
+function Stop-LocalProxyProcess {
+    # Equivalent of the bash side's `pkill -f local-proxy.py` -- find it by command line
+    # (python.exe's own process name tells us nothing about which script it's running) and
+    # stop it by pid. Returns the count stopped; 0 is not an error, nothing was running.
+    $procs = Get-CimInstance Win32_Process -Filter "Name = 'python.exe' OR Name = 'python3.exe' OR Name = 'python3.11.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -match 'local-proxy\.py' }
+    $n = 0
+    foreach ($p in $procs) {
+        try {
+            Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
+            $n += 1
+        } catch {
+            Write-Warning ("could not stop local-proxy.py pid $($p.ProcessId): $($_.Exception.Message)")
+        }
+    }
+    return $n
+}
+
 function Get-NativeOutput {
     # Same problem, text-capture flavour: returns merged stdout+stderr as a string.
     param(

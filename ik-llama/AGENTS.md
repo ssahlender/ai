@@ -26,8 +26,12 @@ use (SAMPLE/YARN/MMPROJ/SPEC/CTX_CKPT conditionals included, and whichever engin
 resolves to — ik_llama.cpp on i9, brew's llama.cpp on Mac) instead of a second copy of that logic
 drifting out of sync. It then starts llama-swap on 9082 and repoints `local-proxy.py`'s upstream
 at it, leaving the agent-facing port (9081) and model ids (GGUF stems) unchanged —
-`setup-agents.sh` output does not need to change either way. ProBook is not wired up to
-llama-swap (no bash on that box; would need a PowerShell equivalent).
+`setup-agents.sh` output does not need to change either way. ProBook has its own equivalent,
+`llm\llama-swap-setup.ps1` (install the binary first: `update-llm.ps1 -Engine llama-swap`) --
+same stack, generated from the same `models.json`, reusing `start-llm.ps1`'s own flag-building
+function (`Get-ServerInvocation` in `llm\lib\common.ps1`) instead of a second copy. It was
+written and reviewed from a Linux box with no `pwsh` to run it on, so it has not been verified
+on a real Windows runtime -- run `-WhatIf` first.
 
 **Do not run both at once against the same model.** `start.sh <machine> <mode>` run manually
 (port 9080) and llama-swap are two independent supervisors; llama-swap doesn't know about a

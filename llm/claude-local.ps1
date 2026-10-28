@@ -54,18 +54,6 @@ $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
 . (Join-Path $here 'lib\common.ps1')
 
-function Resolve-Python {
-    $candidates = @(
-        (Join-Path $env:USERPROFILE '.local\bin\python3.11.exe'),
-        (Join-Path $env:USERPROFILE '.local\bin\python.exe')
-    )
-    foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
-    $cmd = Get-Command python -ErrorAction SilentlyContinue |
-           Where-Object { $_.Source -notlike '*WindowsApps*' } | Select-Object -First 1
-    if ($cmd) { return $cmd.Source }
-    throw "no real Python found (the Microsoft Store alias does not count); install uv or Python"
-}
-
 Write-Host ("claude-local: mode={0} stem={1} server={2} proxy={3}" -f $Mode, $ModelStem, $ServerPort, $ProxyPort)
 
 # ── 1) llama-server on 9080 ────────────────────────────────────────
@@ -93,21 +81,7 @@ if (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health") {
 } elseif ($NoStart) {
     throw "nothing listening on $ProxyPort and -NoStart was given"
 } else {
-    # local-proxy.py travels with the repo; the clone location differs per machine,
-    # so probe the known layouts rather than guessing one.
-    $proxyCandidates = @(
-        (Join-Path $env:USERPROFILE 'git\ai-tools\ik-llama\local-proxy.py'),
-        'C:\data\git\ai-tools\ik-llama\local-proxy.py',
-        (Join-Path $here 'local-proxy.py'),
-        (Join-Path $here '..\ik-llama\local-proxy.py')
-    )
-    if (-not $ProxyScript) {
-        $ProxyScript = $proxyCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-    }
-    if (-not $ProxyScript) {
-        throw ("local-proxy.py not found. Looked in:`n  " + ($proxyCandidates -join "`n  "))
-    }
-    if (-not (Test-Path $ProxyScript)) { throw "proxy script not found: $ProxyScript" }
+    $ProxyScript = Resolve-LocalProxyScript -ScriptDir $here -Explicit $ProxyScript
     $py = Resolve-Python
     Write-Host ("  proxy  : starting {0} with {1}" -f (Split-Path $ProxyScript -Leaf), $py)
     if (-not $DryRun) {

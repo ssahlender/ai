@@ -51,34 +51,28 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-if (-not $ModelsJson) {
-    $ikLlamaDirPath = Join-Path (Split-Path $root -Parent) 'ik-llama'
-    $localJson = Join-Path $ikLlamaDirPath 'models.local.json'
-    if (Test-Path $localJson) { $ModelsJson = $localJson } else { $ModelsJson = Join-Path $ikLlamaDirPath 'models.json' }
-}
+. (Join-Path $root 'lib\common.ps1')
+$ModelsJson = Resolve-ModelsJsonPath -Explicit $ModelsJson -ScriptDir $root
 # Same defaults start-llm.ps1 uses, so the two scripts cannot disagree about where an engine
 # lives without an explicit -MainlineDir/-IkLlamaDir override on both.
 if (-not $MainlineDir) { $MainlineDir = Join-Path $env:USERPROFILE '.local\share\llama.cpp\llama.cpp-cpu' }
 if (-not $IkLlamaDir)  { $IkLlamaDir  = Join-Path $env:USERPROFILE '.local\share\llama.cpp\ik_llama' }
 
-if (-not (Test-Path $ModelsJson)) { throw "models.json not found: $ModelsJson" }
-
-# ── read the mode table out of models.json (shared with start-llm.ps1 and the i9/Mac
-# bash scripts) instead of regex-scraping start-llm.ps1's source text ──
-$modelsData = Get-Content $ModelsJson -Raw | ConvertFrom-Json
+# ── read the mode table out of models.json (shared with start-llm.ps1, llama-swap-setup.ps1
+# and the i9/Mac bash scripts) instead of regex-scraping start-llm.ps1's source text ──
 $engineDirs = @{ 'mainline' = $MainlineDir; 'ik_llama' = $IkLlamaDir }
 
 $modes = @()
-foreach ($m in $modelsData.machines.probook) {
-    $eng = $m.engine
-    if (-not $engineDirs.ContainsKey($eng)) { throw "models.json: probook mode '$($m.short)' has unknown engine '$eng'" }
+foreach ($m in (Get-ProbookModeTable -ModelsJson $ModelsJson)) {
+    $eng = $m.Engine
+    if (-not $engineDirs.ContainsKey($eng)) { throw "models.json: probook mode '$($m.Short)' has unknown engine '$eng'" }
     $modes += [pscustomobject]@{
-        Short = $m.short; File = $m.file; Ctx = [int]$m.ctx; Name = $m.desc; Engine = $eng
+        Short = $m.Short; File = $m.File; Ctx = [int]$m.Ctx; Name = $m.Name; Engine = $eng
         # A mode needs BOTH its GGUF and its engine's llama-server.exe. Checking only the
         # model used to advertise modes whose engine had been removed, which then fail at
         # launch. Same two-state check start-llm.ps1 -ListOnly performs.
         EngineOk = Test-Path (Join-Path $engineDirs[$eng] 'llama-server.exe')
-        Exists   = (Test-Path (Join-Path $ModelDir $m.file)) -and (Test-Path (Join-Path $engineDirs[$eng] 'llama-server.exe'))
+        Exists   = (Test-Path (Join-Path $ModelDir $m.File)) -and (Test-Path (Join-Path $engineDirs[$eng] 'llama-server.exe'))
     }
 }
 

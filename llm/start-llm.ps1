@@ -74,39 +74,13 @@ $ErrorActionPreference = 'Stop'
 if ($BindAddress -ne '127.0.0.1') {
     if (-not $AllowNonLoopback -or -not $ApiKey) { throw 'non-loopback binding requires -AllowNonLoopback and a non-empty -ApiKey; the previous all-interface dummy-key default exposed the server unnecessarily' }
 }
-if (-not $ModelsJson) {
-    $ikLlamaDirPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'ik-llama'
-    $localJson = Join-Path $ikLlamaDirPath 'models.local.json'
-    # A colleague who clones this repo gets the committed lineup by default, but can keep
-    # their own without touching (or fighting git over) the committed file: drop a
-    # models.local.json next to it (gitignored) and this script prefers it automatically.
-    if (Test-Path $localJson) { $ModelsJson = $localJson } else { $ModelsJson = Join-Path $ikLlamaDirPath 'models.json' }
-}
+$ModelsJson = Resolve-ModelsJsonPath -Explicit $ModelsJson -ScriptDir $PSScriptRoot
 
 # ── mode table ─────────────────────────────────────────────────────
-# Read from models.json (shared with the i9/Mac bash scripts) instead of a literal here, so
-# setup-agent-providers.ps1 and anything else that needs the lineup reads the same data instead
-# of regex-scraping this file's source text.
-if (-not (Test-Path $ModelsJson)) { throw "models.json not found: $ModelsJson" }
-$modelsData = Get-Content $ModelsJson -Raw | ConvertFrom-Json
-# Named fields, no positional columns (the original bash launcher's machine table had NOSAMPLE
-# sitting in the sample-flag column, which silently applied sampling flags to a NOSAMPLE mode).
-# NOTE: never name this variable after a [string]-typed parameter — assigning an array
-# to a type-constrained parameter silently coerces it to a single string, emptying the
-# table and corrupting the model path.
-$ModeTable = @($modelsData.machines.probook | ForEach-Object {
-    [pscustomobject]@{
-        Short  = $_.short
-        Name   = $_.desc
-        Engine = $_.engine
-        File   = $_.file
-        Ctx    = $_.ctx; Cram = $_.cram
-        # Template only matters for the 'mainline' branch below (ik_llama always tries the
-        # global -ChatTemplate param unconditionally, regardless of this field).
-        Template = $(if ($_.chat_template) { $ChatTemplate } else { $null })
-        Mmproj = $(if ($_.mmproj) { $_.mmproj.file } else { $null })
-    }
-})
+# Read from models.json (shared with the i9/Mac bash scripts, and with
+# setup-agent-providers.ps1/llama-swap-setup.ps1 here) instead of a literal or
+# regex-scraping this file's source text.
+$ModeTable = Get-ProbookModeTable -ModelsJson $ModelsJson -ChatTemplate $ChatTemplate
 
 # RETIRED MODES (2026-09-27). Each of these named a GGUF that is no longer on this box, so as a
 # live entry it could only ever report [MISSING] and clutter -ListOnly. Kept here as the recipe:
@@ -123,14 +97,6 @@ $ModeTable = @($modelsData.machines.probook | ForEach-Object {
 # used `Ctx = 32768; Cram = 8192` and `Template = 'C:\data\git\ai-tools\ik-llama\qwen3-template.j2'`.
 
 $engineDirs = @{ 'mainline' = $MainlineDir; 'ik_llama' = $IkLlamaDir }
-
-function Resolve-EngineServer($engine) {
-    $dir = $engineDirs[$engine]
-    if (-not $dir) { throw "Unknown engine '$engine' in mode table" }
-    $exe = Join-Path $dir 'llama-server.exe'
-    if (-not (Test-Path $exe)) { throw "llama-server.exe not found for engine '$engine' at $exe" }
-    return $exe
-}
 
 if ($ListOnly -or -not $Mode) {
     Write-Host "Usage: start-llm.ps1 <mode> [-Background] [-Port N] [-Ctx N]"
@@ -151,56 +117,17 @@ if ($ListOnly -or -not $Mode) {
 $sel = $ModeTable | Where-Object { $_.Short -eq $Mode }
 if (-not $sel) { throw "Unknown mode: $Mode (run with no arguments to list modes)" }
 
-$server    = Resolve-EngineServer $sel.Engine
-$modelPath = Join-Path $ModelDir $sel.File
-if (-not (Test-Path $modelPath)) { throw "Mode '$Mode' requires GGUF '$($sel.File)', but it is missing at $modelPath. Run -ListOnly to see which modes are complete; every GGUF's repo, file and SHA-256 is recorded in llm/MODELS.md." }
-if (-not $Ctx) { $Ctx = $sel.Ctx }
-
 $running = Get-Process -Name 'llama-server' -ErrorAction SilentlyContinue
 if ($running) { throw "llama-server.exe is already running (pid $($running.Id -join ', ')). Stop it first." }
 
-# $args is an automatic variable in PowerShell — never assign to it.
-$serverArgs = @(
-    '-m', $modelPath
-    '-ngl', '0'
-    '--threads', $Threads
-    '--threads-batch', $ThreadsBatch
-    '--parallel', 1
-    '--ctx-size', $Ctx
-    '-ctk', 'q8_0'
-    '-ctv', 'q8_0'
-    '--port', $Port
-    '--host', $BindAddress
-    '-v'
-)
-
-switch ($sel.Engine) {
-    'mainline' {
-        # mainline llama.cpp: --jinja + built-in template resolution; no ik_llama-only
-        # flags (-cram/-crs/-sps/-dt/-rea/--context-shift do not exist here).
-        $serverArgs += @('--jinja')
-        if ($sel.Template -and (Test-Path $sel.Template)) {
-            $serverArgs += @('--chat-template-file', $sel.Template)
-        }
-    }
-    'ik_llama' {
-        # ik_llama flags, preserved from the original launcher.
-        $serverArgs += @(
-            '-sps', '0.5'
-            '-cram', $sel.Cram
-            '-crs', '0.5'
-            '-dt', '0.1'
-            '--jinja'
-            '--context-shift', 'on'
-            '-rea', 'off'
-        )
-        if (Test-Path $ChatTemplate) { $serverArgs += @('--chat-template-file', $ChatTemplate) }
-    }
-}
-if ($sel.Mmproj) { $serverArgs += @('--mmproj', (Join-Path $ModelDir $sel.Mmproj)) }
-if ($ApiKey) { $serverArgs += @('--api-key', $ApiKey) }
-if ($ExtraArgs) { $serverArgs += $ExtraArgs }
-if ($NoThinking) { $serverArgs += @('--reasoning', 'off') }
+$inv = Get-ServerInvocation -Mode $sel -Port $Port -ModelDir $ModelDir -EngineDirs $engineDirs `
+    -ChatTemplate $ChatTemplate -Threads $Threads -ThreadsBatch $ThreadsBatch -Ctx $Ctx `
+    -BindAddress $BindAddress -ApiKey $ApiKey -ExtraArgs $ExtraArgs -NoThinking:$NoThinking
+$server = $inv.Server
+$modelPath = $inv.ModelPath
+$serverArgs = $inv.Args
+if (-not (Test-Path $modelPath)) { throw "Mode '$Mode' requires GGUF '$($sel.File)', but it is missing at $modelPath. Run -ListOnly to see which modes are complete; every GGUF's repo, file and SHA-256 is recorded in llm/MODELS.md." }
+if (-not $Ctx) { $Ctx = $sel.Ctx }
 
 if ($DryRun) {
     Write-Host ""

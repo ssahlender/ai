@@ -11,9 +11,12 @@
     Which engines live where (and why):
       mainline        <profile>\.local\share\llama.cpp\llama.cpp-cpu   daily engine  (legacy quants / Q4_0)
       ik_llama        <profile>\.local\share\llama.cpp\ik_llama        i-quant specialist (IQ4_NL/IQ4_XS)
+      llama-swap      <profile>\.local\share\llama.cpp\llama-swap      model routing/lifecycle (opt-in; see llama-swap-setup.ps1)
     (<profile> = Get-LlmRoot's parent, i.e. $env:USERPROFILE; override via lib\common.ps1's
     Get-LlmRoot -Override or by passing -Dest-equivalent params on the scripts that take them.)
     Not tracked on purpose: ROCm (no HIP device for gfx1103 on this box).
+    llama-swap is not installed by default (-Engine defaults to 'mainline' only) -- pass
+    -Engine llama-swap or -Engine all explicitly.
 
     Engines get separate directories because each ships its own llama.dll / ggml.dll;
     mixing them loads the wrong kernels. Models are shared in <profile>\.local\share\llama.cpp\models.
@@ -39,6 +42,7 @@
     .\update-llm.ps1 -ListOnly
     .\update-llm.ps1
     .\update-llm.ps1 -Engine ik_llama -Force
+    .\update-llm.ps1 -Engine llama-swap
     .\update-llm.ps1 -Engine all -PurgeOldBackups
 #>
 [CmdletBinding()]
@@ -61,18 +65,28 @@ $headers = @{ Accept = 'application/vnd.github+json'; 'User-Agent' = 'update-llm
 
 $EngineTable = @(
     [pscustomobject]@{
-        Key     = 'mainline'
-        Repo    = 'ggml-org/llama.cpp'
-        Pattern = '^llama-(?!cudart\b).+-bin-win-cpu-x64\.zip$'
-        Dest    = (Join-Path (Get-LlmRoot) 'llama.cpp-cpu')
-        Role    = 'daily engine (legacy quants / Q4_0)'
+        Key        = 'mainline'
+        Repo       = 'ggml-org/llama.cpp'
+        Pattern    = '^llama-(?!cudart\b).+-bin-win-cpu-x64\.zip$'
+        Dest       = (Join-Path (Get-LlmRoot) 'llama.cpp-cpu')
+        Role       = 'daily engine (legacy quants / Q4_0)'
+        BinaryName = 'llama-server.exe'
     }
     [pscustomobject]@{
-        Key     = 'ik_llama'
-        Repo    = 'Thireus/ik_llama.cpp'
-        Pattern = '^ik_llama-(?!cudart\b).+-bin-win-cpu-x64-avx512_vnni_vbmi_bf16\.zip$'
-        Dest    = (Join-Path (Get-LlmRoot) 'ik_llama')
-        Role    = 'i-quant specialist (IQ4_NL / IQ4_XS)'
+        Key        = 'ik_llama'
+        Repo       = 'Thireus/ik_llama.cpp'
+        Pattern    = '^ik_llama-(?!cudart\b).+-bin-win-cpu-x64-avx512_vnni_vbmi_bf16\.zip$'
+        Dest       = (Join-Path (Get-LlmRoot) 'ik_llama')
+        Role       = 'i-quant specialist (IQ4_NL / IQ4_XS)'
+        BinaryName = 'llama-server.exe'
+    }
+    [pscustomobject]@{
+        Key        = 'llama-swap'
+        Repo       = 'mostlygeek/llama-swap'
+        Pattern    = '^llama-swap_\d+_windows_amd64\.zip$'
+        Dest       = (Join-Path (Get-LlmRoot) 'llama-swap')
+        Role       = 'model routing/lifecycle (opt-in)'
+        BinaryName = 'llama-swap.exe'
     }
 )
 
@@ -103,7 +117,7 @@ function Get-LatestAsset {
 }
 
 function Install-Asset {
-    param($Asset, [string]$Dest, [switch]$AllowUnverified)
+    param($Asset, [string]$Dest, [string]$BinaryName = 'llama-server.exe', [switch]$AllowUnverified)
     $marker = Join-Path $Dest '.tag'
     $tmp = Join-Path $env:TEMP ('llmupd-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tmp -Force | Out-Null
@@ -129,10 +143,10 @@ function Install-Asset {
 
         $stage = Join-Path $tmp 'stage'
         Expand-Archive -Path $zip -DestinationPath $stage -Force
-        $stagedServer = Get-ChildItem -Path $stage -Filter 'llama-server.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-        if (-not $stagedServer) { throw 'archive contains no llama-server.exe; live engine was left untouched' }
+        $stagedServer = Get-ChildItem -Path $stage -Filter $BinaryName -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $stagedServer) { throw "archive contains no $BinaryName; live engine was left untouched" }
         $versionText = (Get-NativeOutput -Exe $stagedServer.FullName -Arguments @('--version')).Trim()
-        if ($LASTEXITCODE -ne 0 -or -not $versionText) { throw 'staged llama-server.exe did not run successfully; live engine was left untouched' }
+        if ($LASTEXITCODE -ne 0 -or -not $versionText) { throw "staged $BinaryName did not run successfully; live engine was left untouched" }
         # Mainline prints "build 11588", not the release tag "b11588"; ik_llama prints the tag. Accept both.
         $tagNum = $Asset.Tag -replace '^b', ''
         if ($versionText -notmatch ('(?i)\b' + [regex]::Escape($Asset.Tag) + '\b|\bbuild\s+' + [regex]::Escape($tagNum) + '\b')) { throw "staged build did not report expected release '$($Asset.Tag)'; live engine was left untouched" }
@@ -153,10 +167,10 @@ function Install-Asset {
         Expand-Archive -Path $zip -DestinationPath $Dest -Force
         Set-Content -Path $marker -Value $Asset.Tag -NoNewline
 
-        $srv = Get-ChildItem -Path $Dest -Filter 'llama-server.exe' -Recurse -ErrorAction SilentlyContinue |
+        $srv = Get-ChildItem -Path $Dest -Filter $BinaryName -Recurse -ErrorAction SilentlyContinue |
                Select-Object -First 1
         Write-Host ("    installed {0}" -f $Asset.Tag)
-        if ($srv) { Write-Host ("    llama-server.exe built {0}" -f $srv.LastWriteTime) }
+        if ($srv) { Write-Host ("    {0} built {1}" -f $BinaryName, $srv.LastWriteTime) }
         if ($existing) { Write-Host ("    previous build recoverable at {0}" -f $backup) }
         return $backup
     }
@@ -192,7 +206,7 @@ foreach ($key in $Engine) {
         continue
     }
 
-    $backup = Install-Asset -Asset $asset -Dest $e.Dest -AllowUnverified:$AllowUnverifiedAsset
+    $backup = Install-Asset -Asset $asset -Dest $e.Dest -BinaryName $e.BinaryName -AllowUnverified:$AllowUnverifiedAsset
     # Record the variant separately: .tag must stay EXACTLY the release tag, or the
     # up-to-date comparison above never matches (the directory already encodes the variant).
     Set-Content -Path (Join-Path $e.Dest '.variant') -Value $e.Key -NoNewline
