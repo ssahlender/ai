@@ -34,7 +34,8 @@ The ProBook runs PowerShell from `llm\probook`; the i9 and the Mac share the sam
 | **stop** | `.\stop-llm.ps1` | `./stop.sh` |
 | check | (in CI) | `./check.sh` |
 
-The first request after a start loads the model: about 1-1.5 min on the ProBook, seconds on the Mac.
+The first request after a start loads the model: 1-4 min on the ProBook (66-231 s measured 2026-10-28/29,
+slower when the file is not in the OS cache), a few seconds on the Mac.
 The llama-swap UI shows it loading.
 
 **Each model has one name**, the `id` in [`models.json`](models.json), built the same way on every machine:
