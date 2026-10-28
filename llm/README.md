@@ -9,7 +9,8 @@ the same commands on each. The engines differ because the machines do.
 agent (OpenCode, Pi, Claude Code, Docker Agent)
   -> local-proxy.py   :9081   keep-alives during long prefills, caps Claude Code's max_tokens
   -> llama-swap       :9082   web UI with stats, logs and a chat playground: http://127.0.0.1:9082/ui
-  -> engine                   ProBook/i9: llama-server, started and stopped by llama-swap
+  -> engine                   ProBook: mainline llama.cpp's llama-server, i9: ik_llama.cpp's llama-server,
+                              both started and stopped by llama-swap
                               Mac: Ollama (:11434), which loads models itself
 ```
 
