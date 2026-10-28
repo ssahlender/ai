@@ -59,7 +59,7 @@ The setup script (`llm/setup-agents.sh`) configures the `ik-llama` provider in `
 pointing to `http://localhost:9081/v1` — through `local-proxy.py`, same as OpenCode and Pi above (merging
 with any existing options).
 
-- **Local models**: Run directly with `--model ik-llama/<gguf-stem>`, for example:
+- **Local models**: Run directly with `--model ik-llama/<id>` (the model's one name in `models.json`), for example:
   ```bash
   docker-agent run --model ik-llama/Qwen3.6-35B-A3B-UD-Q6_K-unsloth-MTP-128K coder "prompt"
   ```

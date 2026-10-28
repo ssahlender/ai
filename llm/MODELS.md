@@ -70,7 +70,7 @@ several times the bytes per token.
 | bytes | `12290628576` (11.45 GiB) |
 | sha256 | `96b9c0af5c77a4ecaabe3983175112b5ece763261c1ece12b2494b692a70dad7` |
 | fetched by | `ollama pull hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL`, Ollama verified the sha256 itself, and the pull manifest ID `96b9c0af5c77` matches this hash |
-| short name | `qwen36-35b-a3b` (derived model, `num_ctx 32768`, blobs shared with the tag above) |
+| Ollama model | `qwen36-35b-a3b` (derived model, `num_ctx 32768`, blobs shared with the tag above); agents and llama-swap call it `Qwen3.6-35B-A3B-UD-Q2_K_XL-unsloth-32K` |
 | status | **IN USE** on the MacBook Air M4. Chosen over the 4-bit tier because ~17 GB does not fit: 17.6 GB OOM'd at 8K context and the guard aborts at 16.9 GB |
 | differs from the reference | same model family, lower quant, and the base rather than the Uncensored fine-tune; the Mac runs a different quant on purpose, because it has a memory ceiling where this box has bandwidth |
 

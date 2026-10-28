@@ -32,7 +32,7 @@ The ProBook runs PowerShell from `llm\probook`; the i9 and the Mac share the sam
 | **start** | `.\llama-swap-setup.ps1` | `./llama-swap-setup.sh` (Mac: starts Ollama first) |
 | Claude Code | `.\claude-local.ps1` (starts the chain if needed) | `../tools/claude-providers.sh local` |
 | **stop** | `.\stop-llm.ps1` | `./stop.sh` |
-| check | (in CI) | `./check.sh` |
+| check | none on the machine; CI parses every `.ps1` and dry-runs the ProBook's agent setup | `./check.sh` (also runs in CI on every push) |
 
 The first request after a start loads the model: 1-4 min on the ProBook (66-231 s measured 2026-10-28/29,
 slower when the file is not in the OS cache), a few seconds on the Mac.
@@ -67,7 +67,7 @@ the same machine at once: the model would be loaded twice.
 |---|---|
 | `models.json` | the model catalog for all three machines (one file, read by every script); a private lineup goes in `models.local.json` (gitignored, see `models.local.json.example`) |
 | `MODELS.md` | provenance: repo, exact bytes, SHA-256, what is installed where, retired models |
-| `shared/` | used by more than one machine: `local-proxy.py`, `ocg-proxy.py` (cloud proxy), `models.py` (catalog loader), `qwen3-template.j2`, `docker-compose.yml` (proxies only) |
+| `shared/` | used by more than one machine: `models.py` (catalog loader, machine detection), `setup_agents.py`, `llama_swap_config.py`, `check.py`, `common.sh` (bash helpers), `local-proxy.py`, `ocg-proxy.py` (cloud proxy), `qwen3-template.j2`, `docker-compose.yml` (proxies only) |
 | `probook/` | PowerShell: chain start/stop, bare launcher, updater, agent wiring, `claude-local.ps1`, `lib/common.ps1`, `bench/`, `tests/` (quality harness) |
 | `llama-swap-setup.sh`, `stop.sh`, `setup-agents.sh`, `check.sh` | the shared commands for the i9 and the Mac (logic in `shared/`) |
 | `i9/` | bash, i9 only: `start.sh` (a bare server; llama-swap runs it per model), updater, downloads, model cleanup and info, benchmarks, `move-to-home.sh` |

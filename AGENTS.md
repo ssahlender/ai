@@ -34,8 +34,9 @@ Commits here must use a personal identity, not a corporate address. Set it per c
 Everything lives in [`llm/`](llm/README.md): one folder per machine (`probook/`, `i9/`, `mac/`), the shared
 catalog `llm/models.json` and proxies in `llm/shared/`. Agent wiring, Claude Code env vars, the
 attribution-header slowdown (~90 %), the proxies and llama-swap: [`llm/docs/agents.md`](llm/docs/agents.md).
-Model ids and provider ids (`ik-llama/<gguf-stem>`, `ollama/<name>`, `llamacpp`) are part of the
-agents' configs: do not rename them as a side effect.
+Model ids (one readable name per model, the `id` in `llm/models.json`) and provider ids (`ik-llama`,
+`ollama`, `llamacpp`) are part of the agents' configs: do not rename them as a side effect. If a rename is
+asked for, `llm/setup-agents.sh` / `setup-agents.ps1` replaces the old ids and removes references to them.
 
 ## tools/ scripts
 
