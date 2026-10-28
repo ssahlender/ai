@@ -125,9 +125,13 @@ function Test-EndpointReady {
         $null = Invoke-RestMethod -Uri $Url -TimeoutSec $TimeoutSec -ErrorAction Stop
         return $true
     } catch {
-        $msg = "$($_.Exception.Message)"
-        if ($msg -match 'refused|Unable to connect|No connection could be made|no such host') { return $false }
-        return $true
+        # An HTTP answer carries a Response; a refused or timed-out connection does not. Do not
+        # match the message text: it is localised (German on the ProBook: "Die Verbindung mit dem
+        # Remoteserver kann nicht hergestellt werden"), which once made a dead port look ready.
+        $resp = $null
+        try { $resp = $_.Exception.Response } catch { }
+        if ($resp) { return $true }
+        return $false
     }
 }
 
