@@ -7,9 +7,8 @@ How OpenCode, Pi, Docker Agent and Claude Code talk to the local servers, the tw
 Run the setup script for your machine; it reads `models.json` for model mappings and generates the provider config dynamically. Only models whose GGUF files exist on disk are included. Vision models automatically get `modalities` for image input. OpenCode config is written only when `opencode` is installed.
 
 ```bash
-llm/i9/setup-agents.sh i9                          # i9: OpenCode + Pi + Docker Agent, provider ik-llama
-llm/mac/setup-agent.sh                             # Mac: OpenCode + Pi, provider ollama
-powershell -File llm\probook\setup-agent-providers.ps1   # ProBook: OpenCode, provider llamacpp
+llm/setup-agents.sh                                # i9 (provider ik-llama) and Mac (provider ollama), machine detected
+powershell -File llm\probook\setup-agents.ps1      # ProBook (provider llamacpp); same Python underneath
 ```
 
 On the i9 the generated config uses `http://localhost:9081/v1` — `local-proxy.py`, not llama-server's own port
@@ -24,14 +23,13 @@ still `IK_LLAMA_PORT` (default 9080).
 started some other way), restart it via `start.sh` once, or start the proxy by hand:
 `LOCAL_PROXY_UPSTREAM=http://127.0.0.1:9080 LOCAL_PROXY_PORT=9081 python3 llm/shared/local-proxy.py &`. (On the ProBook, OpenCode talks to 9080 directly; see `../README.md`.)
 
-Model ids are the GGUF file names without `.gguf`, derived from `models.json` (the ProBook uses the short mode names of `llm/probook/start-llm.ps1`, e.g. `qwen36_35b_ml`). Run `setup-agents.sh` to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
+Model ids are the GGUF file names without `.gguf`, derived from `models.json` (the ProBook uses the short mode names of `llm/probook/start-llm.ps1`, e.g. `qwen36_35b_ml`). Run the agent setup to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
 
 ## Pi
 
-The bash setup script also writes `~/.pi/agent/models.json` when `pi` is
-installed. The Windows PowerShell script configures OpenCode only.
-The Pi provider key is `ik-llama`; model IDs are the GGUF stems used by
-`start.sh` (for example `Qwen3.6-35B-A3B-MTP-UD-Q6_K`).
+The agent setup writes `~/.pi/agent/models.json` on every machine where Pi is installed. The Pi
+provider key is the machine's provider (`ik-llama`, `ollama`, `llamacpp`); model ids are the same as
+OpenCode's (for example `Qwen3.6-35B-A3B-MTP-UD-Q6_K` on the i9).
 
 ### Large tool writes
 
@@ -59,7 +57,7 @@ Use `docker-agent-providers.sh` to pick local or remote models interactively, mi
 ./docker-agent-providers.sh openrouter meta-llama/llama-4-maverick
 ```
 
-The bash setup script (`./setup-agents.sh i9`) configures the `ik-llama` provider in `~/.config/cagent/config.yaml`
+The setup script (`llm/setup-agents.sh`) configures the `ik-llama` provider in `~/.config/cagent/config.yaml`
 pointing to `http://localhost:9081/v1` — through `local-proxy.py`, same as OpenCode and Pi above (merging
 with any existing options).
 
@@ -67,7 +65,7 @@ with any existing options).
   ```bash
   docker-agent run --model ik-llama/Qwen3.6-35B-A3B-MTP-UD-Q6_K coder "prompt"
   ```
-- **OpenCode Go & Cloud models**: `setup-agents.sh` syncs credentials (`OPENCODE_API_KEY`,
+- **OpenCode Go & Cloud models**: `setup-agents` syncs credentials (`OPENCODE_API_KEY`,
   `OPENROUTER_API_KEY`, `NVIDIA_API_KEY`) into `~/.config/cagent/.env` (mode 0600)
   from `~/.secrets` (`OPENCODE_API_KEY` or `OPENCODE_GO_API_KEY`).
   Run OpenCode Go models directly via the built-in provider:
@@ -249,13 +247,13 @@ itself via `IK_LLAMA_PRINT_CMD=1` + `eval` so llama-swap reuses the exact flags 
 use (SAMPLE/YARN/MMPROJ/SPEC/CTX_CKPT conditionals included) instead of a second copy of that logic
 drifting out of sync. It then starts llama-swap on 9082 and repoints `local-proxy.py`'s upstream
 at it, leaving the agent-facing port (9081) and model ids (GGUF stems) unchanged —
-`setup-agents.sh` output does not need to change either way. ProBook has its own equivalent,
+the agent config does not need to change either way. ProBook has its own equivalent,
 `llm\probook\llama-swap-setup.ps1` (install the binary first: `update-llm.ps1 -Engine llama-swap`) --
 same stack, generated from the same `models.json`, reusing `start-llm.ps1`'s own flag-building
 function (`Get-ServerInvocation` in `llm\probook\lib\common.ps1`) instead of a second copy. Verified
 end to end on the ProBook 2026-10-28 (llama-swap v268); run `-WhatIf` first. On the ProBook,
 OpenCode defaults to the manual port 9080, so point it at the proxy with
-`setup-agent-providers.ps1 -BaseUrl http://127.0.0.1:9081/v1` (see `../README.md`).
+`setup-agents.ps1` (default URL is the chain on 9081; see `../README.md`).
 
 **Do not run both at once against the same model.** `start.sh` run manually
 (port 9080) and llama-swap are two independent supervisors; llama-swap doesn't know about a
@@ -270,7 +268,7 @@ To go back to manual mode: `llm/i9/stop.sh`, then `llm/i9/start.sh i9 <mode>` as
 ## Optional: docker-compose for the tooling (not the engine)
 
 `docker-compose.yml` containerizes `local-proxy.py` and `ocg-proxy.py` -- the same two
-scripts documented natively above, same env vars, same ports, nothing in `setup-agents.sh`
+scripts documented natively above, same env vars, same ports, nothing in the agent setup
 or any agent config needs to change either way. It's an alternative way to run them, not an
 additional one: don't run a proxy both natively and via compose at once.
 

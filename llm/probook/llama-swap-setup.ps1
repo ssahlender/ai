@@ -5,7 +5,7 @@
 .DESCRIPTION
     Windows counterpart to llm/i9/llama-swap-setup.sh. Generates a llama-swap config.yaml
     from models.json (via Get-ProbookModeTable / Get-ServerInvocation in lib\common.ps1,
-    shared with start-llm.ps1 and setup-agent-providers.ps1), starts llama-swap.exe, and
+    shared with start-llm.ps1), starts llama-swap.exe, and
     repoints local-proxy.py's upstream at it -- same stack as the bash version:
 
         harness -> local-proxy.py (9081, keep-alive) -> llama-swap (9082, routing/lifecycle)
@@ -174,4 +174,4 @@ Write-Host ("  proxy up, log {0}" -f $proxyLog)
 Write-Host ""
 Write-Host ("Agents pointed at http://localhost:{0}/v1 can now request any of the modes above by name;" -f $AgentPort)
 Write-Host "llama-swap starts/stops the matching llama-server.exe automatically. Point OpenCode at it with"
-Write-Host ("  .\setup-agent-providers.ps1 -BaseUrl http://127.0.0.1:{0}/v1   (same mode ids; the default URL is the manual 9080)" -f $AgentPort)
+Write-Host ("  .\setup-agents.ps1   (once; agents then use http://127.0.0.1:{0}/v1)" -f $AgentPort)

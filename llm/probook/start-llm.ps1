@@ -82,7 +82,7 @@ $ModelsJson = Resolve-ModelsJsonPath -Explicit $ModelsJson -ScriptDir $PSScriptR
 
 # ── mode table ─────────────────────────────────────────────────────
 # Read from models.json (shared with the i9 bash scripts, and with
-# setup-agent-providers.ps1/llama-swap-setup.ps1 here) instead of a literal or
+# llama-swap-setup.ps1 here) instead of a literal or
 # regex-scraping this file's source text.
 $ModeTable = Get-ProbookModeTable -ModelsJson $ModelsJson -ChatTemplate $ChatTemplate
 

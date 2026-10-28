@@ -90,5 +90,5 @@ disown
 for _ in $(seq 1 20); do curl -s -o /dev/null "http://127.0.0.1:$AGENT_PORT/v1/models" && break; sleep 0.3; done
 
 echo
-echo "Agents:  http://127.0.0.1:$AGENT_PORT/v1  (./setup-agent.sh points OpenCode and Pi here)"
+echo "Agents:  http://127.0.0.1:$AGENT_PORT/v1  (../setup-agents.sh points the agents here)"
 echo "Web UI:  http://127.0.0.1:$SWAP_LISTEN/ui"

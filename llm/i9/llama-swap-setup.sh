@@ -108,5 +108,5 @@ disown
 
 echo
 echo "Agents pointed at http://localhost:$AGENT_PORT/v1 can now request any of the models above by name;"
-echo "llama-swap starts/stops the matching llama-server automatically. Re-run setup-agents.sh $MACHINE to list"
+echo "llama-swap starts/stops the matching llama-server automatically. Re-run ../setup-agents.sh to list"
 echo "them in OpenCode/Pi/cagent (same ids as before, no config change needed there)."

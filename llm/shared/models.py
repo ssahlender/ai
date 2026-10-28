@@ -14,7 +14,7 @@ File resolution (first match wins), unless an explicit path is passed:
      see models.local.json.example)
   3. models.json in llm/, one level above this script (the committed, shared lineup)
 
-As a library (used by setup-agents.sh and llama-swap-setup.sh, which need the raw
+As a library (used by setup_agents.py and llama-swap-setup.sh, which need the raw
 per-mode dicts to build their own structures):
     from models import load_modes, resolve_models_json
     modes = load_modes('i9')                     # list of dicts, as stored in the JSON

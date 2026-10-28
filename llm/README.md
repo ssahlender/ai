@@ -24,7 +24,7 @@ Agents are configured for **9081** on all three machines. Everything listens on 
 | what | ProBook (`llm\probook`) | i9 (`llm/i9`) | Mac (`llm/mac`) |
 |---|---|---|---|
 | install llama-swap (once) | `.\update-llm.ps1 -Engine llama-swap` (GitHub release, SHA-checked) | `brew` via `source ../../tools/_brew-i9.sh`, then `$BREW tap mostlygeek/llama-swap && $BREW install mostlygeek/llama-swap/llama-swap` | `../../tools/llama-swap-install.sh` (brew tap + install) |
-| wire agents (once) | `.\setup-agent-providers.ps1` | `./setup-agents.sh i9` | `./setup-agent.sh` |
+| wire agents (once) | `.\setup-agents.ps1` | `../setup-agents.sh` | `../setup-agents.sh` |
 | **start** | `.\llama-swap-setup.ps1` | `./llama-swap-setup.sh i9` | `./llama-swap-setup.sh` |
 | Claude Code | `.\claude-local.ps1` (starts the chain if needed) | `../../tools/claude-providers.sh local` | `../../tools/claude-providers.sh local` |
 | **stop** | `.\stop-llm.ps1` | `./stop.sh` | `./stop.sh` |
@@ -36,6 +36,10 @@ The llama-swap UI shows it loading.
 them; the agent model id stays short. On the Mac, llama-swap lists the readable entry and the raw
 `ollama/<name>`; both reach the same model.
 
+**Agent setup is one codebase** for all three machines (`shared/setup_agents.py`): it detects the machine
+(`--machine` overrides; an unknown machine is refused), writes only models that are really available, and
+configures every installed agent (OpenCode, Pi, Docker Agent), removing references to models that are gone.
+
 **Thinking is off by default** everywhere: `--reasoning off` (ProBook), `-rea off` (i9), and on the Mac
 llama-swap adds `reasoning_effort: none` and `thinking: {type: disabled}` to every request. Measured much
 slower with no quality gain ([`docs/i9.md`](docs/i9.md), "Reasoning round"). For one run with thinking:
@@ -44,8 +48,8 @@ Mac: call Ollama directly on 11434.
 
 **Without llama-swap** (benchmarks, debugging): one bare server on 9080 with `start-llm.ps1 <mode>`
 (ProBook) or `./start.sh i9 <mode>` (i9; also starts local-proxy on 9081), or `./start.sh` (Mac, Ollama in
-the foreground). Point agents there with `setup-agent-providers.ps1 -BaseUrl http://127.0.0.1:9080/v1`
-(ProBook) or `AGENT_PORT=11434 ./setup-agent.sh` (Mac). Never run a bare server and llama-swap on
+the foreground). Point agents there with `setup-agents.ps1 -BaseUrl http://127.0.0.1:9080/v1`
+(ProBook) or `../setup-agents.sh --base-url http://127.0.0.1:11434/v1` (Mac). Never run a bare server and llama-swap on
 the same machine at once: the model would be loaded twice.
 
 ## Layout
@@ -73,7 +77,7 @@ ProBook (`llm\probook`):
 .\update-llm.ps1 -Engine llama-swap            # llama-swap
 .\fetch-model.ps1 -Url https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf `
   -FileName Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf -ExpectedBytes 20754978432     # then check the SHA-256 in ..\MODELS.md
-.\setup-agent-providers.ps1                    # OpenCode -> 9081 (-DryRun first)
+.\setup-agents.ps1                            # OpenCode, Pi, Docker Agent -> 9081 (-DryRun first)
 .\claude-local.ps1 -FixSettings                # once: CLAUDE_CODE_ATTRIBUTION_HEADER=0, or local calls run ~90 % slower
 ```
 
@@ -85,7 +89,7 @@ i9 (`llm/i9`):
 ```bash
 ./update.sh i9                                 # ik_llama.cpp (Thireus prebuilt, AVX2)
 ./download-models.sh i9                        # the GGUFs listed in ../models.json
-./setup-agents.sh i9                           # OpenCode + Pi + Docker Agent, provider ik-llama, port 9081
+../setup-agents.sh                             # OpenCode, Pi, Docker Agent -> 9081 (--dry-run first)
 ./cleanup-models.sh i9                         # dry run: GGUFs not in the catalog
 ```
 
@@ -98,7 +102,7 @@ Mac (`llm/mac`):
 ../../tools/ollama-install.sh && ../../tools/llama-swap-install.sh     # brew; updates: tools/update-all.sh
 ollama pull hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL               # 13 GB; then the 32K alias:
 printf 'FROM hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL\nPARAMETER num_ctx 32768\nPARAMETER temperature 0.7\n' | ollama create qwen36-35b-a3b -f -
-./setup-agent.sh                               # OpenCode + Pi -> 9081
+../setup-agents.sh                             # OpenCode, Pi, Docker Agent -> 9081
 ```
 
 Why Q2 and not a 4-bit quant (24 GB do not fit it), and the separate graphify instance
@@ -110,7 +114,8 @@ Why Q2 and not a 4-bit quant (24 GB do not fit it), and the separate graphify in
 
 | was | now |
 |---|---|
-| `ik-llama/start.sh`, `setup-agents.sh`, `update.sh`, `llama-swap-setup.sh` ... | `llm/i9/` (same names) |
+| `ik-llama/start.sh`, `update.sh`, `llama-swap-setup.sh` ... | `llm/i9/` (same names) |
+| `ik-llama/setup-agents.sh`, `ollama/setup-agent.sh`, `llm/setup-agent-providers.ps1` | one codebase: `llm/shared/setup_agents.py`, run via `llm/setup-agents.sh` (i9, Mac) or `llm/probook/setup-agents.ps1` |
 | `ik-llama/kill-proxy.sh`, `ik-llama/llama-swap-stop.sh` | `llm/i9/stop.sh` |
 | `ik-llama/models.json`, `ik-llama/models.local.json` | `llm/models.json`, `llm/models.local.json` (move a private one by hand) |
 | `ik-llama/local-proxy.py`, `ocg-proxy.py`, `models.py`, `qwen3-template.j2`, `docker-compose.yml` | `llm/shared/` |
