@@ -24,7 +24,14 @@ CAGENT_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cagent"
 SECRETS_FILE="$HOME/.secrets"
 OPENCODE_OUTPUT_LIMIT="${OPENCODE_OUTPUT_LIMIT:-8192}"
 OPENCODE_COMPACTION_RESERVED="${OPENCODE_COMPACTION_RESERVED:-10000}"
-MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-$SCRIPT_DIR/models.json}"
+MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-}"
+if [ -z "$MODELS_JSON_FILE" ]; then
+  if [ -f "$SCRIPT_DIR/models.local.json" ]; then
+    MODELS_JSON_FILE="$SCRIPT_DIR/models.local.json"
+  else
+    MODELS_JSON_FILE="$SCRIPT_DIR/models.json"
+  fi
+fi
 
 # Agents point at local-proxy.py (started by start.sh alongside llama-server),
 # not llama-server's own port, so cold-prefill/queued-request gaps get SSE

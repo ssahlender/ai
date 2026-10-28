@@ -5,7 +5,14 @@ set -euo pipefail
 
 MACHINE="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODELS_JSON="${IK_LLAMA_MODELS_JSON:-$SCRIPT_DIR/models.json}"
+MODELS_JSON="${IK_LLAMA_MODELS_JSON:-}"
+if [ -z "$MODELS_JSON" ]; then
+  if [ -f "$SCRIPT_DIR/models.local.json" ]; then
+    MODELS_JSON="$SCRIPT_DIR/models.local.json"
+  else
+    MODELS_JSON="$SCRIPT_DIR/models.json"
+  fi
+fi
 
 usage() {
   echo "Usage: $0 [i9|macbook-air]" >&2

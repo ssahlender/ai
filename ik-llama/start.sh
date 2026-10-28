@@ -11,7 +11,17 @@ set -euo pipefail
 MACHINE="${1:-}"
 MODE="${2:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODELS_JSON="${IK_LLAMA_MODELS_JSON:-$SCRIPT_DIR/models.json}"
+MODELS_JSON="${IK_LLAMA_MODELS_JSON:-}"
+if [ -z "$MODELS_JSON" ]; then
+  # A colleague who clones this repo gets your committed lineup by default, but can keep
+  # their own without ever touching (or fighting git over) the committed file: drop a
+  # models.local.json next to it (gitignored) and every script here prefers it automatically.
+  if [ -f "$SCRIPT_DIR/models.local.json" ]; then
+    MODELS_JSON="$SCRIPT_DIR/models.local.json"
+  else
+    MODELS_JSON="$SCRIPT_DIR/models.json"
+  fi
+fi
 
 # ── load_modes: one source of truth (models.json) for every script ──
 # Renders each machine's model list in the same pipe-delimited shape MODES always used

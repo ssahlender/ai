@@ -74,7 +74,14 @@ $ErrorActionPreference = 'Stop'
 if ($BindAddress -ne '127.0.0.1') {
     if (-not $AllowNonLoopback -or -not $ApiKey) { throw 'non-loopback binding requires -AllowNonLoopback and a non-empty -ApiKey; the previous all-interface dummy-key default exposed the server unnecessarily' }
 }
-if (-not $ModelsJson) { $ModelsJson = Join-Path (Split-Path $PSScriptRoot -Parent) 'ik-llama\models.json' }
+if (-not $ModelsJson) {
+    $ikLlamaDirPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'ik-llama'
+    $localJson = Join-Path $ikLlamaDirPath 'models.local.json'
+    # A colleague who clones this repo gets the committed lineup by default, but can keep
+    # their own without touching (or fighting git over) the committed file: drop a
+    # models.local.json next to it (gitignored) and this script prefers it automatically.
+    if (Test-Path $localJson) { $ModelsJson = $localJson } else { $ModelsJson = Join-Path $ikLlamaDirPath 'models.json' }
+}
 
 # ── mode table ─────────────────────────────────────────────────────
 # Read from models.json (shared with the i9/Mac bash scripts) instead of a literal here, so

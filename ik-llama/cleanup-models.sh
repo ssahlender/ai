@@ -17,7 +17,14 @@ case "$ARG" in
 esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-$SCRIPT_DIR/models.json}"
+MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-}"
+if [ -z "$MODELS_JSON_FILE" ]; then
+  if [ -f "$SCRIPT_DIR/models.local.json" ]; then
+    MODELS_JSON_FILE="$SCRIPT_DIR/models.local.json"
+  else
+    MODELS_JSON_FILE="$SCRIPT_DIR/models.json"
+  fi
+fi
 
 case "$MACHINE" in
   i9)          MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}" ;;

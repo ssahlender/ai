@@ -51,7 +51,11 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-if (-not $ModelsJson) { $ModelsJson = Join-Path (Split-Path $root -Parent) 'ik-llama\models.json' }
+if (-not $ModelsJson) {
+    $ikLlamaDirPath = Join-Path (Split-Path $root -Parent) 'ik-llama'
+    $localJson = Join-Path $ikLlamaDirPath 'models.local.json'
+    if (Test-Path $localJson) { $ModelsJson = $localJson } else { $ModelsJson = Join-Path $ikLlamaDirPath 'models.json' }
+}
 # Same defaults start-llm.ps1 uses, so the two scripts cannot disagree about where an engine
 # lives without an explicit -MainlineDir/-IkLlamaDir override on both.
 if (-not $MainlineDir) { $MainlineDir = Join-Path $env:USERPROFILE '.local\share\llama.cpp\llama.cpp-cpu' }

@@ -66,10 +66,17 @@ with the `ik-llama` provider (`http://localhost:9080/v1`), and credentials
 **Model names.** There are no short aliases. A mode, an OpenCode/Pi model id and the
 Claude Code model name are all the GGUF file name without `.gguf` (for example
 `ik-llama/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P`). `models.json` is the single
-source of truth for the i9/Mac lineups: `start.sh`, `download-models.sh`, `setup-agents.sh`,
-`llama-swap-setup.sh`, `cleanup-models.sh`, `model-info.sh` and `bench.sh` all read it instead of
-keeping their own list. Add or change a model there, not in any script. (ProBook is not in this
-file yet — it's a separate native PowerShell runtime with its own table in `llm/*.ps1`.)
+source of truth for every machine's lineup, i9/Mac/ProBook alike: `start.sh`, `download-models.sh`,
+`setup-agents.sh`, `llama-swap-setup.sh`, `cleanup-models.sh`, `model-info.sh`, `bench.sh`, and the
+ProBook `start-llm.ps1`/`setup-agent-providers.ps1` all read it instead of keeping their own list.
+Add or change a model there, not in any script.
+
+**Your own lineup without touching the shared one.** Clone this repo and you get the committed
+`models.json` by default. To run something different without creating merge conflicts over it
+(or clobbering someone else's), drop a `models.local.json` next to it — see
+`models.local.json.example` for the shape. It's gitignored; every script above prefers it
+automatically when present, with no flag or env var needed. `IK_LLAMA_MODELS_JSON=/path/to/file`
+overrides either one explicitly, for anything even more one-off.
 
 **Picking a model without typing the name.** Run `./start.sh i9` (or `./bench.sh i9`) with no mode in a
 terminal for a numbered menu, or pass the number from that list (`./start.sh i9 2`). Numbers follow the

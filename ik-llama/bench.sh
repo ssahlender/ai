@@ -18,7 +18,16 @@ case "$MACHINE" in
     NGL=0
     THREADS_DEFAULT="${BENCH_THREADS:-6 8}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-24 32}"
     # Modes are the GGUF stems listed in models.json (single source of truth).
-    MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/models.json}"
+    _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-}"
+    if [ -z "$MODELS_JSON_FILE" ]; then
+      if [ -f "$_script_dir/models.local.json" ]; then
+        MODELS_JSON_FILE="$_script_dir/models.local.json"
+      else
+        MODELS_JSON_FILE="$_script_dir/models.json"
+      fi
+    fi
+    unset _script_dir
     MODES=()
     while IFS= read -r gguf; do
       [ -n "$gguf" ] && MODES+=("${gguf%.gguf}")
