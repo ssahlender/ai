@@ -102,7 +102,11 @@ foreach ($e in $entries) {
     $quotedArgs   = $e.Args | ForEach-Object { ConvertTo-YamlSingleQuoted "$_" }
     $cmdLine = (@($quotedServer) + $quotedArgs) -join ' '
     $lines += ("  {0}:" -f (ConvertTo-YamlSingleQuoted $e.Short))
-    $lines += ("    cmd: {0}" -f $cmdLine)
+    # Block scalar, not a plain value: a plain scalar that starts with a quote is parsed as one
+    # quoted string, so "'C:\...exe' '-m' ..." was a YAML syntax error. Inside a block scalar the
+    # single quotes are literal text, left for llama-swap's own shell-style splitting.
+    $lines += '    cmd: |'
+    $lines += ("      {0}" -f $cmdLine)
     $lines += '    proxy: "http://127.0.0.1:${PORT}"'
     $lines += '    ttl: 0'
 }
