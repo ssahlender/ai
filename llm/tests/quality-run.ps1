@@ -22,8 +22,9 @@ param(
     # --no-reasoning-preserve: several Qwen templates prepend reasoning tokens by default, which roughly
     # doubles time-per-answer, and that flag turned out to be the measured cause of a 2x slowdown.
     [string[]]$ServerArgs,
-    # Forwarded to start-llm.ps1 as --reasoning off. This is the flag that actually suppresses
-    # chain-of-thought; the measured swing is 12/12 in 6.0 s (off) versus 5/12 in 32.9 s (on).
+    # start-llm.ps1 now serves with --reasoning off by default; -Thinking turns chain-of-thought on.
+    # The measured swing is 12/12 in 6.0 s (off) versus 5/12 in 32.9 s (on). -NoThinking is obsolete.
+    [switch]$Thinking,
     [switch]$NoThinking,
     [string]$FixtureDir,
     [string]$LlmRoot,
@@ -292,7 +293,7 @@ $exitCode = 0
 $taskCount = 0
 $results = @()
 try {
-    $startOut = (& $startScript -Mode $Mode -Background -Port $Port -ExtraArgs $ServerArgs -NoThinking:$NoThinking 2>&1 | Out-String)
+    $startOut = (& $startScript -Mode $Mode -Background -Port $Port -ExtraArgs $ServerArgs -Thinking:$Thinking 2>&1 | Out-String)
     foreach ($l in @($startOut.Trim() -split "`n")) {
         if ($l.Trim()) { Write-Host ("  start: " + $l.Trim()) }
     }
@@ -420,7 +421,7 @@ $doc = [ordered]@{
     temperature = 0
     fixtureDir  = $FixtureDir
     taskSet     = $TaskSet
-    serverArgs  = (($ServerArgs + $(if ($NoThinking) { @('--reasoning off') } else { @() })) -join ' ')
+    serverArgs  = (($ServerArgs + $(if ($Thinking) { @() } else { @('--reasoning off') })) -join ' ')
     taskCount   = $taskCount
     summary     = $familySummary
     results     = $results

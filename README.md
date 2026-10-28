@@ -543,6 +543,17 @@ The i9-13900 (Debian) uses [ik_llama.cpp](https://github.com/Thireus/ik_llama.cp
 
 See [`ik-llama/README.md`](ik-llama/README.md) for full details: hardware, models, flags, benchmark scripts, performance, and lessons learned.
 
+### Starting the local model stack
+
+| machine | engine + model | start | details |
+|---|---|---|---|
+| ProBook (Windows) | mainline llama.cpp, Qwen3.6-35B-A3B IQ4_NL + MTP | `llm\start-llm.ps1 qwen36_35b_ml -Background`, then `llm\claude-local.ps1` or `opencode` | [`llm/README.md`](llm/README.md), "Start the stack" (manual and llama-swap) |
+| i9 (Debian) | ik_llama.cpp, Qwen3.6-35B-A3B MTP UD-Q6_K | `ik-llama/start.sh i9 Qwen3.6-35B-A3B-MTP-UD-Q6_K` (or `ik-llama/llama-swap-setup.sh i9`) | [`ik-llama/README.md`](ik-llama/README.md), "Quick start: i9"; llama-swap in [`ik-llama/AGENTS.md`](ik-llama/AGENTS.md) |
+| MacBook Air M4 | Ollama, `qwen36-35b-a3b` (UD-Q2_K_XL) | `ollama/start.sh`, then `ollama/setup-agent.sh` once | [`ollama/README.md`](ollama/README.md) |
+
+Thinking is **off** by default on the ProBook and the i9 (measured: much slower, no quality gain). On the
+Mac, Ollama decides per request (`"reasoning_effort": "none"` turns it off); see `ollama/README.md`.
+
 Generated benchmark output goes into `bench-results/` and is intentionally ignored by git. Python bytecode caches such as `__pycache__/` and `*.pyc` are also ignored.
 
 ### Remote control policy

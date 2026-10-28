@@ -17,9 +17,9 @@
     model -- two independent supervisors; llama-swap doesn't know about a manually-started
     llama-server.exe, so the same GGUF could get loaded twice.
 
-    NOT VERIFIED on a real Windows/PowerShell runtime as of writing -- written and reviewed
-    from a Linux box with no pwsh available to run it on. Run -WhatIf first and read the
-    generated config.yaml before trusting it with a real launch.
+    Verified end to end on the ProBook 2026-10-28 (llama-swap v268). Run -WhatIf first and read
+    the generated config.yaml. Thinking is off in every generated entry (Get-ServerInvocation's
+    default, same as start-llm.ps1).
 
 .PARAMETER WhatIf
     Generate and print config.yaml; start nothing.
@@ -169,5 +169,5 @@ Write-Host ("  proxy up, log {0}" -f $proxyLog)
 
 Write-Host ""
 Write-Host ("Agents pointed at http://localhost:{0}/v1 can now request any of the modes above by name;" -f $AgentPort)
-Write-Host "llama-swap starts/stops the matching llama-server.exe automatically. Re-run setup-agent-providers.ps1"
-Write-Host "to list them in OpenCode (same ids as before, no config change needed there)."
+Write-Host "llama-swap starts/stops the matching llama-server.exe automatically. Point OpenCode at it with"
+Write-Host ("  .\setup-agent-providers.ps1 -BaseUrl http://127.0.0.1:{0}/v1   (same mode ids; the default URL is the manual 9080)" -f $AgentPort)

@@ -294,7 +294,8 @@ function Get-ServerInvocation {
         [string]$BindAddress = '127.0.0.1',
         [string]$ApiKey = '',
         [string[]]$ExtraArgs = @(),
-        [switch]$NoThinking
+        # Thinking is off unless asked for, the same default as the i9's start.sh (-rea off).
+        [switch]$Thinking
     )
     $dir = $EngineDirs[$Mode.Engine]
     if (-not $dir) { throw "Unknown engine '$($Mode.Engine)' in mode table" }
@@ -325,6 +326,7 @@ function Get-ServerInvocation {
             # mainline llama.cpp: --jinja + built-in template resolution; no ik_llama-only
             # flags (-cram/-crs/-sps/-dt/-rea/--context-shift do not exist here).
             $serverArgs += @('--jinja')
+            if (-not $Thinking) { $serverArgs += @('--reasoning', 'off') }
             if ($Mode.Template -and (Test-Path $Mode.Template)) {
                 $serverArgs += @('--chat-template-file', $Mode.Template)
             }
@@ -337,7 +339,7 @@ function Get-ServerInvocation {
                 '-dt', '0.1'
                 '--jinja'
                 '--context-shift', 'on'
-                '-rea', 'off'
+                '-rea', $(if ($Thinking) { 'on' } else { 'off' })
             )
             if ($ChatTemplate -and (Test-Path $ChatTemplate)) { $serverArgs += @('--chat-template-file', $ChatTemplate) }
         }
@@ -347,7 +349,6 @@ function Get-ServerInvocation {
     if ($Mode.Spec) { $serverArgs += @($Mode.Spec -split '\s+' | Where-Object { $_ }) }
     if ($ApiKey) { $serverArgs += @('--api-key', $ApiKey) }
     if ($ExtraArgs) { $serverArgs += $ExtraArgs }
-    if ($NoThinking) { $serverArgs += @('--reasoning', 'off') }
 
     return [pscustomobject]@{ Server = $server; ModelPath = $modelPath; Args = $serverArgs }
 }

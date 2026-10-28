@@ -50,17 +50,58 @@ its own (edit 14-20 tok/s), so treat gaps under ~20 % as noise.
 - Quality, 6 scripted tasks x 3 samples at temperature 0.7 (graded by running the code): HauhauCS 15/18,
   bartowski 14/18, unsloth 14/18, unsloth MTP 12/18 -- no difference this sample size can call.
 
-## Start, check, stop
+## Start the stack
+
+Two ways to run it; pick one, never both at once (two supervisors would load the 19 GB model twice
+and run out of RAM). All commands from `C:\data\git\ai-tools\llm`.
+
+| | ports | who uses it |
+|---|---|---|
+| **A. manual** (default) | llama-server on 9080, `local-proxy.py` on 9081 | OpenCode talks to 9080, Claude Code to 9081 |
+| **B. llama-swap** (optional) | `local-proxy.py` 9081 -> llama-swap 9082 -> llama-server | agents ask for a mode by name; llama-swap starts/stops the server |
+
+**Thinking is off by default** (`--reasoning off`), the same as the i9's `start.sh` (`-rea off`).
+Measured here: 12/12 in 6.0 s off vs 5/12 in 32.9 s on; on the i9 it was 8-9x slower with no quality
+gain (`../ik-llama/README.md`, "Reasoning round"). `start-llm.ps1 ... -Thinking` turns it on for one run.
+
+**Once per machine** (or after a fresh clone):
+
+```powershell
+.\update-llm.ps1                               # mainline llama.cpp engine
+.\fetch-model.ps1 -Url https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf `
+  -FileName Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf -ExpectedBytes 20754978432     # then check the SHA-256 in MODELS.md
+.\setup-agent-providers.ps1                    # writes ~/.config/opencode/opencode.json (-DryRun first)
+```
+
+**A. Manual: start, check, stop**
 
 ```powershell
 .\start-llm.ps1 -ListOnly                      # every mode + resolved paths + OK/MISSING
-.\start-llm.ps1 qwen36_35b_ml -Background      # detached; survives the calling session
+.\start-llm.ps1 qwen36_35b_ml -Background      # 9080, detached; survives the calling session
 (Invoke-RestMethod http://127.0.0.1:9080/health).status     # 'ok' once loaded, 503 while loading
+opencode                                       # OpenCode uses 9080 directly
+.\claude-local.ps1                             # Claude Code: starts the server if needed + local-proxy on 9081
 Stop-Process -Name llama-server -Force         # there is no stop script
 ```
 
-Loading 18 GB takes roughly half a minute; `/health` answers `503` until it is ready. A server
-started from a PSRP session dies with that session; use `-Background`.
+Loading 19 GB takes about a minute (66 s measured 2026-10-28); `/health` answers `503` until it is
+ready. A server started from a PSRP session dies with that session; use `-Background`.
+
+**B. llama-swap: start, check, stop** (verified 2026-10-28, llama-swap v268)
+
+```powershell
+.\update-llm.ps1 -Engine llama-swap            # once: installs llama-swap.exe (SHA-verified)
+Stop-Process -Name llama-server -Force -ErrorAction SilentlyContinue   # no manual server alongside
+.\llama-swap-setup.ps1 -WhatIf                 # print the generated config.yaml
+.\llama-swap-setup.ps1                         # write it, start llama-swap on 9082, point local-proxy (9081) at it
+.\setup-agent-providers.ps1 -BaseUrl http://127.0.0.1:9081/v1    # OpenCode through the proxy instead of 9080
+Stop-Process -Name llama-swap,llama-server -Force                # stop; then rerun setup-agent-providers.ps1
+                                                                  # without -BaseUrl to go back to manual
+```
+
+The first request after a start loads the model (79-90 s measured); later ones answer at normal
+speed. `claude-local.ps1` belongs to the manual path: it starts its own server on 9080, so do not
+run it while llama-swap is up.
 
 ## Talking to it: and the empty-answer trap
 
@@ -76,8 +117,8 @@ Invoke-RestMethod http://127.0.0.1:9080/v1/chat/completions -Method Post -Body $
   returned `"ProBook local model works."` with `finish_reason = stop` (190 completion tokens,
   158 of them reasoning).
 - Appending **`/no_think` does not suppress thinking** on this template (`max_tokens = 64` →
-  empty content again). Increase the output budget, or use the launcher's
-  `-NoThinking` switch, which passes `--reasoning off` to llama-server.
+  empty content again). Increase the output budget, or serve with thinking off,
+  which the launcher now does by default (`--reasoning off`; `-Thinking` turns it back on).
 - The Mac behaves differently: there `think: false` (native API) and `reasoning_effort: "none"`
   (`/v1`) both work. See `../ollama/README.md`.
 

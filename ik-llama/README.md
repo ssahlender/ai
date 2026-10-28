@@ -112,10 +112,12 @@ On Windows, ProBook runs natively via the scripts in `llm/` (see `llm/README.md`
 
 ```powershell
 pwsh llm\update-llm.ps1
-pwsh llm\fetch-model.ps1 qwen36_35b_ml
+pwsh llm\fetch-model.ps1 -Url <URL from llm\MODELS.md> -FileName Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf -ExpectedBytes 20754978432
 pwsh llm\setup-agent-providers.ps1
-pwsh llm\start-llm.ps1 qwen36_35b_ml
+pwsh llm\start-llm.ps1 qwen36_35b_ml -Background     # thinking off by default, like start.sh
 ```
+
+Full start/stop for both the manual and the llama-swap path: `llm/README.md`, "Start the stack".
 
 Benchmark thread settings:
 
@@ -129,7 +131,8 @@ pwsh llm\bench\bench-threads.ps1
 ./update.sh i9
 ./download-models.sh i9
 ./setup-agents.sh i9
-./start.sh i9 Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q6_K_P   # or: Qwen3.6-35B-A3B-MTP-UD-Q6_K
+./start.sh i9 Qwen3.6-35B-A3B-MTP-UD-Q6_K   # current recommendation (MTP + suffix); thinking off (-rea off)
+./llama-swap-setup.sh i9   # optional instead of start.sh: routing via llama-swap (AGENTS.md); stop: ./llama-swap-stop.sh
 ./cleanup-models.sh i9     # dry-run obsolete GGUF cleanup
 ```
 

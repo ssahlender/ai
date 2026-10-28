@@ -63,10 +63,12 @@ param(
     # Appended verbatim to llama-server's arguments. Kept generic on purpose: serving flags that change
     # results (e.g. --no-reasoning-preserve) must be explicit at the call site, not baked into a mode.
     [string[]]$ExtraArgs,
-    # Suppress chain-of-thought generation. --reasoning-preserve (and --no-reasoning-preserve) only
-    # governs whether reasoning is kept in the HISTORY, which is why it changes nothing about
-    # time-per-answer. `--reasoning off` is the switch that stops the model thinking, and it is the
-    # mainline equivalent of ik_llama's -rea off.
+    # Thinking is OFF by default (`--reasoning off`, the mainline equivalent of ik_llama's -rea off),
+    # matching the i9's start.sh. Measured: off was 12/12 in 6.0 s vs 5/12 in 32.9 s on here, and on
+    # the i9 thinking was 8-9x slower with no quality gain. -Thinking turns it back on for one run.
+    # --reasoning-preserve only governs whether reasoning is kept in the HISTORY, not whether it happens.
+    [switch]$Thinking,
+    # Obsolete: off is now the default. Still accepted so older calls keep working.
     [switch]$NoThinking
 )
 
@@ -101,7 +103,7 @@ $ModeTable = Get-ProbookModeTable -ModelsJson $ModelsJson -ChatTemplate $ChatTem
 $engineDirs = @{ 'mainline' = $MainlineDir; 'ik_llama' = $IkLlamaDir }
 
 if ($ListOnly -or -not $Mode) {
-    Write-Host "Usage: start-llm.ps1 <mode> [-Background] [-Port N] [-Ctx N]"
+    Write-Host "Usage: start-llm.ps1 <mode> [-Background] [-Port N] [-Ctx N] [-Thinking]"
     Write-Host ""
     foreach ($m in $ModeTable) {
         $exe = Join-Path $engineDirs[$m.Engine] 'llama-server.exe'
@@ -124,7 +126,7 @@ if ($running) { throw "llama-server.exe is already running (pid $($running.Id -j
 
 $inv = Get-ServerInvocation -Mode $sel -Port $Port -ModelDir $ModelDir -EngineDirs $engineDirs `
     -ChatTemplate $ChatTemplate -Threads $Threads -ThreadsBatch $ThreadsBatch -Ctx $Ctx `
-    -BindAddress $BindAddress -ApiKey $ApiKey -ExtraArgs $ExtraArgs -NoThinking:$NoThinking
+    -BindAddress $BindAddress -ApiKey $ApiKey -ExtraArgs $ExtraArgs -Thinking:$Thinking
 $server = $inv.Server
 $modelPath = $inv.ModelPath
 $serverArgs = $inv.Args
