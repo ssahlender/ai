@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Starts llama-server. Usage: ./start.sh <machine> <mode>
+# Starts llama-server. Usage: ./start.sh [i9] <mode>
 # IK_LLAMA_SPEC overrides the mode's --spec-type flags (raw; 'none' disables).
 # IK_LLAMA_EXTRA_ARGS appends raw llama-server flags last (later flags win), e.g. '--slot-save-path DIR' or '-rea on'.
 #   Machine: i9 (the ProBook and the Mac have their own folders: llm/probook, llm/mac)
 #   Mode:    GGUF file name without .gguf, or its number from the list
 #            (run without a mode for an interactive numbered menu)
 set -euo pipefail
+
+# `i9` is the only machine these scripts serve: the argument is optional (still accepted).
+case "${1:-}" in i9|probook|macbook-air|mac) ;; *) set -- i9 "$@" ;; esac
 
 MACHINE="${1:-}"
 MODE="${2:-}"
@@ -24,7 +27,7 @@ load_modes() {
 # Other machines have their own folder (llm/README.md): say so instead of a bare usage error.
 case "$MACHINE" in
   probook)     echo "The ProBook runs natively on Windows: llm\\probook\\start-llm.ps1 <mode>" >&2; exit 1 ;;
-  macbook-air) echo "The Mac runs Ollama: llm/mac/start.sh" >&2; exit 1 ;;
+  macbook-air|mac) echo "The Mac runs Ollama: llm/llama-swap-setup.sh" >&2; exit 1 ;;
 esac
 
 # ── machine config ─────────────────────────────────────────────────
@@ -141,15 +144,15 @@ ensure_local_proxy() {
   echo "Warning: local-proxy did not come up; agents pointed at 9081 won't work. Check /tmp/local-proxy.log" >&2
 }
 
-# ── print_cmd (for llama-swap) ────────────────────────────────────
-# Prints the exact argv start_model would exec, shell-quoted on one line, so
-# llama-swap's cmd can do: bash -c 'eval "$(IK_LLAMA_PRINT_CMD=1 ... start.sh i9 <mode>)"'
-# and get the real llama-server process under its own supervision — no duplicated
-# flag-building logic to keep in sync.
-print_cmd() {
+# ── build_argv: the one place the server command is built ──────────
+# Used by both paths below, so a flag cannot change in one and not the other:
+#   IK_LLAMA_PRINT_CMD=1  prints it shell-quoted on one line, for llama-swap's
+#                         cmd: bash -c 'eval "$(IK_LLAMA_PRINT_CMD=1 ... start.sh i9 <mode>)"'  (see shared/llama_swap_config.py)
+#   otherwise             execs it (a bare server on $PORT, plus local-proxy on 9081)
+build_argv() {
   local model="$1" ctx="$2" cram="$3"; shift 3
   local extra=("$@")
-  local argv=(
+  ARGV=(
     "$SERVER"
     -m "$(model_path "$model")"
     -ngl "$NGL"
@@ -175,9 +178,6 @@ print_cmd() {
     ${extra[@]+"${extra[@]}"}
     ${IK_LLAMA_EXTRA_ARGS:-}
   )
-  printf 'exec'
-  printf ' %q' "${argv[@]}"
-  printf '\n'
 }
 
 # ── start_model ────────────────────────────────────────────────────
@@ -185,37 +185,16 @@ start_model() {
   local name="$1" model="$2" ctx="${3:-32768}" cram="${4:-16384}"; shift 4
   ctx="${IK_LLAMA_CTX_SIZE:-$ctx}"
   cram="${IK_LLAMA_CRAM_MB:-$cram}"
-  local extra=("$@")
+  build_argv "$model" "$ctx" "$cram" "$@"
   if [ "$PRINT_CMD" = 1 ]; then
-    print_cmd "$model" "$ctx" "$cram" ${extra[@]+"${extra[@]}"}
+    printf 'exec'
+    printf ' %q' "${ARGV[@]}"
+    printf '\n'
     return 0
   fi
   ensure_local_proxy
   echo "Starting $name on port $PORT (ctx=${ctx}, cram=${cram}MB, threads=${THREADS}/${THREADS_BATCH}, ubatch=${UBATCH:-default}, parallel=${PARALLEL})..."
-  exec "$SERVER" \
-    -m "$(model_path "$model")" \
-    -ngl "$NGL" \
-    --threads "$THREADS" \
-    --threads-batch "$THREADS_BATCH" \
-    ${UBATCH:+--ubatch-size "$UBATCH"} \
-    --parallel "$PARALLEL" \
-    --ctx-size "$ctx" \
-    -sps 0.5 \
-    -cram "$cram" \
-    -crs 0.5 \
-    -ctk q8_0 \
-    -ctv q8_0 \
-    -dt 0.1 \
-    ${CTX_CKPT[@]+"${CTX_CKPT[@]}"} \
-    ${MLOCK:-} \
-    --port "$PORT" \
-    --host "${IK_LLAMA_BIND:-${IK_LLAMA_HOST:-127.0.0.1}}" \
-    --jinja \
-    --context-shift on \
-    -rea off \
-    -v \
-    ${extra[@]+"${extra[@]}"} \
-    ${IK_LLAMA_EXTRA_ARGS:-}
+  exec "${ARGV[@]}"
 }
 
 # ── resolve mode ───────────────────────────────────────────────────

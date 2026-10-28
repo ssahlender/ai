@@ -3,20 +3,18 @@
 set -euo pipefail
 
 PORT="${OLLAMA_HOST_PORT:-11434}"
+# shellcheck source=../shared/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../shared/common.sh"
 
-# Non-interactive shells (ssh, launchd, cron) do not get Homebrew's PATH, so a bare
-# `ollama` fails there even though it works in a terminal. Resolve it explicitly.
-OLLAMA_BIN=""
-for c in "$(command -v ollama 2>/dev/null || true)" /opt/homebrew/bin/ollama /usr/local/bin/ollama; do
-  if [ -n "$c" ] && [ -x "$c" ]; then OLLAMA_BIN="$c"; break; fi
-done
+OLLAMA_BIN="${OLLAMA_BIN:-$(find_bin ollama || true)}"
 if [ -z "$OLLAMA_BIN" ]; then
-  echo "ollama not found in PATH, /opt/homebrew/bin or /usr/local/bin - install it or set OLLAMA_BIN" >&2
+  echo "ollama not found in PATH or the Homebrew prefixes - install it or set OLLAMA_BIN" >&2
   exit 1
 fi
 
-if pgrep -f "ollama serve" >/dev/null 2>&1; then
-  echo "ollama serve is already running. Stop it first: ./stop.sh" >&2
+# by port, not by command line: the graphify instance on 11438 is also an "ollama serve"
+if [ -n "$(pids_on_port "$PORT")" ]; then
+  echo "something already listens on $PORT. Stop it first: ../stop.sh" >&2
   exit 1
 fi
 

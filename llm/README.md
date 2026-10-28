@@ -21,13 +21,17 @@ Agents are configured for **9081** on all three machines. Everything listens on 
 | i9 (office, Debian 12, 64 GB, CPU) | [`i9/`](i9/) | ik_llama.cpp | Qwen3.6-35B-A3B MTP UD-Q6_K (unsloth) - suffix+MTP - 128K | `Qwen3.6-35B-A3B-MTP-UD-Q6_K` |
 | MacBook Air M4 (24 GB, Metal) | [`mac/`](mac/) | Ollama | Qwen3.6-35B-A3B UD-Q2_K_XL (unsloth) - 32K - Ollama | `qwen36-35b-a3b` |
 
-| what | ProBook (`llm\probook`) | i9 (`llm/i9`) | Mac (`llm/mac`) |
-|---|---|---|---|
-| install llama-swap (once) | `.\update-llm.ps1 -Engine llama-swap` (GitHub release, SHA-checked) | `brew` via `source ../../tools/_brew-i9.sh`, then `$BREW tap mostlygeek/llama-swap && $BREW install mostlygeek/llama-swap/llama-swap` | `../../tools/llama-swap-install.sh` (brew tap + install) |
-| wire agents (once) | `.\setup-agents.ps1` | `../setup-agents.sh` | `../setup-agents.sh` |
-| **start** | `.\llama-swap-setup.ps1` | `./llama-swap-setup.sh i9` | `./llama-swap-setup.sh` |
-| Claude Code | `.\claude-local.ps1` (starts the chain if needed) | `../../tools/claude-providers.sh local` | `../../tools/claude-providers.sh local` |
-| **stop** | `.\stop-llm.ps1` | `./stop.sh` | `./stop.sh` |
+The ProBook runs PowerShell from `llm\probook`; the i9 and the Mac share the same commands in `llm/`
+(the machine is detected; `LLM_MACHINE=i9|mac` overrides it, an unknown machine is refused):
+
+| what | ProBook (`llm\probook`) | i9 and Mac (`llm/`) |
+|---|---|---|
+| install llama-swap (once) | `.\update-llm.ps1 -Engine llama-swap` (GitHub release, SHA-checked) | `../tools/llama-swap-install.sh` (brew tap + install; on the i9 through the brewuser wrapper) |
+| wire agents (once) | `.\setup-agents.ps1` | `./setup-agents.sh` |
+| **start** | `.\llama-swap-setup.ps1` | `./llama-swap-setup.sh` (Mac: starts Ollama first) |
+| Claude Code | `.\claude-local.ps1` (starts the chain if needed) | `../tools/claude-providers.sh local` |
+| **stop** | `.\stop-llm.ps1` | `./stop.sh` |
+| check | (in CI) | `./check.sh` |
 
 The first request after a start loads the model: about 1-1.5 min on the ProBook, seconds on the Mac.
 The llama-swap UI shows it loading.
@@ -47,9 +51,9 @@ ProBook `.\start-llm.ps1 qwen36_35b_ml -Thinking`, i9 `IK_LLAMA_EXTRA_ARGS='-rea
 Mac: call Ollama directly on 11434.
 
 **Without llama-swap** (benchmarks, debugging): one bare server on 9080 with `start-llm.ps1 <mode>`
-(ProBook) or `./start.sh i9 <mode>` (i9; also starts local-proxy on 9081), or `./start.sh` (Mac, Ollama in
+(ProBook) or `i9/start.sh <mode>` (i9; also starts local-proxy on 9081), or `mac/start.sh` (Mac, Ollama in
 the foreground). Point agents there with `setup-agents.ps1 -BaseUrl http://127.0.0.1:9080/v1`
-(ProBook) or `../setup-agents.sh --base-url http://127.0.0.1:11434/v1` (Mac). Never run a bare server and llama-swap on
+(ProBook) or `./setup-agents.sh --base-url http://127.0.0.1:11434/v1` (Mac). Never run a bare server and llama-swap on
 the same machine at once: the model would be loaded twice.
 
 ## Layout
@@ -87,10 +91,10 @@ a scheduled task.
 i9 (`llm/i9`):
 
 ```bash
-./update.sh i9                                 # ik_llama.cpp (Thireus prebuilt, AVX2)
-./download-models.sh i9                        # the GGUFs listed in ../models.json
+./update.sh                                    # ik_llama.cpp (Thireus prebuilt, AVX2)
+./download-models.sh                           # the GGUFs listed in ../models.json
 ../setup-agents.sh                             # OpenCode, Pi, Docker Agent -> 9081 (--dry-run first)
-./cleanup-models.sh i9                         # dry run: GGUFs not in the catalog
+./cleanup-models.sh                            # dry run: GGUFs not in the catalog
 ```
 
 All i9 modes default to 8 threads and 24 batch threads (`IK_LLAMA_THREADS`, `IK_LLAMA_THREADS_BATCH`);
@@ -114,9 +118,10 @@ Why Q2 and not a 4-bit quant (24 GB do not fit it), and the separate graphify in
 
 | was | now |
 |---|---|
-| `ik-llama/start.sh`, `update.sh`, `llama-swap-setup.sh` ... | `llm/i9/` (same names) |
+| `ik-llama/start.sh`, `update.sh`, `download-models.sh` ... | `llm/i9/` (same names; the `i9` argument is now optional) |
 | `ik-llama/setup-agents.sh`, `ollama/setup-agent.sh`, `llm/setup-agent-providers.ps1` | one codebase: `llm/shared/setup_agents.py`, run via `llm/setup-agents.sh` (i9, Mac) or `llm/probook/setup-agents.ps1` |
-| `ik-llama/kill-proxy.sh`, `ik-llama/llama-swap-stop.sh` | `llm/i9/stop.sh` |
+| `ik-llama/kill-proxy.sh`, `ik-llama/llama-swap-stop.sh`, `ollama/stop.sh` | `llm/stop.sh` (i9 and Mac) |
+| `ik-llama/llama-swap-setup.sh`, later `llm/i9/` and `llm/mac/llama-swap-setup.sh` | `llm/llama-swap-setup.sh` (i9 and Mac; config from `llm/shared/llama_swap_config.py`) |
 | `ik-llama/models.json`, `ik-llama/models.local.json` | `llm/models.json`, `llm/models.local.json` (move a private one by hand) |
 | `ik-llama/local-proxy.py`, `ocg-proxy.py`, `models.py`, `qwen3-template.j2`, `docker-compose.yml` | `llm/shared/` |
 | `ik-llama/claude-providers.sh`, `docker-agent-providers.sh`, `session-cleanup.sh` | `tools/` (`cagent-providers.sh` was a byte-identical copy: removed) |

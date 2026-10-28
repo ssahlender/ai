@@ -17,15 +17,10 @@ set -euo pipefail
 
 PORT="${GRAPHIFY_OLLAMA_PORT:-11438}"
 
-# Resolve the binary explicitly: this script is started from non-interactive sessions
-# (ssh) where Homebrew's bin directory is not on PATH.
-OLLAMA_BIN="$(command -v ollama 2>/dev/null || true)"
+# shellcheck source=../shared/common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../shared/common.sh"
+OLLAMA_BIN="${OLLAMA_BIN:-$(find_bin ollama || true)}"
 if [ -z "$OLLAMA_BIN" ]; then
-  for cand in /opt/homebrew/bin/ollama /usr/local/bin/ollama /usr/bin/ollama; do
-    [ -x "$cand" ] && OLLAMA_BIN="$cand" && break
-  done
-fi
-if [ -z "$OLLAMA_BIN" ] || [ ! -x "$OLLAMA_BIN" ]; then
   echo "could not find the ollama binary (looked in PATH and the usual prefixes)" >&2
   exit 1
 fi

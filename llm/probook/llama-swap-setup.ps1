@@ -3,7 +3,7 @@
     Starts the ProBook's default chain: local-proxy (9081) -> llama-swap (9082, web UI) -> llama-server.
 
 .DESCRIPTION
-    Windows counterpart to llm/i9/llama-swap-setup.sh. Generates a llama-swap config.yaml
+    Windows counterpart to llm/llama-swap-setup.sh (i9, Mac). Generates a llama-swap config.yaml
     from models.json (via Get-ProbookModeTable / Get-ServerInvocation in lib\common.ps1,
     shared with start-llm.ps1), starts llama-swap.exe, and
     repoints local-proxy.py's upstream at it -- same stack as the bash version:

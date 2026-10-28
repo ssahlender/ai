@@ -1,0 +1,18 @@
+# Runs llm/check.sh on every push and pull request: syntax of every bash, Python and PowerShell
+# script, the model catalog, the public-repo rule, and sandboxed dry runs for the i9, the Mac and the
+# ProBook. It exists because the i9 cannot be tested from the machine that maintains this repo.
+name: check
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: PyYAML (to parse the generated llama-swap configs)
+        run: sudo apt-get install -y --no-install-recommends python3-yaml
+      - name: llm/check.sh
+        run: bash llm/check.sh

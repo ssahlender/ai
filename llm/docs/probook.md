@@ -57,7 +57,7 @@ Invoke-RestMethod http://127.0.0.1:9080/v1/chat/completions -Method Post -Body $
 | `bench\bench-matrix.ps1` | measures **every `.gguf` found in the models dir**, discovered at run time, so it cannot outlive its models |
 | `bench\bench-ab.ps1`, `bench\bench-mtp.ps1` | **obsolete** (they required gemma-4-26B and the ik_llama engine). Kept as the method's record; they refuse and point at `bench-matrix.ps1` |
 | `update-llm.ps1` | updates engines; default is `mainline` only. `-Engine ik_llama`/`llama-swap`/`all` bring the others in deliberately |
-| `llama-swap-setup.ps1` | optional model routing/lifecycle via llama-swap, same stack as `llm/i9/llama-swap-setup.sh`; install the binary first with `update-llm.ps1 -Engine llama-swap`. verified end to end on the ProBook 2026-10-28 (llama-swap v268); run `-WhatIf` first |
+| `llama-swap-setup.ps1` | optional model routing/lifecycle via llama-swap, same stack as `llm/llama-swap-setup.sh` (i9, Mac); install the binary first with `update-llm.ps1 -Engine llama-swap`. verified end to end on the ProBook 2026-10-28 (llama-swap v268); run `-WhatIf` first |
 | `fetch-model.ps1` | resumable, size-verified GGUF download |
 | `MODELS.md` | provenance: repo, exact bytes, SHA-256, and what is installed on which host |
 

@@ -14,11 +14,11 @@ Scripts for running AI coding tools and local models across a few machines. This
 | machine | engine + model | start |
 |---|---|---|
 | ProBook (Windows) | mainline llama.cpp, Qwen3.6-35B-A3B IQ4_NL + MTP | `llm\probook\llama-swap-setup.ps1`, then `opencode` or `llm\probook\claude-local.ps1` |
-| i9 (Debian) | ik_llama.cpp, Qwen3.6-35B-A3B MTP UD-Q6_K | `llm/i9/llama-swap-setup.sh i9` |
-| MacBook Air M4 | Ollama, Qwen3.6-35B-A3B UD-Q2_K_XL | `llm/mac/llama-swap-setup.sh` |
+| i9 (Debian) | ik_llama.cpp, Qwen3.6-35B-A3B MTP UD-Q6_K | `llm/llama-swap-setup.sh` |
+| MacBook Air M4 | Ollama, Qwen3.6-35B-A3B UD-Q2_K_XL | `llm/llama-swap-setup.sh` |
 
 Every machine runs the same chain: agents → `local-proxy.py` (9081) → llama-swap (9082, web UI with stats at
-http://127.0.0.1:9082/ui) → engine. Stop with `stop-llm.ps1` / `stop.sh` in the same folder. Thinking is off
+http://127.0.0.1:9082/ui) → engine. Stop with `llm\probook\stop-llm.ps1` / `llm/stop.sh`. Thinking is off
 by default everywhere. Details, first setup and the bare-server path: [`llm/README.md`](llm/README.md). The folders `ik-llama/`, `ollama/` and `mlx/` were merged into `llm/`
 on 2026-10-28: [`llm/README.md`](llm/README.md#moved-here-on-2026-10-28) maps old paths to new.
 

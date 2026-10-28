@@ -263,7 +263,7 @@ picker() {
     [ -n "$local_ctx" ] && ctx_info="  ctx=${local_ctx}"
     green "  1) $local_model  [port $(local_upstream_port)${ctx_info}]"
   else
-    dim  "  1) No local server detected. Start with:  llm/i9/llama-swap-setup.sh i9  (Mac: llm/mac/llama-swap-setup.sh)"
+    dim  "  1) No local server detected. Start with:  llm/llama-swap-setup.sh"
   fi
 
   echo
@@ -341,7 +341,7 @@ warn_session_size() {
 pick_local() {
   if [ -z "$local_model" ]; then
     red "No local server running."
-    echo "Start one first:  llm/i9/start.sh i9 <mode>  (ProBook: llm\\probook\\start-llm.ps1)"
+    echo "Start one first:  llm/llama-swap-setup.sh  (ProBook: llm\\probook\\llama-swap-setup.ps1)"
     exit 1
   fi
   local ctx
@@ -445,7 +445,7 @@ direct() {
       if [ -z "$model" ]; then
         red "No local model running and no model specified."
         echo "Usage: $0 local <model-name>"
-        echo "Start the local stack first: llm/i9/llama-swap-setup.sh i9  (Mac: llm/mac/llama-swap-setup.sh)"
+        echo "Start the local stack first: llm/llama-swap-setup.sh"
         exit 1
       fi
       [ -n "$local_ctx" ] && dim "  Context size: ${local_ctx} tokens (from /props)"

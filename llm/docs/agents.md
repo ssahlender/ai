@@ -141,10 +141,10 @@ when you pick `local`. It intercepts every `/v1/messages` request and caps
 `"the request exceeds the available context size"`. The proxy caps the value so
 87.5% of context stays available for input.
 
-The proxy logs to `/tmp/local-proxy.log`. Stop it with `llm/i9/stop.sh` (`--all` also stops the cloud proxies).
+The proxy logs to `/tmp/local-proxy.log`. Stop it with `llm/stop.sh` (`--all` also stops the cloud proxies).
 
 The script uses `localhost` by default (configurable via `IK_LLAMA_HOST` and `IK_LLAMA_PORT`).
-Ensure a model is loaded first: `llm/i9/start.sh i9 <mode>`.
+Ensure the chain is up first: `llm/llama-swap-setup.sh`.
 
 ### Bare mode
 
@@ -224,7 +224,7 @@ The first message with a large system prompt requires a cold prefill. A short "h
 
 The short version, including the Mac (llama-swap in front of Ollama as a peer), is in [`../README.md`](../README.md). The details below are the i9 and ProBook implementation.
 
-By default `llm/i9/start.sh i9 <mode>` runs one model at a time on port 9080, picked manually. For
+A bare `llm/i9/start.sh <mode>` runs one model at a time on port 9080, picked manually. For
 switching models by name from the harness instead, [llama-swap](https://github.com/mostlygeek/llama-swap)
 can sit between the proxy and llama-server:
 
@@ -236,7 +236,7 @@ Install (brew tap; on i9 this works through the corporate proxy): `brew tap most
 (use `source tools/_brew-i9.sh && $BREW ...` on i9). ProBook: `llm\probook\update-llm.ps1 -Engine llama-swap`.
 
 ```bash
-llm/i9/llama-swap-setup.sh i9       # stop everything again: llm/i9/stop.sh
+llm/llama-swap-setup.sh             # i9 and Mac; stop everything again: llm/stop.sh
 ```
 
 This generates `~/.config/llama-swap/config.yaml` from `models.json` (one entry per
@@ -259,7 +259,7 @@ second copy of it alongside the manual one — an OOM risk on a RAM-constrained 
 wasted memory. Stop the manual instance first (or don't point any harness at 9081 while it's
 serving a live session) before routing requests through llama-swap.
 
-To go back to manual mode: `llm/i9/stop.sh`, then `llm/i9/start.sh i9 <mode>` as usual (it restarts
+To go back to manual mode: `llm/stop.sh`, then `llm/i9/start.sh <mode>` as usual (it restarts
 `local-proxy.py` pointed at 9080).
 
 ## Optional: docker-compose for the tooling (not the engine)

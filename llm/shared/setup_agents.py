@@ -23,7 +23,6 @@ is validated before anything is written, and an existing file is backed up as <f
 import argparse
 import json
 import os
-import platform
 import re
 import shutil
 import stat
@@ -33,10 +32,9 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from models import load_modes, resolve_models_json  # noqa: E402
+from models import LLAMA_ROOT, MACHINES, detect_machine, load_modes, resolve_models_json  # noqa: E402
 
 HOME = Path.home()
-LLAMA_ROOT = Path(os.environ.get('LLM_ROOT') or HOME / '.local' / 'share' / 'llama.cpp')
 DEFAULT_BASE_URL = 'http://127.0.0.1:9081/v1'
 OUTPUT_LIMIT = int(os.environ.get('OPENCODE_OUTPUT_LIMIT', '8192'))
 COMPACTION_RESERVED = int(os.environ.get('OPENCODE_COMPACTION_RESERVED', '10000'))
@@ -47,19 +45,6 @@ PROVIDER = {'i9': 'ik-llama', 'mac': 'ollama', 'probook': 'llamacpp'}
 
 class ConfigError(Exception):
     pass
-
-
-# ── which machine ────────────────────────────────────────────────────────────
-
-def detect_machine():
-    system = platform.system()
-    if system == 'Darwin':
-        return 'mac'
-    if system == 'Windows':
-        return 'probook'
-    if system == 'Linux' and (Path(os.environ.get('IK_LLAMA_DIR') or LLAMA_ROOT / 'ik_llama')).is_dir():
-        return 'i9'
-    return None
 
 
 # ── which models are actually available ──────────────────────────────────────
@@ -183,7 +168,7 @@ def read_secrets(path):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('--machine', choices=sorted(PROVIDER), default=os.environ.get('LLM_MACHINE') or None)
+    ap.add_argument('--machine', choices=MACHINES)
     ap.add_argument('--dry-run', action='store_true')
     ap.add_argument('--base-url', default=os.environ.get('AGENT_BASE_URL', DEFAULT_BASE_URL),
                     help=f'agent-facing URL (default {DEFAULT_BASE_URL}, the llama-swap chain)')

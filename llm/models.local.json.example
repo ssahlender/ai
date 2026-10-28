@@ -3,6 +3,7 @@
   "machines": {
     "i9": [
       {
+        "name": "Qwen3.6-35B-A3B MTP UD-Q6_K (unsloth) - suffix+MTP - 128K",
         "desc": "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative: suffix + MTP, ~2x on edits)",
         "file": "Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf",
         "ctx": 131072,

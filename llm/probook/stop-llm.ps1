@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     llama-swap (if running), every llama-server.exe, and local-proxy.py (agent port 9081).
-    Counterpart of llm/i9/stop.sh.
+    Counterpart of llm/stop.sh (i9, Mac).
 
 .EXAMPLE
     .\stop-llm.ps1

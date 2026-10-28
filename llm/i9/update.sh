@@ -3,6 +3,9 @@
 # Usage: ./update.sh i9
 set -euo pipefail
 
+# `i9` is the only machine these scripts serve: the argument is optional (still accepted).
+case "${1:-}" in i9|probook|macbook-air|mac) ;; *) set -- i9 "$@" ;; esac
+
 MACHINE="${1:-}"
 
 [ -n "$MACHINE" ] || { echo "Usage: $0 i9" >&2; exit 1; }

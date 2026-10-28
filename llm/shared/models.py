@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Shared loader for llm/models.json -- the single source of truth for every
-machine's model lineup (i9, macbook-air, probook). Every bash script that needs model
+machine's model lineup (i9, mac, probook). Every bash script that needs model
 data calls this instead of embedding its own copy of the parsing logic: that duplication
 (and start.sh re-deriving it from positional pipe fields) was flagged in a 2026-10-28
 review (codex + agy) as the main scalability risk once more machines/models/colleagues
@@ -29,11 +29,34 @@ bench.sh, each of which only needs one fixed, already-established output shape):
     models.py info       <machine>   tab-delimited: desc<TAB>file<TAB>ctx<TAB>cram<TAB>mmproj_file
     models.py whitelist  <machine>   newline list of every GGUF filename (model + mmproj)
     models.py path                   the resolved models.json path being used (debugging)
+    models.py machine                which machine this is (i9 | mac | probook); exit 1 when unknown.
+                                      $LLM_MACHINE overrides the detection.
 """
 import json
 import os
+import platform
 import sys
 from pathlib import Path
+
+LLAMA_ROOT = Path(os.environ.get('LLM_ROOT') or Path.home() / '.local' / 'share' / 'llama.cpp')
+MACHINES = ('i9', 'mac', 'probook')
+
+
+def detect_machine():
+    """$LLM_MACHINE, else macOS -> mac, Windows -> probook, Linux with an ik_llama install -> i9.
+    None for anything else: callers must refuse rather than guess, so one machine's config
+    cannot land on another (the Hermes host is Linux too, without ik_llama)."""
+    env = os.environ.get('LLM_MACHINE')
+    if env:
+        return env if env in MACHINES else None
+    system = platform.system()
+    if system == 'Darwin':
+        return 'mac'
+    if system == 'Windows':
+        return 'probook'
+    if system == 'Linux' and Path(os.environ.get('IK_LLAMA_DIR') or LLAMA_ROOT / 'ik_llama').is_dir():
+        return 'i9'
+    return None
 
 
 def resolve_models_json(explicit=None):
@@ -124,6 +147,13 @@ def main(argv):
     cmd, rest = argv[0], argv[1:]
     if cmd == 'path':
         _cli_path()
+        return 0
+    if cmd == 'machine':
+        m = detect_machine()
+        if not m:
+            print('Cannot tell which machine this is; set LLM_MACHINE=i9|mac|probook.', file=sys.stderr)
+            return 1
+        print(m)
         return 0
     fn = _SUBCOMMANDS.get(cmd)
     if not fn:
