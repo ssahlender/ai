@@ -1,10 +1,9 @@
 {
   "_comment": "Single source of truth for the model lineups: i9 (ik_llama, llm/i9/*.sh), ProBook (mainline llama.cpp, llm/probook/*.ps1) and Mac (Ollama models, llm/mac/*.sh). Each script reads this instead of keeping its own list. Edit this file to add/change a model; do not hardcode one in a script. Retired ProBook modes stay as a comment block in llm/probook/start-llm.ps1 (recipe to restore, not live data). A private lineup goes in llm/models.local.json (gitignored, see models.local.json.example).",
   "_fields": {
+    "id": "THE model name, one per model and used everywhere: agents (OpenCode, Pi, Claude Code, Docker Agent), llama-swap's model page and its stats. Scheme: <model>-<quant>-<publisher>[-MTP]-<context>K. Context = the ctx below; MTP = speculative decoding on.",
     "desc": "Human-readable label, shown in the interactive menu",
-    "name": "Display name shown next to the id in llama-swap's web UI and in OpenCode: publisher, speculation, context",
-    "id": "The model id agents and llama-swap use (OpenCode/Pi/Claude Code model, llama-swap model): model, quant and variant, readable. i9: the GGUF stem (no id field needed); probook and mac: this field.",
-    "file": "Local GGUF filename -- this is the model id used everywhere (OpenCode/Pi provider keys, llama-swap model names, etc.)",
+    "file": "Local GGUF filename (i9: also the start.sh mode name, without .gguf)",
     "ctx": "Context size passed to --ctx-size",
     "cram": "Prompt-cache RAM limit (MB) passed to -cram (ik_llama.cpp only; ignored by mainline llama.cpp)",
     "yarn": "Apply the machine's YARN rope-scaling flags",
@@ -20,7 +19,7 @@
   "machines": {
     "i9": [
       {
-        "name": "Qwen3.6-35B-A3B MTP UD-Q6_K (unsloth) - suffix+MTP - 128K",
+        "id": "Qwen3.6-35B-A3B-UD-Q6_K-unsloth-MTP-128K",
         "desc": "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative: suffix + MTP, ~2x on edits)",
         "file": "Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf",
         "ctx": 131072,
@@ -37,7 +36,7 @@
         }
       },
       {
-        "name": "Qwen3.6-35B-A3B MTP UD-Q5_K_XL (unsloth) - suffix+MTP - 256K",
+        "id": "Qwen3.6-35B-A3B-UD-Q5_K_XL-unsloth-MTP-256K",
         "desc": "Qwen3.6 35B-A3B MTP UD-Q5_K_XL, 256K ctx (dynamic quant, matches a colleague's setup; unverified quality vs Q6_K)",
         "file": "Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf",
         "ctx": 262144,
@@ -56,8 +55,7 @@
     ],
     "probook": [
       {
-        "name": "Qwen3.6-35B-A3B IQ4_NL (bartowski) - MTP - 32K",
-        "id": "Qwen3.6-35B-A3B-IQ4_NL",
+        "id": "Qwen3.6-35B-A3B-IQ4_NL-bartowski-MTP-32K",
         "short": "qwen36_35b_ml",
         "desc": "Qwen3.6 35B-A3B IQ4_NL (bartowski, vanilla) on mainline, draft-mtp from its embedded MTP layers",
         "file": "Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf",
@@ -78,9 +76,8 @@
     ],
     "mac": [
       {
-        "name": "Qwen3.6-35B-A3B UD-Q2_K_XL (unsloth) - 32K - Ollama",
+        "id": "Qwen3.6-35B-A3B-UD-Q2_K_XL-unsloth-32K",
         "desc": "13 GB, fully on the M4 GPU, ~31 tok/s; a 4-bit quant does not fit 24 GB (docs/mac.md)",
-        "id": "Qwen3.6-35B-A3B-UD-Q2_K_XL",
         "ollama": "qwen36-35b-a3b",
         "source": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL",
         "ctx": 32768

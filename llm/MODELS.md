@@ -29,7 +29,7 @@ Base URL pattern: `https://huggingface.co/<repo>/resolve/main/<file>`
 
 The recorded inventory lists only these models. The i9 rows come from `models.json` (repo, file, exact bytes, which `download-models.sh` verifies); their SHA-256 is not recorded here because the i9 cannot be reached from the host that maintains this file. Ollama manages the Mac's
 GGUF-derived model through its own model store. The ProBook runs mainline
-llama.cpp (model id `Qwen3.6-35B-A3B-IQ4_NL`, start-llm mode `qwen36_35b_ml`, `draft-mtp`); its previous model, the HauhauCS
+llama.cpp (model `Qwen3.6-35B-A3B-IQ4_NL-bartowski-MTP-32K`, start-llm mode `qwen36_35b_ml`, `draft-mtp`); its previous model, the HauhauCS
 IQ4_NL below, was deleted on 2026-10-28 and can be re-fetched from this table.
 
 ---

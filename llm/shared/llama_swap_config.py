@@ -6,8 +6,9 @@
 i9:  one entry per GGUF on disk. Each `cmd` runs llm/i9/start.sh with IK_LLAMA_PRINT_CMD=1 and evals
      the printed command, so llama-swap starts exactly the server start.sh would (one flag builder).
 mac: Ollama is a peer (it loads models itself); llama-swap forces thinking off in every request, for
-     both API formats. Each model also gets a selector carrying its readable name for the UI.
-Both: `name`/`description` from models.json are what llama-swap's web UI shows.
+     both API formats. Each model also gets a selector under its readable id, which agents use.
+Both: the model's `id` from models.json is its one name (model page, stats, agents); `desc` becomes the
+description shown under it.
 
 The ProBook's equivalent is llm/probook/llama-swap-setup.ps1 (Windows quoting, PowerShell flag builder).
 json.dumps() output is used for every string: it is a valid YAML double-quoted scalar.
@@ -44,13 +45,12 @@ def i9_config():
         if not (models_dir / m['file']).is_file():
             print(f"  - {m['file']}: skipped (not in {models_dir})", file=sys.stderr)
             continue
-        mid = m['file'][:-len('.gguf')]
+        mid = m.get('id') or m['file'][:-len('.gguf')]   # the one readable name; start.sh takes the file stem
+        mode = m['file'][:-len('.gguf')]
         out.append(f'  {q(mid)}:')
-        if m.get('name'):
-            out.append(f"    name: {q(m['name'])}")
         if m.get('desc'):
             out.append(f"    description: {q(m['desc'])}")
-        inner = f'eval "$(IK_LLAMA_PRINT_CMD=1 IK_LLAMA_PORT=${{PORT}} {q(str(start))} i9 {q(mid)})"'
+        inner = f'eval "$(IK_LLAMA_PRINT_CMD=1 IK_LLAMA_PORT=${{PORT}} {q(str(start))} i9 {q(mode)})"'
         out.append(f'    cmd: bash -c {q(inner)}')
         out.append('    proxy: "http://127.0.0.1:${PORT}"')
         out.append('    ttl: 0')
@@ -80,8 +80,7 @@ def mac_config():
     if entries:
         out.append('selectors:')
         for m in entries:
-            out += [f"  {q(m['id'])}:", '    strategy: pin', f"    targets: [{q('ollama/' + m['ollama'])}]",
-                    f"    name: {q(m.get('name', m['id']))}"]
+            out += [f"  {q(m['id'])}:", '    strategy: pin', f"    targets: [{q('ollama/' + m['ollama'])}]"]
             if m.get('desc'):
                 out.append(f"    description: {q(m['desc'])}")
     return out, len(entries)

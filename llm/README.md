@@ -16,11 +16,11 @@ agent (OpenCode, Pi, Claude Code, Docker Agent)
 
 Agents are configured for **9081** on all three machines. Everything listens on 127.0.0.1 only.
 
-| machine | folder | engine | model id (agents and llama-swap) | display name in the llama-swap UI |
-|---|---|---|---|---|
-| ProBook (Windows 11, 32 GB, CPU) | [`probook/`](probook/) | mainline llama.cpp | `Qwen3.6-35B-A3B-IQ4_NL` | Qwen3.6-35B-A3B IQ4_NL (bartowski) - MTP - 32K |
-| i9 (office, Debian 12, 64 GB, CPU) | [`i9/`](i9/) | ik_llama.cpp | `Qwen3.6-35B-A3B-MTP-UD-Q6_K` | Qwen3.6-35B-A3B MTP UD-Q6_K (unsloth) - suffix+MTP - 128K |
-| MacBook Air M4 (24 GB, Metal) | [`mac/`](mac/) | Ollama | `Qwen3.6-35B-A3B-UD-Q2_K_XL` | Qwen3.6-35B-A3B UD-Q2_K_XL (unsloth) - 32K - Ollama |
+| machine | folder | engine | model (one name: agents, llama-swap's model page and stats) |
+|---|---|---|---|
+| ProBook (Windows 11, 32 GB, CPU) | [`probook/`](probook/) | mainline llama.cpp | `Qwen3.6-35B-A3B-IQ4_NL-bartowski-MTP-32K` |
+| i9 (office, Debian 12, 64 GB, CPU) | [`i9/`](i9/) | ik_llama.cpp | `Qwen3.6-35B-A3B-UD-Q6_K-unsloth-MTP-128K` (also `…-UD-Q5_K_XL-unsloth-MTP-256K`) |
+| MacBook Air M4 (24 GB, Metal) | [`mac/`](mac/) | Ollama | `Qwen3.6-35B-A3B-UD-Q2_K_XL-unsloth-32K` |
 
 The ProBook runs PowerShell from `llm\probook`; the i9 and the Mac share the same commands in `llm/`
 (the machine is detected; `LLM_MACHINE=i9|mac` overrides it, an unknown machine is refused):
@@ -37,11 +37,12 @@ The ProBook runs PowerShell from `llm\probook`; the i9 and the Mac share the sam
 The first request after a start loads the model: about 1-1.5 min on the ProBook, seconds on the Mac.
 The llama-swap UI shows it loading.
 
-**Model ids are readable on every machine** and show the quant (table above): agents, llama-swap's lists
-and its stats all use them. The longer display `name` from [`models.json`](models.json) appears next to the
-id in llama-swap's UI and in OpenCode. On the Mac, llama-swap also lists the raw Ollama model
-(`ollama/qwen36-35b-a3b`); both reach the same model. Agent configs written before 2026-10-29 used short ids:
-re-run the agent setup once, it replaces them and removes the old references.
+**Each model has one name**, the `id` in [`models.json`](models.json), built the same way on every machine:
+`<model>-<quant>-<publisher>[-MTP]-<context>K` (MTP = speculative decoding on). Agents, llama-swap's model
+page, its stats and OpenCode all show that one name; `./check.sh` fails if a name does not match its own
+entry (context, MTP). The GGUF file names stay as published, and the i9's `start.sh` modes are those file
+names. On the Mac, llama-swap additionally lists Ollama's own model (`ollama/qwen36-35b-a3b`); both reach
+the same model, agents use the readable one.
 
 **Agent setup is one codebase** for all three machines (`shared/setup_agents.py`): it detects the machine
 (`--machine` overrides; an unknown machine is refused), writes only models that are really available, and
@@ -67,8 +68,9 @@ the same machine at once: the model would be loaded twice.
 | `MODELS.md` | provenance: repo, exact bytes, SHA-256, what is installed where, retired models |
 | `shared/` | used by more than one machine: `local-proxy.py`, `ocg-proxy.py` (cloud proxy), `models.py` (catalog loader), `qwen3-template.j2`, `docker-compose.yml` (proxies only) |
 | `probook/` | PowerShell: chain start/stop, bare launcher, updater, agent wiring, `claude-local.ps1`, `lib/common.ps1`, `bench/`, `tests/` (quality harness) |
-| `i9/` | bash: chain start, bare launcher, stop, updater, downloads, agent wiring, model cleanup, benchmarks |
-| `mac/` | bash: chain start, Ollama start/stop, agent wiring, a separate extraction instance for graphify |
+| `llama-swap-setup.sh`, `stop.sh`, `setup-agents.sh`, `check.sh` | the shared commands for the i9 and the Mac (logic in `shared/`) |
+| `i9/` | bash, i9 only: `start.sh` (a bare server; llama-swap runs it per model), updater, downloads, model cleanup and info, benchmarks, `move-to-home.sh` |
+| `mac/` | bash, Mac only: `start.sh` (Ollama; `llama-swap-setup.sh` starts it when needed), the separate graphify instance (`start-graphify.sh`, `stop-graphify.sh`) |
 | `docs/` | measurements and lessons: [`probook.md`](docs/probook.md), [`i9.md`](docs/i9.md), [`mac.md`](docs/mac.md), [`agents.md`](docs/agents.md) (proxies, Claude Code, Pi, Docker Agent, llama-swap), [`mlx-comparison.md`](docs/mlx-comparison.md) (retired), [`receipt-extraction-guide.md`](docs/receipt-extraction-guide.md) |
 
 Engines and GGUFs live outside the repo, under `~/.local/share/llama.cpp/` (Windows:
@@ -85,7 +87,8 @@ ProBook (`llm\probook`):
 .\fetch-model.ps1 -Url https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf `
   -FileName Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf -ExpectedBytes 20754978432     # then check the SHA-256 in ..\MODELS.md
 .\setup-agents.ps1                            # OpenCode, Pi, Docker Agent -> 9081 (-DryRun first)
-.\claude-local.ps1 -FixSettings                # once: CLAUDE_CODE_ATTRIBUTION_HEADER=0, or local calls run ~90 % slower
+.\claude-local.ps1 -FixSettings                # first run: writes CLAUDE_CODE_ATTRIBUTION_HEADER=0 (else ~90 % slower),
+                                               # then starts the chain if needed and opens Claude Code
 ```
 
 A process started from a PSRP session dies with that session: start the chain from a real console or
@@ -129,12 +132,13 @@ Why Q2 and not a 4-bit quant (24 GB do not fit it), and the separate graphify in
 | `ik-llama/local-proxy.py`, `ocg-proxy.py`, `models.py`, `qwen3-template.j2`, `docker-compose.yml` | `llm/shared/` |
 | `ik-llama/claude-providers.sh`, `docker-agent-providers.sh`, `session-cleanup.sh` | `tools/` (`cagent-providers.sh` was a byte-identical copy: removed) |
 | `llm/*.ps1`, `llm/lib`, `llm/bench`, `llm/tests` | `llm/probook/` |
-| `ollama/*.sh` | `llm/mac/` |
+| `ollama/start.sh`, `start-graphify.sh`, `stop-graphify.sh` | `llm/mac/` |
 | `ik-llama/README.md`, `AGENTS.md`, `ollama/README.md`, `mlx/README.md` | `llm/docs/` |
 | `ik-llama/start.ps1`, `update.ps1`, `mlx/*.sh`, `llm/bench/bench-ab.ps1`, `bench-mtp.ps1` | removed (superseded; in git history) |
 | the Mac's llama.cpp lineup in `models.json` (HauhauCS 27B/35B, Qwen3-Coder) | removed: the Mac runs Ollama only |
 
-Provider ids (`ik-llama/<model>`, `ollama/<model>`, `llamacpp`) and model ids did not change. Since the same
-day the llama-swap chain is the default: re-run the agent setup once on each machine (it moves agents to
-9081) and start with `llama-swap-setup` instead of `start`. On the i9 that also rewrites llama-swap's
-config, which held the old `start.sh` path.
+Provider ids (`ik-llama`, `ollama`, `llamacpp`) did not change. Since the same day the llama-swap chain is the
+default, and since 2026-10-29 every model has one readable name (table above) instead of the short ids
+(`qwen36_35b_ml`, `qwen36-35b-a3b`, the i9's GGUF stems). After pulling, on each machine: run the agent
+setup once (it points agents at 9081, writes the new names and removes references to the old ones), then
+start with `llama-swap-setup` (it rewrites llama-swap's config, which held the old paths and names).

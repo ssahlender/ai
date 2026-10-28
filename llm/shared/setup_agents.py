@@ -57,15 +57,15 @@ def models_for(machine, base_url=''):
     if machine == 'i9':
         for m in load_modes('i9'):
             if (models_dir / m['file']).is_file():
-                out.append((m['file'][:-len('.gguf')], m.get('name') or m['file'], int(ctx_override or m['ctx']),
-                            bool(m.get('mmproj'))))
+                mid = m.get('id') or m['file'][:-len('.gguf')]
+                out.append((mid, mid, int(ctx_override or m['ctx']), bool(m.get('mmproj'))))
     elif machine == 'probook':
         engine_dir = {'mainline': LLAMA_ROOT / 'llama.cpp-cpu', 'ik_llama': LLAMA_ROOT / 'ik_llama'}
         for m in load_modes('probook'):
             exe = engine_dir.get(m.get('engine'), Path('-')) / 'llama-server.exe'
             if (models_dir / m['file']).is_file() and exe.is_file():
-                out.append((m.get('id') or m['file'][:-len('.gguf')], m.get('name') or m['file'], int(m['ctx']),
-                            bool(m.get('mmproj'))))
+                mid = m.get('id') or m['file'][:-len('.gguf')]
+                out.append((mid, mid, int(m['ctx']), bool(m.get('mmproj'))))
             else:
                 print(f"  - {m['short']}: skipped (model and/or its engine not present)")
     elif machine == 'mac':
@@ -80,7 +80,7 @@ def models_for(machine, base_url=''):
             if have is None or m['ollama'] in have:
                 # through llama-swap the readable id (a selector); straight at Ollama its own model name
                 mid = m['ollama'] if f':{port}/' in base_url else m['id']
-                out.append((mid, m.get('name') or m['id'], int(m['ctx']), False))
+                out.append((mid, mid, int(m['ctx']), False))
             else:
                 print(f"  - {m['ollama']}: skipped (not in Ollama; ollama pull {m.get('source', '')})")
     return out
@@ -290,8 +290,8 @@ def main():
     configured = [n for n, on in (('OpenCode', has_opencode), ('Pi', has_pi), ('Docker Agent', cagent_on)) if on]
     print(f'Configured: {", ".join(configured) or "no agent installed"}')
     print(f'Models (use as {provider}/<id>):')
-    for mid, name, _, _ in models:
-        print(f'  {provider}/{mid}   {name}')
+    for mid, _, _, _ in models:
+        print(f'  {provider}/{mid}')
     print(f'Limits: output={OUTPUT_LIMIT}, compaction reserved={COMPACTION_RESERVED}')
 
 

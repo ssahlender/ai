@@ -21,13 +21,13 @@ llama-server on 9080. Override the URL with `--base-url` (`-BaseUrl` on the ProB
 (`llm/llama-swap-setup.sh`, ProBook `llama-swap-setup.ps1`), or by hand:
 `LOCAL_PROXY_UPSTREAM=http://127.0.0.1:9082 LOCAL_PROXY_PORT=9081 python3 llm/shared/local-proxy.py &`.
 
-Model ids are readable and show the quant: the GGUF file name without `.gguf` on the i9, the `id` field of `models.json` on the ProBook and the Mac (e.g. `Qwen3.6-35B-A3B-IQ4_NL`, `Qwen3.6-35B-A3B-UD-Q2_K_XL`). The ProBook's short mode name (`qwen36_35b_ml`) is only the argument to `start-llm.ps1`. Run the agent setup to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
+Model ids are the one readable name per model, the `id` field of `models.json` (scheme `<model>-<quant>-<publisher>[-MTP]-<context>K`, e.g. `Qwen3.6-35B-A3B-UD-Q6_K-unsloth-MTP-128K`). The i9's `start.sh` modes are the GGUF file names and the ProBook's `start-llm.ps1` mode is `qwen36_35b_ml`; agents never see either. Run the agent setup to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
 
 ## Pi
 
 The agent setup writes `~/.pi/agent/models.json` on every machine where Pi is installed. The Pi
 provider key is the machine's provider (`ik-llama`, `ollama`, `llamacpp`); model ids are the same as
-OpenCode's (for example `Qwen3.6-35B-A3B-MTP-UD-Q6_K` on the i9).
+OpenCode's (for example `Qwen3.6-35B-A3B-UD-Q6_K-unsloth-MTP-128K` on the i9).
 
 ### Large tool writes
 
@@ -61,7 +61,7 @@ with any existing options).
 
 - **Local models**: Run directly with `--model ik-llama/<gguf-stem>`, for example:
   ```bash
-  docker-agent run --model ik-llama/Qwen3.6-35B-A3B-MTP-UD-Q6_K coder "prompt"
+  docker-agent run --model ik-llama/Qwen3.6-35B-A3B-UD-Q6_K-unsloth-MTP-128K coder "prompt"
   ```
 - **OpenCode Go & Cloud models**: `setup-agents` syncs credentials (`OPENCODE_API_KEY`,
   `OPENROUTER_API_KEY`, `NVIDIA_API_KEY`) into `~/.config/cagent/.env` (mode 0600)
@@ -190,7 +190,7 @@ export ANTHROPIC_DEFAULT_HAIKU_MODEL=nvidia/llama-4-maverick
 claude --bare --model nvidia/llama-4-maverick
 ```
 
-Use the full GGUF stem as the model name for local, e.g. `Qwen3.6-35B-A3B-MTP-UD-Q6_K`.
+Use the model's one name (its `id` in `models.json`) for local, e.g. `Qwen3.6-35B-A3B-UD-Q6_K-unsloth-MTP-128K`.
 
 > [!NOTE]
 > Don't include `/v1` in `ANTHROPIC_BASE_URL`. Claude Code appends `/v1/messages`
@@ -244,8 +244,8 @@ GGUF present on disk for that machine), each model's `cmd` driving `start.sh i9 
 itself via `IK_LLAMA_PRINT_CMD=1` + `eval` so llama-swap reuses the exact flags `start.sh` would
 use (SAMPLE/YARN/MMPROJ/SPEC/CTX_CKPT conditionals included) instead of a second copy of that logic
 drifting out of sync. It then starts llama-swap on 9082 and repoints `local-proxy.py`'s upstream
-at it, leaving the agent-facing port (9081) and model ids (GGUF stems) unchanged —
-the agent config does not need to change either way. ProBook has its own equivalent,
+at it. The llama-swap entry of each model is its one name (`id` in `models.json`), the same name the
+agents use; a bare server needs only a different URL in the agent config (9080 instead of 9081). ProBook has its own equivalent,
 `llm\probook\llama-swap-setup.ps1` (install the binary first: `update-llm.ps1 -Engine llama-swap`) --
 same stack, generated from the same `models.json`, reusing `start-llm.ps1`'s own flag-building
 function (`Get-ServerInvocation` in `llm\probook\lib\common.ps1`) instead of a second copy. Verified

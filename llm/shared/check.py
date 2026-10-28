@@ -99,9 +99,22 @@ def check_syntax():
                                          + ('' if r.returncode == 0 else '\n' + (r.stdout + r.stderr).strip()[:1500]))
 
 
-REQUIRED = {'i9': ('name', 'file', 'ctx', 'download'), 'probook': ('name', 'id', 'short', 'file', 'ctx', 'engine'),
-            'mac': ('name', 'id', 'ollama', 'ctx')}
-ID_KEY = {'i9': 'file', 'probook': 'id', 'mac': 'id'}
+REQUIRED = {'i9': ('id', 'file', 'ctx', 'download'), 'probook': ('id', 'short', 'file', 'ctx', 'engine'),
+            'mac': ('id', 'ollama', 'ctx')}
+ID_KEY = {'i9': 'id', 'probook': 'id', 'mac': 'id'}
+
+
+def id_problems(m):
+    """The one-name scheme <model>-<quant>-<publisher>[-MTP]-<context>K must match the entry itself."""
+    mid, out = str(m.get('id', '')), []
+    if not re.fullmatch(r'[A-Za-z0-9._-]+', mid):
+        out.append('id has characters other than letters, digits, . _ -')
+    ctx = m.get('ctx')
+    if isinstance(ctx, int) and not mid.endswith(f'-{ctx // 1024}K'):
+        out.append(f'id does not end with its context -{ctx // 1024}K')
+    if ('-MTP-' in mid) != bool(m.get('spec') and 'mtp' in m['spec'].lower()):
+        out.append('id says MTP but the entry runs none, or the other way round')
+    return out
 
 
 def check_catalog():
@@ -121,6 +134,10 @@ def check_catalog():
                 missing = [k for k in REQUIRED[machine] if k not in m]
                 if missing:
                     fail(f'{path.name}: {machine}[{i}] lacks {", ".join(missing)}')
+                for problem in id_problems(m):
+                    fail(f'{path.name}: {machine}[{i}] {m.get("id")}: {problem}')
+                if 'name' in m:
+                    fail(f'{path.name}: {machine}[{i}] has a separate "name"; the id is the one name')
                 if machine in ('i9', 'probook') and not str(m.get('file', '')).endswith('.gguf'):
                     fail(f'{path.name}: {machine}[{i}] file is not a .gguf')
                 if machine == 'i9' and not isinstance((m.get('download') or {}).get('bytes'), int):
@@ -199,7 +216,7 @@ def check_i9(env):
         note(f'i9 scripts need bash >= 4, this bash is {major or "unknown"} (macOS ships 3.2); CI and the i9 run them')
         return
     for m in models.load_modes('i9'):
-        mid = m['file'][:-len('.gguf')]
+        mid = m['file'][:-len('.gguf')]   # start.sh modes are file stems
         r = run(['bash', str(LLM / 'i9' / 'start.sh'), mid], env={**env, 'IK_LLAMA_PRINT_CMD': '1'})
         line = r.stdout.strip()
         if r.returncode == 0 and line.startswith('exec ') and ' -rea off' in line and m['file'] in line:
@@ -211,6 +228,9 @@ def check_i9(env):
         fail(f'llama_swap_config.py i9: {r.stderr.strip()[:200]}')
         return
     cfg = load_yaml(r.stdout, 'i9 llama-swap config')
+    if cfg is not None:
+        want = {m['id'] for m in models.load_modes('i9')}
+        (ok if set(cfg.get('models', {})) == want else fail)(f'i9 llama-swap model ids = catalog ids: {sorted(cfg.get("models", {}))}')
     for mid, m in (cfg or {}).get('models', {}).items():
         argv = shlex.split(m['cmd'].replace('${PORT}', '5999'))
         out = run(argv, env=env)
@@ -218,8 +238,8 @@ def check_i9(env):
             ok(f'llama-swap cmd for {mid} starts the server it names, on llama-swap\'s port')
         else:
             fail(f'llama-swap cmd for {mid}: rc={out.returncode} {(out.stderr or out.stdout)[:200]}')
-        if not m.get('name'):
-            fail(f'llama-swap entry {mid} has no readable name')
+        if 'name' in m:
+            fail(f'llama-swap entry {mid} has a second name; the id is the one name')
 
 
 def load_yaml(text, what):
@@ -250,9 +270,10 @@ def check_mac(env, port):
         fail('mac config lacks the thinking-off filter')
     cfg = load_yaml(r.stdout, 'mac llama-swap config')
     if cfg:
-        names = {k: v.get('name') for k, v in (cfg.get('selectors') or {}).items()}
+        sel = cfg.get('selectors') or {}
         want = {m['id'] for m in models.load_modes('mac')}
-        (ok if set(names) == want and all(names.values()) else fail)(f'mac selectors with readable names: {sorted(names)}')
+        (ok if set(sel) == want and not any('name' in v for v in sel.values()) else fail)(
+            f'mac selectors = catalog ids, no second name: {sorted(sel)}')
 
 
 def check_agents(env, port):
@@ -265,9 +286,9 @@ def check_agents(env, port):
         try:
             oc = json.loads((Path(env['XDG_CONFIG_HOME']) / 'opencode' / 'opencode.json').read_text())
             got = oc['provider'][provider]
-            want = {m.get('id') or m['file'][:-len('.gguf')] for m in models.load_modes(machine)}
+            want = {m['id'] for m in models.load_modes(machine)}
             good = (dry.returncode == 0 and real.returncode == 0 and got['options']['baseURL'].endswith(':9081/v1')
-                    and set(got['models']) == want and all(v.get('name') for v in got['models'].values()))
+                    and set(got['models']) == want and all(v.get('name') == k for k, v in got['models'].items()))
         except (OSError, KeyError, ValueError) as ex:
             good, got = False, ex
         (ok if good else fail)(f'setup_agents {machine}: provider {provider} -> 9081, '
