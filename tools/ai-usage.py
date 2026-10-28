@@ -407,7 +407,7 @@ def proxy_env():
 
 # Corporate TLS, following this repo's documented convention (README: "Corporate CA / proxy TLS").
 # The i9 work PC intercepts TLS and its root is installed into the system bundle, which the sibling
-# scripts hand to each runtime: SSL_CERT_FILE for Python (see ik-llama/ocg-proxy.py) and
+# scripts hand to each runtime: SSL_CERT_FILE for Python (see llm/shared/ocg-proxy.py) and
 # NODE_EXTRA_CA_CERTS / NPM_CONFIG_CAFILE for Node. Read the same variables — do not invent new ones.
 CA_ENV_VARS = ("SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "SYSTEM_CA_FILE")
 SYSTEM_CA_FILE = "/etc/ssl/certs/ca-certificates.crt"

@@ -1,1 +1,0 @@
-docker-agent-providers.sh

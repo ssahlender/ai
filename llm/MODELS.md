@@ -15,8 +15,8 @@ Verify a downloaded file (PowerShell):
 (Get-FileHash .\FILE.gguf -Algorithm SHA256).Hash.ToLower()     # must equal the hash
 ```
 
-Download a file (resumable, verified): `llm/fetch-model.ps1`
-(`llm/tests/download-model.ps1` is a thin wrapper over it, kept because other paths referred to it.)
+Download a file (resumable, verified): `llm/probook/fetch-model.ps1`
+(`llm/probook/tests/download-model.ps1` is a thin wrapper over it, kept because other paths referred to it.)
 Base URL pattern: `https://huggingface.co/<repo>/resolve/main/<file>`
 
 ## Installed right now (2026-10-28)
@@ -45,7 +45,7 @@ IQ4_NL below, was deleted on 2026-10-28 and can be re-fetched from this table.
 | status | **KEEP**; the standing reference on this box, served with `--spec-type draft-mtp` (MTP layers embedded) |
 
 Vanilla Qwen3.6-35B-A3B, the same family the other machines run, in a standard (non-dynamic) imatrix
-quant. Chosen in a 2026-10-28 A/B against the HauhauCS fine-tune and unsloth's UD quants (`README.md`).
+quant. Chosen in a 2026-10-28 A/B against the HauhauCS fine-tune and unsloth's UD quants (`docs/probook.md`).
 
 ### Retired 2026-10-28: `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf`
 | | |

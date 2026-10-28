@@ -8,7 +8,7 @@ This repository is public (its own URL is the only GitHub reference that belongs
 commit internal addressing: no LAN
 IPs, internal hostnames, account names, SSH key filenames/paths, or
 private URLs. Keep the real values in host-local skills or a private repository
-and reference them from here (`ollama/README.md` shows the pattern). The same
+and reference them from here (`llm/docs/mac.md` shows the pattern). The same
 rule applies to `sysadmin-github`.
 
 ## Re-syncing an existing clone after the history rewrite (2026-10-06)
@@ -31,24 +31,11 @@ Commits here must use a personal identity, not a corporate address. Set it per c
 
 ## Local LLM (OpenCode + Claude Code)
 
-### x86 CPU (ProBook + i9)
-
-See [`ik-llama/AGENTS.md`](ik-llama/AGENTS.md) for full setup:
-
-- OpenCode provider config (setup scripts for i9 and native Windows PowerShell for ProBook)
-- Docker Agent (docker-agent) custom provider config and OpenCode Go credentials
-- Claude Code environment variables and model names
-- Disabling the KV cache attribution header (causes ~90% slowdown with local servers)
-- OpenCode local-speed mode for disabling MCP/plugins when local writes stall with low CPU
-- Prompt cache warmup tip
-
-### Apple Silicon (MacBook Air M4)
-
-See [`ollama/README.md`](ollama/README.md) for the primary daily-driver engine setup.
-[`ik-llama/`](ik-llama/) provides the alternative llama.cpp launcher:
-- `download-models.sh macbook-air`: pulls GGUFs + mmproj from HF (same repos as i9)
-- `setup-agents.sh macbook-air`: auto-generates OpenCode/Pi config
-- `start.sh macbook-air`: Metal GPU via brew's llama.cpp, same flags + vision as i9
+Everything lives in [`llm/`](llm/README.md): one folder per machine (`probook/`, `i9/`, `mac/`), the shared
+catalog `llm/models.json` and proxies in `llm/shared/`. Agent wiring, Claude Code env vars, the
+attribution-header slowdown (~90 %), the proxies and llama-swap: [`llm/docs/agents.md`](llm/docs/agents.md).
+Model ids and provider ids (`ik-llama/<gguf-stem>`, `ollama/<name>`, `llamacpp`) are part of the
+agents' configs: do not rename them as a side effect.
 
 ## tools/ scripts
 

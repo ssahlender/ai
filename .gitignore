@@ -12,6 +12,6 @@ repomix-output.*
 .opencode/skills/
 .agents/skills/
 # directories only, so it would NOT ignore the symlink and the link would
-# A colleague's own model lineup (see ik-llama/models.local.json.example) -- never
+# A colleague's own model lineup (see llm/models.local.json.example) -- never
 # someone else's committed list.
-ik-llama/models.local.json
+llm/models.local.json

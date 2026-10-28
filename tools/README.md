@@ -1,0 +1,541 @@
+# tools
+
+Install and update scripts for AI coding tools. Core CLIs are installed via Homebrew where available; Node-based agent integrations use npm/npx; Python tools use uv. Run scripts individually or use `update-all.sh` to update everything at once.
+
+### Machine detection
+
+`tools/_brew-i9.sh` is sourced by every brew-using script. It sets two variables:
+
+| Variable | i9 (proxy env set) | Home / Mac |
+|---|---|---|
+| `IS_I9` | `1` | `` (empty) |
+| `BREW` | `sudo -n -u brewuser /home/linuxbrew/.linuxbrew/bin/brew` | `brew` |
+
+Detection: if any of `http_proxy`, `HTTP_PROXY`, `https_proxy`, `HTTPS_PROXY` is set in the environment, the machine is treated as i9.
+
+`HOMEBREW_NO_ASK=1` is exported for the plain-brew case (home/Mac). For i9, sudo strips environment variables, so the first run of any brew script writes the setting to `/home/linuxbrew/.linuxbrew/etc/homebrew/brew.env` via `brew sh` (which runs a shell with the brew prefix in scope; the only way to write there without needing extra sudoers entries).
+
+**sudoers constraint**: the NOPASSWD rule covers only the brew binary itself. `sudo -E` (preserve env), `sudo env ...`, `sudo tee`, and `sudo mkdir` all require a password and will fail with `sudo: a password is required` when using `-n`. Do not add these to the `$BREW` variable.
+
+---
+
+### Corporate PC setup: Homebrew via sudo
+
+On the corporate Debian machines, regular users cannot install system packages. Homebrew runs as a shared `brewuser` account instead, and individual users access it via a passwordless `sudo` rule. The scripts in this repo detect this automatically; the steps below are the one-time setup per colleague.
+
+#### What IT sets up once (admin/root required)
+
+1. Create the `brewuser` system account and install Homebrew into `/home/linuxbrew/.linuxbrew/` as that user.
+2. Add a sudoers rule so your user (or a shared group) can run brew without a password:
+
+```
+# /etc/sudoers.d/brewuser  (or via visudo)
+%yourgroup ALL=(brewuser) NOPASSWD: /home/linuxbrew/.linuxbrew/bin/brew
+```
+
+Verify it works: `sudo -n -u brewuser /home/linuxbrew/.linuxbrew/bin/brew --version`
+
+#### What each colleague does once
+
+**1. Add `~/brewenv` and `~/.local/bin` to PATH** in `~/.bashrc` / `~/.zshrc`:
+
+```bash
+export PATH="$HOME/.local/bin:$HOME/brewenv:$PATH"
+```
+
+**2. Run `tools/brewenv.sh`** from this repo to populate `~/brewenv/` with symlinks for whitelisted brew binaries:
+
+```bash
+cd <repo-dir>
+./tools/brewenv.sh
+```
+
+This creates `~/brewenv/<binary> → /home/linuxbrew/.linuxbrew/bin/<binary>` for each pattern in `tools/brewenv-tools.conf`. Re-run after any `brew install` so the new binary appears in your PATH.
+
+To add a new tool to the whitelist and link it in one step:
+
+```bash
+./tools/brewenv.sh --add <toolname>
+```
+
+This appends the pattern to `brewenv-tools.conf` (commit it so colleagues get it too) and creates the symlink immediately. Glob patterns work too: `./tools/brewenv.sh --add 'myapp*'`.
+
+Other commands:
+
+```bash
+./tools/brewenv.sh --list    # show all patterns in brewenv-tools.conf
+./tools/brewenv.sh --check   # show which patterns have no brew binary yet
+./tools/brewenv.sh --prune   # remove ~/brewenv/ links not covered by conf
+```
+
+`--prune` only touches links that point into the brew bin dir, so manually created symlinks elsewhere in `~/brewenv/` are left alone.
+
+**Migrating from an existing brewenv script:** re-point `~/bin/brewenv.sh` at this repo's script, then run with `--prune` once to clean up orphans:
+
+```bash
+ln -sf <repo-dir>/tools/brewenv.sh ~/bin/brewenv.sh
+~/bin/brewenv.sh --prune
+```
+
+After that, `~/bin/brewenv.sh` reads from `tools/brewenv-tools.conf` in this repo. Pull updates and re-run to stay in sync.
+
+For tools that install to `~/.local/bin` (npm-based: ccusage, context-mode; uv-based: graphify) no symlink is needed, `~/.local/bin` in PATH is enough.
+
+**3. Run the install scripts** from this repo normally; they detect the proxy and use `sudo -n -u brewuser brew` automatically:
+
+```bash
+cd <repo-dir>/tools
+./rtk-install.sh
+./claude-install.sh
+# etc.
+```
+
+#### Node-based tools on Debian 12 (GLIBC < 2.38)
+
+Brew bottles for Node are built for Ubuntu 24.04 (GLIBC ≥ 2.38) and crash on Debian 12. Tools that ship as Node packages via brew (repomix, pi) get a `~/.local/bin/<tool>` wrapper that runs the brew-cellar JS with the system Node (`/data/bin/node`) instead. The install scripts create these wrappers automatically by testing `/home/linuxbrew/.linuxbrew/opt/node/bin/node` directly; not `command -v node`, which would find the system node and falsely pass the check.
+
+Update scripts detect brew-wrapper installs by grepping for `Cellar`/`linuxbrew` in `~/.local/bin/<tool>` and run `brew upgrade` + wrapper refresh instead of falling through to npm.
+
+#### npm prefix
+
+The system npm prefix (`/data/app/nodejs24`) is not user-writable. npm-based tools (ccusage, context-mode) fall back to installing into `~/.local` via `_npm-wrapper.sh` automatically (`npm install -g --prefix ~/.local`; the `-g` flag is required; without it npm treats the prefix as a project directory and removes other packages). No manual configuration needed.
+
+#### uv / graphify on i9
+
+Brew's `uv` bottle also requires GLIBC ≥ 2.38. `_uv-wrapper.sh` skips brew's uv on i9 and uses the official astral.sh installer (`~/.local/bin/uv`, musl binary, glibc-independent). The installer is called with `SSL_CERT_FILE` pointing at the system CA bundle for the corporate proxy.
+
+#### Corporate CA / proxy TLS
+
+Scripts that download via curl or npm set `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, and `NPM_CONFIG_CAFILE` to `/etc/ssl/certs/ca-certificates.crt` on i9. Override the cert path with `SYSTEM_CA_FILE=/path/to/ca.crt` if your machine uses a different bundle.
+
+Python tools read the bundle themselves, so they need no wrapper: `tools/ai-usage.py` resolves `SSL_CERT_FILE` → `REQUESTS_CA_BUNDLE` → `SYSTEM_CA_FILE`, and falls back to the system bundle when the proxy environment marks the machine as the work PC. It **adds** that bundle to the default CAs rather than replacing them, and names the interception when verification fails instead of reporting a bare network error.
+
+The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` extra is omitted by default on i9, override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office` once the allowlist is updated.
+
+---
+
+### update-all.sh
+
+```bash
+./update-all.sh
+```
+
+Order is defined by the `UPDATE_TOOLS` array in `update-all.sh`:
+`nvm` → `claude` → `opencode` → `codex` → `docker-agent` → `antigravity` → `llama-swap` → `hf` → `hermes` → `rtk` →
+`context-mode` → `claude-mem` → `graphify` → `pi` → `repomix` → `ccusage` →
+`mattpocock-skills` → `obsidian`. Ollama is updated
+afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
+run last. Each `*-update.sh` upgrades only if already installed and skips
+otherwise; run `*-install.sh` for new tools.
+
+---
+
+### Claude Code
+
+| Script | What it does |
+|---|---|
+| `claude-install.sh` | `$BREW install --cask claude-code` |
+| `claude-update.sh` | `$BREW upgrade --cask claude-code` (skips if not installed) |
+
+---
+
+### OpenCode
+
+| Script | What it does |
+|---|---|
+| `opencode-install.sh` | `$BREW install opencode` |
+| `opencode-update.sh` | `$BREW upgrade opencode` (skips if not installed) |
+
+---
+
+### Codex (OpenAI CLI)
+
+| Script | What it does |
+|---|---|
+| `codex-install.sh` | `$BREW install --cask codex` |
+| `codex-update.sh` | `$BREW upgrade --cask codex` (skips if not installed) |
+
+---
+
+### Docker Agent (docker-agent / cagent)
+
+| Script | What it does |
+|---|---|
+| `docker-agent-install.sh` | `$BREW install docker-agent` |
+| `docker-agent-update.sh` | `$BREW upgrade docker-agent` (skips if not installed) |
+
+---
+
+### Antigravity CLI (Google)
+
+| Script | What it does |
+|---|---|
+| `antigravity-install.sh` | `curl -fsSL https://antigravity.google/cli/install.sh \| bash` |
+| `antigravity-update.sh` | Reports current version; the binary self-updates in the background. Refreshes shell integration. (skips if not installed) |
+
+Antigravity CLI is installed as a flat native binary at `~/.local/bin/agy`. It
+self-updates automatically during regular use, so `antigravity-update.sh` only
+re-applies shell integration and reports the current version. Override the install
+directory with `ANTIGRAVITY_INSTALL_DIR=/custom/path ./antigravity-install.sh`.
+
+Supported on Linux and macOS (amd64/arm64, glibc and musl).
+
+#### Known quirks (headless/print mode)
+
+- **Flag order bug**: `agy -p --model <model> "prompt"` swallows the prompt:
+  the model name becomes the prompt and you get a canned greeting ("I am
+  currently powered by the Gemini..."). Correct order:
+  `agy --model <model> -p "prompt"`. Same applies to `--effort`.
+- **Headless auto-denies file writes**: in headless mode (`-p`), tools that
+  require permissions (e.g. `write_file`) are auto-denied with a jetski
+  warning. Add an allow-rule in `~/.gemini/antigravity-cli/settings.json`
+  (`permissions.allow`), or pass `--dangerously-skip-permissions` to auto-approve.
+- **Global skills** live in `~/.gemini/config/skills/<name>/SKILL.md` (not
+  `~/.gemini/antigravity-cli/builtin/`, which is managed/overwritten on
+  updates). See the built-in `agy-customizations` skill for the full
+  customization system reference.
+
+---
+
+### llama-swap (local model routing/lifecycle)
+
+| Script | What it does |
+|---|---|
+| `llama-swap-install.sh` | `$BREW tap mostlygeek/llama-swap` then `$BREW install mostlygeek/llama-swap/llama-swap` |
+| `llama-swap-update.sh` | `$BREW upgrade llama-swap` (skips if not installed) |
+
+The CLI only installs the binary; the config generators that wire it into the local model stack
+are `llm/i9/llama-swap-setup.sh` and `llm/probook/llama-swap-setup.ps1` (see
+[`../llm/README.md`](../llm/README.md)).
+
+---
+
+### Pi Coding Agent
+
+| Script | What it does |
+|---|---|
+| `pi-install.sh` | `$BREW install pi-coding-agent`; on Debian 12 (GLIBC < 2.38) creates a `~/.local/bin/pi` wrapper using system node (same pattern as `repomix-install.sh`); then installs Pi packages |
+| `pi-update.sh` | `$BREW upgrade pi-coding-agent`, then refreshes Pi packages (skips if not installed); wrapper auto-picks latest brew version via glob |
+| `pi-init.sh` | Installs Pi-native packages: `context-mode`, `@sherif-fanous/pi-rtk`, and `@gaodes/pi-graphify` |
+
+Pi itself is installed via Homebrew. Pi extensions/skills are installed with
+Pi's own package manager:
+
+```bash
+pi install npm:context-mode
+pi install npm:@sherif-fanous/pi-rtk
+pi install npm:@gaodes/pi-graphify
+```
+
+On the i9/proxy environment, `pi-init.sh` runs these installs with
+`NODE_OPTIONS=--use-openssl-ca`, `NODE_EXTRA_CA_CERTS`, and `NPM_CONFIG_CAFILE`
+pointing at `/etc/ssl/certs/ca-certificates.crt` so npm/Node uses the system CA
+store for corporate certificates. Override with `SYSTEM_CA_FILE=/path/to/ca.crt`
+if the proxy CA bundle lives elsewhere.
+
+`claude-mem` is intentionally not installed for Pi; there is no clear maintained
+Pi package for it in this stack, and it would overlap with context/memory
+extensions.
+
+---
+
+### nvm / Node
+
+Skipped entirely on i9: work provides its own Node stack.
+
+| Script | What it does |
+|---|---|
+| `nvm-install.sh` | Installs nvm via brew, adds shell config block, installs LTS Node |
+| `nvm-update.sh` | `brew upgrade nvm`, reinstalls LTS migrating global packages, `npm update -g`, removes old Node versions |
+
+`nvm-update.sh` keeps the active/default Node version and removes older
+installed versions after the update succeeds. Set `NVM_KEEP_OLD_VERSIONS=1` to
+keep one extra newest version for rollback.
+
+Shell config detection: zsh → `~/.zshrc`, bash+macOS → `~/.bash_profile`, bash+Linux → `~/.bashrc`.
+
+NVM block appended (idempotent):
+```bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$(brew --prefix)/opt/nvm/nvm.sh" ] && . "$(brew --prefix)/opt/nvm/nvm.sh"
+```
+
+---
+
+### Hugging Face CLI (hf)
+
+| Script | What it does |
+|---|---|
+| `hf-install.sh` | `$BREW install hf` |
+| `hf-update.sh` | `$BREW upgrade hf` (skips if not installed) |
+
+The binary is called `hf` (not `huggingface-cli`). Installed via brew formula `hf`.
+
+---
+
+### Hermes Agent (Nous Research)
+
+| Script | What it does |
+|---|---|
+| `hermes-install.sh` | `$BREW install hermes-agent` |
+| `hermes-update.sh` | `$BREW upgrade hermes-agent` (skips if not installed) |
+
+---
+
+### RTK (Rust Token Killer)
+
+| Script | What it does |
+|---|---|
+| `rtk-install.sh` | `$BREW install rtk`, then initializes Claude Code, Codex, OpenCode, and Hermes integrations |
+| `rtk-update.sh` | `$BREW upgrade rtk`, then refreshes Claude Code, Codex, OpenCode, Pi, and Hermes integrations (skips if not installed) |
+| `rtk-init.sh` | Runs `rtk init -g`, `rtk init -g --codex`, `rtk init -g --opencode`, `rtk init -g --agent pi`, and `rtk init -g --agent hermes` (skips agents not installed) |
+
+RTK compresses command output before it reaches coding agents. After install/update, restart the affected agent sessions so hooks/plugins are loaded.
+
+---
+
+### Context Mode
+
+| Script | What it does |
+|---|---|
+| `context-mode-install.sh` | `npm install -g context-mode` (falls back to `~/.local` on i9), then configures Claude Code, Codex, OpenCode, and Pi |
+| `context-mode-update.sh` | `npm update -g context-mode` (same prefix handling), then refreshes integrations (skips if not installed) |
+| `context-mode-init.sh` | Re-applies integrations without reinstalling the npm package; includes Pi via `_pi-wrapper.sh` |
+| `opencode-local-speed.sh` | Disables OpenCode-side helpers that can add latency around local model writes |
+
+Default integrations:
+- Codex: registers `context-mode` as a user MCP server.
+- OpenCode: skipped by default for local-model speed. Set `CONTEXT_MODE_ENABLE_OPENCODE=1` to write the `context-mode` local MCP entry into `~/.config/opencode/opencode.json`.
+
+On i9, the system npm prefix is not user-writable, so `context-mode` and other npm-based tools install to `~/.local/bin` via `_npm-wrapper.sh`. Ensure `~/.local/bin` is in `$PATH` in your shell config.
+
+Claude Code plugin installation is opt-in because it runs a background Bun plugin process. Enable it explicitly with:
+
+```bash
+CONTEXT_MODE_ENABLE_CLAUDE=1 ./context-mode-install.sh
+CONTEXT_MODE_ENABLE_OPENCODE=1 ./context-mode-init.sh
+```
+
+For local ik_llama.cpp/OpenCode sessions, if "Preparing write" is slow while CPU usage
+is low, disable OpenCode-side helpers and compare:
+
+```bash
+./opencode-local-speed.sh status
+./opencode-local-speed.sh fast
+```
+
+`fast` disables `context-mode` in `opencode.json`, backs up and clears configured
+plugin entries, and moves every auto-loaded file from
+`~/.config/opencode/plugins/` to `~/.config/opencode/plugins.disabled/`.
+Restore the MCP/plugin files with:
+
+```bash
+./opencode-local-speed.sh restore
+```
+
+Restart the affected agent sessions after install/update.
+
+---
+
+### Claude-Mem
+
+| Script | What it does |
+|---|---|
+| `claude-mem-install.sh` | Installs/enables claude-mem integrations without auto-starting the worker; skips Codex/OpenCode reinstall unless forced |
+| `claude-mem-update.sh` | Reports the available version and skips reinstall by default, because upstream update/install is interactive |
+| `claude-mem-kill.sh` | Stops the claude-mem worker and kills common orphaned Bun/Chroma/MCP subprocesses |
+
+Claude-Mem stores settings under `~/.claude-mem/settings.json` and may install worker dependencies. Its worker is a long-running Bun service on port `37700` by default, with Chroma MCP/Python subprocesses for semantic search and an internal Claude Haiku process for memory compression when the Claude provider is used.
+
+Worker commands:
+
+```bash
+npx -y claude-mem@latest start
+npx -y claude-mem@latest status
+npx -y claude-mem@latest stop
+./claude-mem-kill.sh
+curl http://localhost:37700/api/health
+```
+
+Claude Code plugin installation is opt-in because it starts extra local services, including Bun, Chroma MCP, and an internal Claude process. Enable it explicitly with:
+
+```bash
+CLAUDE_MEM_ENABLE_CLAUDE=1 ./claude-mem-install.sh
+```
+
+OpenCode is installed non-interactively. Codex CLI gets the marketplace and hooks registered non-interactively, but the plugin itself may still need to be selected once from Codex's `/plugins` UI. Restart Codex and OpenCode after install/update so hooks/plugins are loaded.
+
+Operational findings:
+- Do not run claude-mem reinstall from `update-all.sh`: upstream `claude-mem update` currently maps to the same interactive install flow and can prompt with "Overwrite existing installation?".
+- If Claude Code behaves oddly after testing the Claude plugin, disable it with `claude plugin disable claude-mem`, stop the worker with `npx -y claude-mem@latest stop`, and check for leftovers with `ps -eo pid,ppid,etime,cmd | rg -i 'bun|claude-mem|chroma-mcp|claude-haiku'`.
+- To keep the plugin installed/enabled but clear a stuck worker, run `./claude-mem-kill.sh`.
+- To clear the worker and disable the Claude Code plugin in one step, run `./claude-mem-kill.sh --disable-claude`.
+- If Chroma MCP remains after stopping the worker, kill the leftover `chroma-mcp` process before restarting Claude.
+- Keep Claude-Mem enabled first in OpenCode/Codex only; enable the Claude Code plugin only when explicitly testing whether the memory benefit outweighs the background-process cost.
+
+To intentionally reinstall/repair claude-mem during updates:
+
+```bash
+CLAUDE_MEM_UPDATE_REINSTALL=1 ./claude-mem-update.sh
+```
+
+To force the upstream Codex/OpenCode installer again:
+
+```bash
+CLAUDE_MEM_FORCE_INSTALL=1 ./claude-mem-install.sh
+```
+
+---
+
+### Graphify
+
+| Script | What it does |
+|---|---|
+| `graphify-install.sh` | Installs the official PyPI package `graphifyy[openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf]` with `uv tool install`, falling back to `pipx`; then registers Claude Code, Codex, OpenCode, Hermes, and Antigravity |
+| `graphify-update.sh` | Upgrades Graphify with the same default extras when managed by `uv tool` or `pipx`, then refreshes integrations |
+| `graphify-init.sh` | Re-registers Claude Code, Codex, OpenCode, Hermes, Antigravity, and Pi integrations; enables Codex `multi_agent = true`. Runs the OpenCode registration in a throwaway tmpdir because it writes `.opencode/` into `$PWD` |
+
+Graphify's package name is `graphifyy` but the CLI is `graphify`. The default
+extras are `openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf`, so the
+preferred installer is
+`uv tool install 'graphifyy[openai,ollama,sql,terraform,leiden,mcp,watch,office,pdf]'`
+on both Linux and macOS. `terraform` matters even on a non-Terraform machine's
+behalf: without it every `.tf`/`.hcl` file silently contributes nothing to the
+graph. Override with `GRAPHIFY_EXTRAS=...`; use `GRAPHIFY_EXTRAS=` for the base
+package only. On macOS, install `uv` with Homebrew (`brew install uv`) if it is
+missing; the install script will also do this when Homebrew is available.
+`pipx install 'graphifyy[...]'` is kept as a fallback for Linux systems that
+already use pipx. On the i9/proxy environment, the scripts pass
+`--system-certs` to `uv tool install` so corporate CA certificates are honored.
+
+Registration has two levels, and the init script only does the first:
+`graphify install --platform <p>` copies the **user-level skill** (nothing in the
+repo), while `graphify <platform> install`, run inside a repo, writes
+**project-scoped always-on wiring** (`AGENTS.md`, `CLAUDE.md`,
+`.claude/settings.json`, `.codex/hooks.json`, `.agents/rules|workflows`,
+`.opencode/`). The second form touches committed files, so it stays opt-in per
+repository.
+
+On i9 (Debian 12 / GLIBC < 2.38/2.39), brew's `uv` bottle is incompatible.
+`graphify-install.sh` uses `_uv-wrapper.sh` which installs uv via the official
+astral.sh installer (`~/.local/bin/uv`, musl binary, glibc-independent) when
+`IS_I9` is set and no working uv is found. The corporate proxy CVE filter blocks
+`pypdf` (all versions), so the `pdf` extra is omitted by default on i9
+(`openai,ollama,sql,terraform,leiden,mcp,watch,office`). Override with `GRAPHIFY_EXTRAS=openai,ollama,sql,pdf,office`
+once the proxy allowlist is updated.
+
+After install/update, restart Claude Code, Codex, OpenCode, Hermes, and Antigravity sessions. Use it
+inside a project with:
+
+```bash
+/graphify .
+```
+
+Codex uses `$graphify` instead of `/graphify`.
+
+Graphify overlaps partly with context/memory tooling, but it is more of a
+project knowledge-graph generator than a background memory worker. Keep OpenCode
+local-speed testing in mind before enabling extra graph/query instructions in
+large local-model sessions.
+
+---
+
+### Repomix
+
+| Script | What it does |
+|---|---|
+| `repomix-install.sh` | `$BREW install repomix`; on Debian 12 (GLIBC < 2.38) creates a `~/.local/bin/repomix` wrapper using system node (same pattern as `pi-install.sh`); falls back to npm if brew is unavailable; then runs `repomix-mcp-init.sh` |
+| `repomix-update.sh` | `$BREW upgrade repomix`, refreshes the wrapper if present, then runs `repomix-mcp-init.sh`; npm fallback (skips if not installed) |
+| `repomix-mcp-init.sh` | Clearly named entry point that registers `repomix --mcp` with Claude Code, Codex, OpenCode, and Hermes |
+| `repomix-init.sh` | Compatibility name for MCP registration; it does not initialize a repository |
+| `repomix-pack.sh` | Creates a commit-ready `repomix.config.json` when absent, adds generated output to `.gitignore`, and packs to `<repo>/repomix-output.md`; logs, diffs, and compression are opt-in |
+
+Repomix packs an entire repo into a compact, AI-optimized single file. The MCP server (`repomix --mcp`) lets agents call repomix on demand inside a session. Registered with Claude Code, Codex, OpenCode, and Hermes (via `~/.hermes/config.yaml` `mcp_servers`; requires `pyyaml` in the system Python). On i9 (Debian 12 / GLIBC 2.36) a `~/.local/bin/repomix` wrapper runs the brew-managed JS via system node, bypassing brew's incompatible Node bottle. The per-repository `repomix.config.json` and `.gitignore` rule should be committed; the generated `repomix-output.md` remains local.
+
+```bash
+tools/repomix-pack.sh ~/git/homeassistant --init-only
+tools/repomix-pack.sh ~/git/homeassistant
+tools/repomix-pack.sh . --logs --diffs
+tools/repomix-pack.sh . --compress
+```
+
+---
+
+### ccusage
+
+| Script | What it does |
+|---|---|
+| `ccusage-install.sh` | `npm install -g ccusage` |
+| `ccusage-update.sh` | `npm update -g ccusage` (skips if not installed) |
+
+Claude Code token usage analytics, per-project and per-day breakdowns, cost tracking. Complements `rtk gain` by showing the Claude-side view of what was sent/received. On i9 installs to `~/.local/bin` (ensure it is in `$PATH`); on home/Mac installs into the nvm bin normally.
+
+```bash
+ccusage            # today's usage summary
+ccusage --help
+```
+
+---
+
+### Obsidian
+
+| Script | What it does |
+|---|---|
+| `obsidian-install.sh` | `$BREW install --cask obsidian` (Linux: AppImage cask). On i9 the AppImage goes to `/home/linuxbrew/.linuxbrew/share/appimages/` (`--appimagedir`), because brewuser's home is not readable; writes a launcher `~/.local/bin/obsidian`. Reinstalls if the AppImage sits elsewhere. Idempotent |
+| `obsidian-update.sh` | `$BREW upgrade --cask --greedy obsidian` (the cask is `auto_updates`, so plain `brew upgrade` skips it), refreshes the launcher; skips if not installed |
+| `_obsidian-common.sh` | Shared paths/flags/launcher helper (override the AppImage directory with `OBSIDIAN_APPIMAGE_DIR`) |
+
+Markdown vault viewer, used for read-only browsing of wikis (graph view, backlinks). For sensitive vaults keep Sync/Publish off, install no community plugins, and open the vault read-only. Obsidian checks GitHub for updates at startup; turn off automatic updates in its settings if that egress is unwanted.
+
+```bash
+obsidian           # launcher in ~/.local/bin
+```
+
+---
+
+### Ollama
+
+| Script | What it does |
+|---|---|
+| `ollama-install.sh` | `$BREW install ollama` (skipped on i9, CPU too slow) |
+| `ollama-update.sh` | `$BREW upgrade ollama` (skipped on i9) |
+| `ollama-models-update.sh` | Pulls latest version of every installed model (`ollama list \| xargs ollama pull`) |
+
+---
+
+### Remote control policy
+
+Codex and Claude install/update scripts enforce remote control off, including when
+called by `tools/update-all.sh`. Requires Python 3.11+ and permission to write
+system policy files through noninteractive `sudo`; a policy failure for one tool is
+reported and `update-all.sh` continues with the rest of the batch (it does not stop
+the whole run). For the first application, run `sudo -v` in your terminal first.
+Later runs only need elevation if the policy is missing or has changed.
+Run as your normal login user, not with `sudo ./update-all.sh`.
+
+- Codex: merges `allow_remote_control = false` into `/etc/codex/requirements.toml`
+  and runs `codex app-server daemon disable-remote-control` for the current user.
+- Claude: merges `disableRemoteControl: true` into Linux's
+  `/etc/claude-code/managed-settings.json` or macOS's
+  `/Library/Application Support/ClaudeCode/managed-settings.json`.
+
+Existing unrelated policy keys are preserved; malformed files cause an error.
+Restart existing Claude sessions after applying the policy. These shell scripts
+support Linux and macOS; native Windows requires separate policy deployment.
+To apply without upgrading, run `bash tools/disable-remote-control.sh codex` and
+`bash tools/disable-remote-control.sh claude`.
+
+Policy references: [Codex managed configuration](https://learn.chatgpt.com/docs/enterprise/managed-configuration),
+[Claude Remote Control](https://code.claude.com/docs/en/remote-control).
+
+---
+
+### Launchers and helpers (not installers)
+
+| Script | What it does |
+|---|---|
+| `claude-providers.sh [provider] [model]` | Interactive picker: Claude Code against the local model or a cloud provider (OpenRouter, NVIDIA, OpenCode Go, via `llm/shared/ocg-proxy.py`) |
+| `docker-agent-providers.sh [provider] [model]` | The same picker for Docker Agent |
+| `session-cleanup.sh` | List and optionally truncate large Claude Code sessions (backup first) |
+
+Details: [`../llm/docs/agents.md`](../llm/docs/agents.md).

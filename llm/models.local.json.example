@@ -1,0 +1,23 @@
+{
+  "_comment": "TEMPLATE for a private model lineup. Copy to llm/models.local.json (gitignored) and edit: every i9 and ProBook script prefers models.local.json over models.json when it exists. Field meanings: see _fields in models.json. One i9 entry as an example.",
+  "machines": {
+    "i9": [
+      {
+        "desc": "Qwen3.6 35B-A3B MTP UD-Q6_K (speculative: suffix + MTP, ~2x on edits)",
+        "file": "Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf",
+        "ctx": 131072,
+        "cram": 24576,
+        "yarn": false,
+        "sample": true,
+        "spec": "--spec-type suffix:n_max=16,n_min=2,suffix_min_match_len=5,suffix_max_depth=64 --spec-type mtp:n_max=1,p_min=0.0",
+        "chat_template": false,
+        "mmproj": null,
+        "download": {
+          "repo": "unsloth/Qwen3.6-35B-A3B-MTP-GGUF",
+          "repo_file": "Qwen3.6-35B-A3B-UD-Q6_K.gguf",
+          "bytes": 30011242784
+        }
+      }
+    ]
+  }
+}
