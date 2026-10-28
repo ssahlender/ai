@@ -49,12 +49,13 @@ machine = os.environ['MACHINE']
 start_script_abs = os.path.abspath(os.environ['START_SCRIPT'])
 health_timeout = int(os.environ['HEALTH_TIMEOUT'])
 
+import json
 entries = []
 for mode in load_modes(machine):
     filename = mode['file']
     model_id = filename[:-len('.gguf')]
     if os.path.isfile(os.path.join(models_dir, filename)):
-        entries.append(model_id)
+        entries.append((model_id, mode.get('name', ''), mode.get('desc', '')))
 
 if not entries:
     print(f"No models found in {models_dir} for machine {machine}.", file=sys.stderr)
@@ -69,8 +70,11 @@ print("logLevel: info")
 print("metricsMaxInMemory: 1000")
 print("sendLoadingState: true")
 print("models:")
-for model_id in entries:
+for model_id, name, desc in entries:
     print(f"  {model_id!r}:")
+    # name/description: what llama-swap's web UI shows (json.dumps is a valid YAML double-quoted string)
+    if name: print(f"    name: {json.dumps(name)}")
+    if desc: print(f"    description: {json.dumps(desc)}")
     # print_cmd reuses start.sh's own flag-building logic (SAMPLE/YARN/MMPROJ/SPEC
     # conditionals included) instead of duplicating it here; eval runs the real exec.
     print(f"    cmd: bash -c 'eval \"$(IK_LLAMA_PRINT_CMD=1 IK_LLAMA_PORT=${{PORT}} {start_script_abs!r} {machine} {model_id!r})\"'")

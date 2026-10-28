@@ -1,16 +1,15 @@
 <#
 .SYNOPSIS
-    Run Claude Code against the local llama-server, natively on Windows.
+    Run Claude Code against the local model, natively on Windows.
 
 .DESCRIPTION
-    Windows replacement for claude-providers.sh's "local" path (bash + WSL-only).
-    Brings up the two pieces Claude Code needs and hands off to `claude`.
+    Uses the same chain as every other agent on this machine:
+        claude -> local-proxy.py (9081) -> llama-swap (9082, web UI + stats) -> llama-server
+    If nothing answers on 9081 it runs llama-swap-setup.ps1 first, then hands off to `claude`.
 
-    Why a proxy: Claude CLI always sends max_tokens=32000. When input+32000 exceeds
-    n_ctx, llama-server rejects the request ("exceeds the available context size").
-    local-proxy.py caps max_tokens (default 16384) and forwards to llama-server, so
-    ~87.5% of context stays available for input. local-proxy.py is pure-stdlib Python
-    — no port needed, it runs natively here.
+    Why the proxy: Claude CLI always sends max_tokens=32000. When input+32000 exceeds n_ctx,
+    llama-server rejects the request. local-proxy.py caps max_tokens (default 16384), so
+    ~87.5% of the context stays available for input, and sends keep-alives during long prefills.
 
     Why `--bare`: bypasses claude.ai OAuth so ANTHROPIC_API_KEY takes over.
 
@@ -18,14 +17,11 @@
     ~/.claude/settings.json. Use -FixSettings once to write it, or paste:
         { "env": { "CLAUDE_CODE_ATTRIBUTION_HEADER": "0" } }
 
-    Model naming: Claude Code must be given the GGUF filename stem, e.g.
-    Qwen_Qwen3.6-35B-A3B-IQ4_NL. -ModelStem overrides it.
-
-.PARAMETER Mode
-    Mode for start-llm.ps1 (default qwen36_35b_ml) — used when the server is not up yet.
+.PARAMETER Model
+    The llama-swap model id, i.e. the mode's short name in models.json (default qwen36_35b_ml).
 
 .PARAMETER NoStart
-    Fail instead of starting llama-server / the proxy.
+    Fail instead of starting the chain.
 
 .PARAMETER FixSettings
     Add the attribution-header env var to ~/.claude/settings.json if missing.
@@ -40,11 +36,8 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Mode         = 'qwen36_35b_ml',
-    [string]$ModelStem    = 'Qwen_Qwen3.6-35B-A3B-IQ4_NL',
-    [int]$ServerPort      = 9080,
+    [string]$Model        = 'qwen36_35b_ml',
     [int]$ProxyPort       = 9081,
-    [string]$ProxyScript  = '',
     [switch]$NoStart,
     [switch]$FixSettings,
     [switch]$DryRun
@@ -54,50 +47,23 @@ $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
 . (Join-Path $here 'lib\common.ps1')
 
-Write-Host ("claude-local: mode={0} stem={1} server={2} proxy={3}" -f $Mode, $ModelStem, $ServerPort, $ProxyPort)
+Write-Host ("claude-local: model={0} agent port={1}" -f $Model, $ProxyPort)
 
-# ── 1) llama-server on 9080 ────────────────────────────────────────
-if (Test-ServerHealth -Port $ServerPort) {
-    Write-Host ("  server : healthy model already serving on {0}" -f $ServerPort)
-} elseif (Test-PortOpen -Port $ServerPort) {
-    throw "port $ServerPort is listening, but /health is not ok. Refusing to wire Claude Code to an unloaded or different server."
-} elseif ($NoStart) {
-    throw "nothing listening on $ServerPort and -NoStart was given"
-} else {
-    $starter = Join-Path $here 'start-llm.ps1'
-    if (-not (Test-Path $starter)) { throw "start-llm.ps1 not found next to this script ($starter)" }
-    Write-Host ("  server : starting '{0}' via start-llm.ps1 -Background" -f $Mode)
-    if (-not $DryRun) {
-        & powershell -NoProfile -ExecutionPolicy Bypass -File $starter $Mode -Background -Port $ServerPort
-        $health = Wait-ServerHealth -Port $ServerPort -TimeoutSec 180 -IntervalSec 3
-        if (-not $health.Ok) { throw "llama-server did not become healthy on $ServerPort after $($health.Waited)s ($($health.LastErr))" }
-        Write-Host ("  server : healthy after ~{0}s" -f $health.Waited)
-    }
-}
-
-# ── 2) local-proxy.py on 9081 ──────────────────────────────────────
+# ── 1) the chain: local-proxy 9081 -> llama-swap 9082 -> llama-server ──
 if (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health") {
-    Write-Host ("  proxy  : HTTP endpoint already serving on {0}" -f $ProxyPort)
+    Write-Host ("  chain  : already serving on {0}" -f $ProxyPort)
 } elseif ($NoStart) {
     throw "nothing listening on $ProxyPort and -NoStart was given"
 } else {
-    $ProxyScript = Resolve-LocalProxyScript -ScriptDir $here -Explicit $ProxyScript
-    $py = Resolve-Python
-    Write-Host ("  proxy  : starting {0} with {1}" -f (Split-Path $ProxyScript -Leaf), $py)
+    Write-Host "  chain  : starting it via llama-swap-setup.ps1"
     if (-not $DryRun) {
-        $env:LOCAL_PROXY_PORT = "$ProxyPort"
-        $env:LOCAL_PROXY_UPSTREAM = "http://127.0.0.1:$ServerPort"
-        $log = New-RunLogPath -Name 'local-proxy'
-        Start-Process -FilePath $py -ArgumentList @($ProxyScript) -WindowStyle Hidden `
-                      -RedirectStandardOutput $log -RedirectStandardError "$log.err"
-        $waited = 0
-        while (-not (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health") -and $waited -lt 30) { Start-Sleep -Seconds 1; $waited += 1 }
-        if (-not (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health")) { throw "local-proxy did not expose an HTTP endpoint on $ProxyPort (see $log.err)" }
-        Write-Host ("  proxy  : up, log {0}" -f $log)
+        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here 'llama-swap-setup.ps1')
+        if (-not (Test-EndpointReady -Url "http://127.0.0.1:$ProxyPort/health")) { throw "the chain did not come up on $ProxyPort" }
     }
 }
+Write-Host "  note   : the first request loads the model (~1-1.5 min); llama-swap's UI shows it: http://127.0.0.1:9082/ui"
 
-# ── 3) attribution header (the 90% trap) ───────────────────────────
+# ── 2) attribution header (the 90% trap) ───────────────────────────
 $settingsPath = Join-Path $env:USERPROFILE '.claude\settings.json'
 $needFix = $true
 if (Test-Path $settingsPath) {
@@ -137,22 +103,22 @@ if ($needFix) {
     Write-Host "  settings: attribution header already disabled"
 }
 
-# ── 4) hand off to claude ──────────────────────────────────────────
+# ── 3) hand off to claude ──────────────────────────────────────────
 $env:ANTHROPIC_BASE_URL = "http://localhost:$ProxyPort"
 $env:ANTHROPIC_API_KEY = 'dummy'
-$env:ANTHROPIC_CUSTOM_MODEL_OPTION = $ModelStem
-$env:ANTHROPIC_DEFAULT_SONNET_MODEL = $ModelStem
-$env:ANTHROPIC_DEFAULT_HAIKU_MODEL  = $ModelStem
+$env:ANTHROPIC_CUSTOM_MODEL_OPTION = $Model
+$env:ANTHROPIC_DEFAULT_SONNET_MODEL = $Model
+$env:ANTHROPIC_DEFAULT_HAIKU_MODEL  = $Model
 
 $claudeCmd = Get-Command claude -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $claudeCmd) { throw "claude not found in PATH" }
 
-Write-Host ("  launch : claude --bare --model {0}   (base_url http://localhost:{1})" -f $ModelStem, $ProxyPort)
+Write-Host ("  launch : claude --bare --model {0}   (base_url http://localhost:{1})" -f $Model, $ProxyPort)
 if ($DryRun) {
     Write-Host ""
     Write-Host "DRY RUN - would execute:"
-    Write-Host ("  {0} --bare --model {1}" -f $claudeCmd.Source, $ModelStem)
+    Write-Host ("  {0} --bare --model {1}" -f $claudeCmd.Source, $Model)
     exit 0
 }
 
-& $claudeCmd.Source --bare --model $ModelStem
+& $claudeCmd.Source --bare --model $Model

@@ -77,7 +77,7 @@ foreach ($mode in $modeTable) {
         Write-Host ("  - {0,-14} SKIPPED ({1})" -f $mode.Short, $_.Exception.Message)
         continue
     }
-    $entries += [pscustomobject]@{ Short = $mode.Short; Server = $inv.Server; Args = $inv.Args }
+    $entries += [pscustomobject]@{ Short = $mode.Short; Label = $mode.Label; Desc = $mode.Name; Server = $inv.Server; Args = $inv.Args }
     Write-Host ("  + {0,-14} {1}" -f $mode.Short, $mode.Name)
 }
 if ($entries.Count -eq 0) { throw "no usable probook modes (model + engine both present) found via $ModelsJson" }
@@ -115,6 +115,9 @@ foreach ($e in $entries) {
     $quotedArgs   = $e.Args | ForEach-Object { ConvertTo-WindowsArg "$_" }
     $cmdLine = (@($quotedServer) + $quotedArgs) -join ' '
     $lines += ("  {0}:" -f (ConvertTo-YamlSingleQuoted $e.Short))
+    # name/description: what the llama-swap web UI shows next to the id
+    if ($e.Label) { $lines += ("    name: {0}" -f (ConvertTo-YamlSingleQuoted $e.Label)) }
+    if ($e.Desc)  { $lines += ("    description: {0}" -f (ConvertTo-YamlSingleQuoted $e.Desc)) }
     # Block scalar, not a plain value: a plain scalar that starts with a quote is parsed as one
     # quoted string, so "'C:\...exe' '-m' ..." was a YAML syntax error. Inside a block scalar the
     # quotes are literal text, left for llama-swap's own (Windows-style) argument splitting.

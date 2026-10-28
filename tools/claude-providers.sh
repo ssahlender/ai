@@ -98,8 +98,20 @@ llama_host() {
   echo "${IK_LLAMA_HOST:-127.0.0.1}"
 }
 
+# The default chain is local-proxy (9081) -> llama-swap (9082) -> server. When llama-swap answers,
+# it is the upstream; otherwise a bare llama-server on IK_LLAMA_PORT (9080).
+local_upstream_port() {
+  local swap="${IK_LLAMA_SWAP_PORT:-9082}"
+  if curl -sf --max-time 2 --connect-timeout 1 "http://$(llama_host):${swap}/v1/models" >/dev/null 2>&1; then
+    echo "$swap"
+  else
+    echo "${IK_LLAMA_PORT:-9080}"
+  fi
+}
+
 start_local_proxy() {
-  local port="${IK_LLAMA_PORT:-9080}"
+  local port
+  port=$(local_upstream_port)
   local upstream_host
   upstream_host=$(llama_host)
   # Proxy listens on 9081 and forwards to llama-server on $port.
@@ -155,7 +167,8 @@ start_local_proxy() {
 # ── local model detection ────────────────────────────────────────────
 
 detect_local() {
-  local model host port="${IK_LLAMA_PORT:-9080}"
+  local model host port
+  port=$(local_upstream_port)
   host=$(llama_host)
   model=$(curl -sf --max-time 3 --connect-timeout 2 "http://${host}:${port}/v1/models" 2>/dev/null | \
           python3 -c "
@@ -176,7 +189,8 @@ print(name)
 }
 
 detect_local_ctx() {
-  local host port="${IK_LLAMA_PORT:-9080}"
+  local host port
+  port=$(local_upstream_port)
   host=$(llama_host)
   curl -sf --max-time 3 --connect-timeout 2 "http://${host}:${port}/props" 2>/dev/null | \
     python3 -c "
@@ -293,9 +307,9 @@ picker() {
   if [ -n "$local_model" ]; then
     local ctx_info=""
     [ -n "$local_ctx" ] && ctx_info="  ctx=${local_ctx}"
-    green "  1) $local_model  [port ${IK_LLAMA_PORT:-9080}${ctx_info}]"
+    green "  1) $local_model  [port $(local_upstream_port)${ctx_info}]"
   else
-    dim  "  1) No local server detected. Start with:  ./start.sh <machine> <mode>"
+    dim  "  1) No local server detected. Start with:  llm/i9/llama-swap-setup.sh i9  (Mac: llm/mac/llama-swap-setup.sh)"
   fi
 
   echo
@@ -477,7 +491,7 @@ direct() {
       if [ -z "$model" ]; then
         red "No local model running and no model specified."
         echo "Usage: $0 local <model-name>"
-        echo "Start server first: ./start.sh <machine> <mode>"
+        echo "Start the local stack first: llm/i9/llama-swap-setup.sh i9  (Mac: llm/mac/llama-swap-setup.sh)"
         exit 1
       fi
       [ -n "$local_ctx" ] && dim "  Context size: ${local_ctx} tokens (from /props)"

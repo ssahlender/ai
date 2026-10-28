@@ -41,7 +41,9 @@ param(
     [string]$IkLlamaDir  = '',
     [string]$ModelDir    = (Join-Path $env:USERPROFILE '.local\share\llama.cpp\models'),
     [string]$ConfigPath  = (Join-Path $env:USERPROFILE '.config\opencode\opencode.json'),
-    [string]$BaseUrl     = 'http://127.0.0.1:9080/v1',
+    # Default: the llama-swap chain (local-proxy 9081 -> llama-swap 9082 -> llama-server) that
+    # llama-swap-setup.ps1 starts. A manual start-llm.ps1 server alone: -BaseUrl http://127.0.0.1:9080/v1
+    [string]$BaseUrl     = 'http://127.0.0.1:9081/v1',
     [string]$ProviderKey = 'llamacpp',   # named for the engine that actually serves, not ik_llama which was retired 2026-09-27
     [int]$OutputLimit    = 8192,
     [switch]$Force,
@@ -67,7 +69,7 @@ foreach ($m in (Get-ProbookModeTable -ModelsJson $ModelsJson)) {
     $eng = $m.Engine
     if (-not $engineDirs.ContainsKey($eng)) { throw "models.json: probook mode '$($m.Short)' has unknown engine '$eng'" }
     $modes += [pscustomobject]@{
-        Short = $m.Short; File = $m.File; Ctx = [int]$m.Ctx; Name = $m.Name; Engine = $eng
+        Short = $m.Short; File = $m.File; Label = $m.Label; Ctx = [int]$m.Ctx; Name = $m.Name; Engine = $eng
         # A mode needs BOTH its GGUF and its engine's llama-server.exe. Checking only the
         # model used to advertise modes whose engine had been removed, which then fail at
         # launch. Same two-state check start-llm.ps1 -ListOnly performs.
@@ -83,7 +85,7 @@ $models = [ordered]@{}
 foreach ($m in $modes) {
     if ($m.Exists) {
         $models[$m.Short] = [ordered]@{
-            name  = $m.File
+            name  = $m.Label
             limit = [ordered]@{ context = $m.Ctx; output = $OutputLimit }
         }
         Write-Host ("  + {0,-14} ctx {1,-6} {2}" -f $m.Short, $m.Ctx, $m.File)

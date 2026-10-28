@@ -6,15 +6,16 @@ set -euo pipefail
 OPENCODE_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 OPENCODE_AUTH_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/opencode/auth.json"
 PI_CONFIG_DIR="$HOME/.pi/agent"
-PORT="${OLLAMA_HOST_PORT:-11434}"
+# Agents go through the chain llama-swap-setup.sh starts: local-proxy (9081) -> llama-swap -> Ollama.
+# Ollama directly instead: AGENT_PORT=11434 ./setup-agent.sh
+PORT="${AGENT_PORT:-9081}"
 BASE_URL="http://localhost:$PORT/v1"
 OPENCODE_OUTPUT_LIMIT="${OPENCODE_OUTPUT_LIMIT:-8192}"
 OPENCODE_COMPACTION_RESERVED="${OPENCODE_COMPACTION_RESERVED:-10000}"
 
-# shortname|display name|ollama model tag|context window
-MODES=(
-  "qwen36-35b-a3b|Qwen3.6-35B-A3B (Ollama, UD-Q2_K_XL 13 GB)|qwen36-35b-a3b|32768"
-)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODELS_FILE="$SCRIPT_DIR/../models.json"
+[ -f "$SCRIPT_DIR/../models.local.json" ] && MODELS_FILE="$SCRIPT_DIR/../models.local.json"
 
 _py=$(mktemp)
 _apply=$(mktemp)
@@ -31,15 +32,15 @@ modes = json.loads(os.environ['MODES_JSON'])
 opencode_models = {}
 pi_models = []
 
-for shortname, _name, tag, ctx in modes:
+for shortname, label, tag, ctx in modes:
     context = int(ctx)
     opencode_models[shortname] = {
-        'name': tag,
+        'name': label,
         'limit': {'context': context, 'output': output_limit},
     }
     pi_models.append({
         'id': shortname,
-        'name': tag,
+        'name': label,
         'contextWindow': context,
         'maxTokens': output_limit,
         'reasoning': True,
@@ -67,13 +68,14 @@ result = {
 print(json.dumps(result, indent=2))
 PYEOF
 
+# The Mac's entries in models.json: the agent id is the Ollama model name (works through the chain
+# and directly against Ollama), the display name is the readable one llama-swap's UI shows too.
 MODES_JSON=$(python3 -c "
 import json, sys
-modes = []
-for m in sys.argv[1:]:
-    modes.append(m.split('|'))
-print(json.dumps(modes))
-" "${MODES[@]}")
+d = json.load(open(sys.argv[1]))
+print(json.dumps([[m['ollama'], m.get('name', m['ollama']), m['ollama'], m['ctx']] for m in d['machines'].get('mac', [])]))
+" "$MODELS_FILE")
+[ "$MODES_JSON" != "[]" ] || { echo "No mac models in $MODELS_FILE" >&2; exit 1; }
 
 RESULT_JSON=$(MODES_JSON="$MODES_JSON" OPENCODE_OUTPUT_LIMIT="$OPENCODE_OUTPUT_LIMIT" OPENCODE_COMPACTION_RESERVED="$OPENCODE_COMPACTION_RESERVED" BASE_URL="$BASE_URL" python3 "$_py")
 
