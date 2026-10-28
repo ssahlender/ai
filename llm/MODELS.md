@@ -16,7 +16,6 @@ Verify a downloaded file (PowerShell):
 ```
 
 Download a file (resumable, verified): `llm/probook/fetch-model.ps1`
-(`llm/probook/tests/download-model.ps1` is a thin wrapper over it, kept because other paths referred to it.)
 Base URL pattern: `https://huggingface.co/<repo>/resolve/main/<file>`
 
 ## Installed right now (2026-10-28)
@@ -25,8 +24,10 @@ Base URL pattern: `https://huggingface.co/<repo>/resolve/main/<file>`
 |---|---|---|---|
 | ProBook (Windows) | mainline llama.cpp CPU, `$env:USERPROFILE\.local\share\llama.cpp\llama.cpp-cpu` | `Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf` (bartowski) | 19.33 GiB |
 | MacBook Air M4 (macOS) | Ollama (`ollama serve`) | `qwen36-35b-a3b` = `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` (13 GB) | 11.45 GiB |
+| i9 (Debian, office) | ik_llama.cpp | `Qwen3.6-35B-A3B-MTP-UD-Q6_K.gguf` (repo `unsloth/Qwen3.6-35B-A3B-MTP-GGUF`, file `Qwen3.6-35B-A3B-UD-Q6_K.gguf`, 30 011 242 784 bytes) | 27.95 GiB |
+| i9 (Debian, office) | ik_llama.cpp | `Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf` (same repo, 27 159 116 064 bytes; 256K mode) | 25.29 GiB |
 
-The recorded inventory lists only these models. Ollama manages the Mac's
+The recorded inventory lists only these models. The i9 rows come from `models.json` (repo, file, exact bytes, which `download-models.sh` verifies); their SHA-256 is not recorded here because the i9 cannot be reached from the host that maintains this file. Ollama manages the Mac's
 GGUF-derived model through its own model store. The ProBook runs mainline
 llama.cpp (mode `qwen36_35b_ml`, `draft-mtp`); its previous model, the HauhauCS
 IQ4_NL below, was deleted on 2026-10-28 and can be re-fetched from this table.

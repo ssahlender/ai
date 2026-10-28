@@ -6,7 +6,7 @@
 #   Direct launch:       ./docker-agent-providers.sh <provider> [model] [flags/prompt]
 #
 # Providers:
-#   local          Local ik_llama.cpp server (http://localhost:9080/v1)
+#   local          The local model (llama-swap chain, or a bare llama-server on 9080)
 #   opencode-go    OpenCode Go models (Qwen, DeepSeek, Kimi, GLM, MiniMax)
 #   openrouter     OpenRouter models
 #
@@ -54,127 +54,17 @@ red()   { printf '\033[31m%s\033[0m\n' "$*"; }
 green() { printf '\033[32m%s\033[0m\n' "$*"; }
 
 # ── local detection ──────────────────────────────────────────────────
-llama_host() {
-  echo "${IK_LLAMA_HOST:-127.0.0.1}"
-}
-
-detect_local() {
-  local model host port="${IK_LLAMA_PORT:-9080}"
-  host=$(llama_host)
-  model=$(curl -sf --max-time 3 --connect-timeout 2 "http://${host}:${port}/v1/models" 2>/dev/null | \
-          python3 -c "
-import sys, json, os
-d = json.load(sys.stdin)
-full = d['data'][0]['id']
-name = os.path.basename(full)
-if name.endswith('.gguf'):
-    name = name[:-5]
-print(name)
-" 2>/dev/null || true)
-  if [ -n "$model" ]; then
-    echo "$model"
-    return
-  fi
-  echo ""
-}
-
-# ── curated model lists ──────────────────────────────────────────────
-# shellcheck disable=SC2034
-OCG_MODELS=(
-  "qwen3.7-max:Qwen 3.7 Max (flagship coding & reasoning)"
-  "qwen3.7-plus:Qwen 3.7 Plus (fast coding)"
-  "deepseek-v4-pro:DeepSeek V4 Pro (reasoning & coding)"
-  "deepseek-v4-flash:DeepSeek V4 Flash (ultra fast)"
-  "kimi-k2.6:Kimi K2.6 (long context)"
-  "kimi-k3:Kimi K3"
-  "glm-5.3:GLM 5.3"
-  "minimax-m3:MiniMax M3"
-)
-
-# shellcheck disable=SC2034
-OR_MODELS=(
-  "meta-llama/llama-4-maverick:Llama 4 Maverick"
-  "google/gemini-2.5-pro:Gemini 2.5 Pro"
-  "anthropic/claude-sonnet-4:Claude Sonnet 4"
-  "deepseek/deepseek-v4-pro:DeepSeek V4 Pro"
-)
-
-# ── launch helper ────────────────────────────────────────────────────
-launch() {
-  local model_ref="$1" tip_prov="$2" tip_model="$3"
-  shift 3
-
-  echo
-  bold "Launching Docker Agent: $model_ref"
-  dim "Tip: skip the picker next time with:"
-  if [ -n "$tip_model" ]; then
-    dim "  $0 $tip_prov $tip_model"
-  else
-    dim "  $0 $tip_prov"
-  fi
-  echo
-
-  local args=("$@")
-  local flags=()
-  local positionals=()
-  local skip_next=0
-  local has_agent=0
-
-  for ((i=0; i<${#args[@]}; i++)); do
-    local arg="${args[i]}"
-    if [ "$skip_next" -eq 1 ]; then
-      flags+=("$arg")
-      skip_next=0
-      continue
-    fi
-    case "$arg" in
-      -a|--agent)
-        flags+=("$arg")
-        skip_next=1
-        has_agent=1
-        ;;
-      -a=*|--agent=*)
-        flags+=("$arg")
-        has_agent=1
-        ;;
-      --agent-picker|--app-name|--attach|--disable-commands|--env-from-file|\
-      --fake|--fake-stream|--flavor|--hook-*|--kit|--kit-arg|--mcp-oauth-redirect-uri|\
-      --model|--models-gateway|--on-event|--prompt-file|--record|--remote|\
-      --safety|--sandbox-kit|--sandbox-ttl|--session|-s|--session-db|--template|\
-      --theme|--working-dir|-w|--worktree|--worktree-base|--worktree-pr)
-        flags+=("$arg")
-        skip_next=1
-        ;;
-      --*|-*)
-        flags+=("$arg")
-        ;;
-      *)
-        positionals+=("$arg")
-        ;;
-    esac
-  done
-
-  # Docker Agent syntax: docker-agent run [flags] [agent] [message]
-  # If no agent was explicitly named, insert built-in 'coder' before prompt
-  if [ "$has_agent" -eq 0 ]; then
-    if [ ${#positionals[@]} -eq 0 ]; then
-      positionals=("coder")
-    elif [ "${positionals[0]}" != "coder" ] && [ ! -f "${positionals[0]}" ]; then
-      positionals=("coder" "${positionals[@]}")
-    fi
-  fi
-
-  exec "$DOCKER_AGENT_BIN" run --model "$model_ref" ${flags[@]+"${flags[@]}"} ${positionals[@]+"${positionals[@]}"}
-}
+# shellcheck source=/dev/null
+source "$SCRIPT_DIR/_local-llm.sh"
 
 # ── pickers ──────────────────────────────────────────────────────────
 pick_local() {
   local local_model
   local_model=$(detect_local)
   if [ -z "$local_model" ]; then
-    red "No local llama-server running on port ${IK_LLAMA_PORT:-9080}."
+    red "No local model found (llama-swap on ${IK_LLAMA_SWAP_PORT:-9082} or llama-server on ${IK_LLAMA_PORT:-9080})."
     echo "Start a local model first in another terminal:"
-    dim  "  $SCRIPT_DIR/../llm/i9/start.sh i9 <mode>"
+    dim  "  $SCRIPT_DIR/../llm/llama-swap-setup.sh"
     exit 1
   fi
 
@@ -234,9 +124,9 @@ picker() {
   # 1. Local
   echo "Local (ik_llama.cpp):"
   if [ -n "$local_model" ]; then
-    green "  1) $local_model  [port ${IK_LLAMA_PORT:-9080} ONLINE]"
+    green "  1) $local_model  [port $(local_upstream_port) ONLINE]"
   else
-    dim   "  1) (offline) Start with:  $SCRIPT_DIR/../llm/i9/start.sh i9 <mode>"
+    dim   "  1) (offline) Start with:  $SCRIPT_DIR/../llm/llama-swap-setup.sh"
   fi
 
   echo
@@ -285,8 +175,8 @@ case "$1" in
     shift
     local_model=$(detect_local)
     if [ -z "$local_model" ]; then
-      red "No local llama-server running on port ${IK_LLAMA_PORT:-9080}."
-      echo "Start one first:  $SCRIPT_DIR/../llm/i9/start.sh i9 <mode>"
+      red "No local model found (llama-swap on ${IK_LLAMA_SWAP_PORT:-9082} or llama-server on ${IK_LLAMA_PORT:-9080})."
+      echo "Start one first:  $SCRIPT_DIR/../llm/llama-swap-setup.sh"
       exit 1
     fi
     # If the user passed the detected model name explicitly, consume it

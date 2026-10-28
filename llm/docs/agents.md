@@ -11,17 +11,15 @@ llm/setup-agents.sh                                # i9 (provider ik-llama) and 
 powershell -File llm\probook\setup-agents.ps1      # ProBook (provider llamacpp); same Python underneath
 ```
 
-On the i9 the generated config uses `http://localhost:9081/v1` — `local-proxy.py`, not llama-server's own port
-9080 directly. `start.sh` auto-starts the proxy alongside llama-server (same mechanism
-`claude-providers.sh` already used for Claude Code), so OpenCode/Pi also get SSE keep-alives during
-cold-prefill or queued-request gaps instead of a bare "Timed out waiting for response headers" from
-the client. Override the agent-facing port with `IK_LLAMA_AGENT_PORT`; llama-server's own port is
-still `IK_LLAMA_PORT` (default 9080).
+On every machine the generated config uses `http://127.0.0.1:9081/v1`: `local-proxy.py`, in front of
+llama-swap (9082), not a server's own port. The proxy sends SSE keep-alives during cold prefill or
+queued requests, so agents do not fail with a bare "Timed out waiting for response headers".
+`llama-swap-setup` starts the proxy with the chain; a bare `llm/i9/start.sh` also starts it, pointed at
+llama-server on 9080. Override the URL with `--base-url` (`-BaseUrl` on the ProBook).
 
-**Caveat:** this only helps if local-proxy.py is actually running. It auto-starts the next time you
-(re)launch the model via `start.sh`; if llama-server was already running from before this existed (or
-started some other way), restart it via `start.sh` once, or start the proxy by hand:
-`LOCAL_PROXY_UPSTREAM=http://127.0.0.1:9080 LOCAL_PROXY_PORT=9081 python3 llm/shared/local-proxy.py &`. (On the ProBook, OpenCode talks to 9080 directly; see `../README.md`.)
+**Caveat:** this only helps if local-proxy.py is actually running. Start it with the chain
+(`llm/llama-swap-setup.sh`, ProBook `llama-swap-setup.ps1`), or by hand:
+`LOCAL_PROXY_UPSTREAM=http://127.0.0.1:9082 LOCAL_PROXY_PORT=9081 python3 llm/shared/local-proxy.py &`.
 
 Model ids are the GGUF file names without `.gguf`, derived from `models.json` (the ProBook uses the short mode names of `llm/probook/start-llm.ps1`, e.g. `qwen36_35b_ml`). Run the agent setup to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
 
@@ -251,9 +249,8 @@ the agent config does not need to change either way. ProBook has its own equival
 `llm\probook\llama-swap-setup.ps1` (install the binary first: `update-llm.ps1 -Engine llama-swap`) --
 same stack, generated from the same `models.json`, reusing `start-llm.ps1`'s own flag-building
 function (`Get-ServerInvocation` in `llm\probook\lib\common.ps1`) instead of a second copy. Verified
-end to end on the ProBook 2026-10-28 (llama-swap v268); run `-WhatIf` first. On the ProBook,
-OpenCode defaults to the manual port 9080, so point it at the proxy with
-`setup-agents.ps1` (default URL is the chain on 9081; see `../README.md`).
+end to end on the ProBook 2026-10-28 (llama-swap v268); run `-WhatIf` first. Agents there are wired by
+`setup-agents.ps1`, whose default URL is the chain on 9081 (see `../README.md`).
 
 **Do not run both at once against the same model.** `start.sh` run manually
 (port 9080) and llama-swap are two independent supervisors; llama-swap doesn't know about a

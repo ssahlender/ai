@@ -33,7 +33,7 @@ function Get-LlmRoot {
     # used for jobs that cannot survive a PSRP session dying, e.g. a multi-GB download).
     # $env:USERPROFILE under SYSTEM resolves to C:\windows\system32\config\systemprofile and
     # writes would land in the wrong profile while still reporting success - so refuse rather
-    # than do that silently. The documented SYSTEM-task caller (download-model.ps1) already
+    # than do that silently. The documented SYSTEM-task caller (fetch-model.ps1) already
     # requires its destination as an explicit, mandatory parameter computed by the interactive
     # caller beforehand; any script relying on this default must do the same.
     param([string]$Override)

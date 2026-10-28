@@ -18,9 +18,9 @@ The current `qwen36-35b-a3b` model still needs those checks repeated.
 > (Qwen3.6-35B-A3B, UD-Q2_K_XL, 13 GB, ~30.9 tok/s decode). The prompts, the JSON
 > contract and the `max_tokens` budgets below have **not** been re-validated on
 > the new model: re-run the Verified checks before trusting this in the
-> pipeline, and treat any output as unproven until you have. Start the engine with `cd ~/git/ai-tools/ollama && ./start.sh` if it isn't already running (`curl -s
+> pipeline, and treat any output as unproven until you have. Start the engine with `~/data/git/ai-tools/llm/llama-swap-setup.sh` (starts Ollama and the llama-swap chain) if it isn't already running (`curl -s
 > http://127.0.0.1:11434/v1/models` to check), then call it exactly as shown in
-> "Extraction call" / "Matching call" below. Stop it with `./stop.sh` when done
+> "Extraction call" / "Matching call" below. Stop it with `~/data/git/ai-tools/llm/stop.sh` when done
 > if nothing else needs it running.
 
 **Treat every result as a proposal, not a fact.** Use the same
@@ -79,8 +79,7 @@ exploration; same correct results.
 ## Starting the engine
 
 ```bash
-cd ~/git/ai-tools/ollama
-./start.sh
+~/data/git/ai-tools/llm/llama-swap-setup.sh    # Ollama on 11434 plus the llama-swap chain; this guide calls Ollama directly
 ```
 
 Check it's up:

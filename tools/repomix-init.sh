@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Registers the Repomix MCP server with local coding agents.
 #
-# This compatibility name does not initialize a repository. Use
-# repomix-mcp-init.sh for MCP setup or repomix-pack.sh --init-only for a repo.
+# Named like every other <tool>-init.sh. It does not initialize a repository: for that use
+# repomix-pack.sh --init-only.
 set -euo pipefail
 
 # Include user-local bin in case repomix is installed there (e.g. on i9)
