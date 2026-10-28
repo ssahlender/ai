@@ -105,11 +105,12 @@ def installed(binary, config_dir):
 
 
 def load_json(path):
-    """Existing JSON object, or {} when the file is absent. Anything else aborts the whole run."""
+    """Existing JSON object, or {} when the file is absent. Anything else aborts the whole run.
+    utf-8-sig: Windows tools often write a byte-order mark, which plain utf-8 JSON parsing rejects."""
     if not path.exists():
         return {}
     try:
-        data = json.loads(path.read_text(encoding='utf-8'))
+        data = json.loads(path.read_text(encoding='utf-8-sig'))
     except ValueError as e:
         raise ConfigError(f'{path}: not valid JSON ({e}); comments (JSONC) are not supported')
     if not isinstance(data, dict):
@@ -155,7 +156,7 @@ def atomic_write(path, content, dry, mode=None):
 
 def read_secrets(path):
     secrets = {}
-    for line in path.read_text(encoding='utf-8').splitlines():
+    for line in path.read_text(encoding='utf-8-sig').splitlines():
         line = line.strip()
         if not line or line.startswith('#'):
             continue
@@ -317,7 +318,7 @@ def configure_cagent(cagent_dir, provider, base_url, stale_ref, removed, writes)
     data = {}
     if path.exists():
         try:
-            data = yaml.safe_load(path.read_text(encoding='utf-8')) or {}
+            data = yaml.safe_load(path.read_text(encoding='utf-8-sig')) or {}
         except Exception as e:
             print(f'Warning: failed to parse {path} ({e}); skipping Docker Agent', file=sys.stderr)
             return False
@@ -353,7 +354,7 @@ def sync_cagent_env(env_path, secrets, writes, dry):
     for k in ('OPENROUTER_API_KEY', 'NVIDIA_API_KEY'):
         if k in secrets:
             want[k] = secrets[k]
-    lines = env_path.read_text(encoding='utf-8').splitlines() if env_path.exists() else []
+    lines = env_path.read_text(encoding='utf-8-sig').splitlines() if env_path.exists() else []
     seen, out, changed = set(), [], False
     for line in lines:
         m = re.match(r'^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$', line.strip())

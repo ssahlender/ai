@@ -24,4 +24,5 @@ $pyArgs = @((Get-SharedFile 'setup_agents.py'), '--machine', 'probook')
 if ($DryRun)  { $pyArgs += '--dry-run' }
 if ($BaseUrl) { $pyArgs += @('--base-url', $BaseUrl) }
 & (Resolve-Python) @pyArgs
-exit $LASTEXITCODE
+# throw, not exit: exit would also end a calling session (PSRP, another script)
+if ($LASTEXITCODE -ne 0) { throw "setup_agents.py failed (exit $LASTEXITCODE)" }
