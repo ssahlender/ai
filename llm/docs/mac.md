@@ -3,9 +3,11 @@
 Measurements, background and lessons. How to start, stop and wire things is in [`../README.md`](../README.md); the live model list is [`../models.json`](../models.json).
 Commands below run from `llm/mac/`.
 
-Chosen over raw `mlx_lm.server` ([`mlx-comparison.md`](mlx-comparison.md)) and oMLX after a full comparison
-on 2026-09-13 (see [`mlx-comparison.md`](mlx-comparison.md)). Ollama had
-the fewest quirks and best throughput of the three:
+Today: `qwen36-35b-a3b` (UD-Q2_K_XL, 32K) decodes ~31 tok/s at 100 % GPU (2026-09-27, "Model" below).
+
+Ollama was chosen over raw `mlx_lm.server` and oMLX in a comparison on 2026-09-13
+([`mlx-comparison.md`](mlx-comparison.md)), on the 27B dense model of that time, so the speeds in
+this table are for that model, not today's. Ollama had the fewest quirks and best throughput of the three:
 
 | | Gen tok/s (warm) | Notes |
 |---|---:|---|
