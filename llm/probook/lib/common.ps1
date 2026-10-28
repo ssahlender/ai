@@ -250,7 +250,7 @@ function Invoke-NativeToFile {
 
 function Get-ProbookModeTable {
     # Reads models.json's probook entries into the shape start-llm.ps1 and
-    # llama-swap-setup.ps1 both need (Short/Name/Label/Engine/File/Ctx/Cram/Template/Mmproj/Spec).
+    # llama-swap-setup.ps1 both need (Short/Id/Name/Label/Engine/File/Ctx/Cram/Template/Mmproj/Spec).
     # Shared so the two scripts can't drift on how a models.json field maps to this shape.
     param(
         [Parameter(Mandatory = $true)][string]$ModelsJson,
@@ -263,6 +263,8 @@ function Get-ProbookModeTable {
     return @($modelsData.machines.probook | ForEach-Object {
         [pscustomobject]@{
             Short  = $_.short
+            # The id agents and llama-swap use; falls back to the GGUF stem (the i9 convention).
+            Id     = $(if ($_.id) { $_.id } else { [IO.Path]::GetFileNameWithoutExtension($_.file) })
             Name   = $_.desc
             # Readable display name (llama-swap web UI, OpenCode); falls back to the GGUF file name.
             Label  = $(if ($_.name) { $_.name } else { $_.file })

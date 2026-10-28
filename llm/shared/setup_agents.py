@@ -49,7 +49,7 @@ class ConfigError(Exception):
 
 # ── which models are actually available ──────────────────────────────────────
 
-def models_for(machine):
+def models_for(machine, base_url=''):
     """[(id, display name, context, vision)] for the models this machine can serve right now."""
     models_dir = Path(os.environ.get('MODELS_DIR') or LLAMA_ROOT / 'models')
     ctx_override = os.environ.get('IK_LLAMA_CTX_SIZE')
@@ -64,7 +64,8 @@ def models_for(machine):
         for m in load_modes('probook'):
             exe = engine_dir.get(m.get('engine'), Path('-')) / 'llama-server.exe'
             if (models_dir / m['file']).is_file() and exe.is_file():
-                out.append((m['short'], m.get('name') or m['file'], int(m['ctx']), bool(m.get('mmproj'))))
+                out.append((m.get('id') or m['file'][:-len('.gguf')], m.get('name') or m['file'], int(m['ctx']),
+                            bool(m.get('mmproj'))))
             else:
                 print(f"  - {m['short']}: skipped (model and/or its engine not present)")
     elif machine == 'mac':
@@ -77,7 +78,9 @@ def models_for(machine):
             print(f'Note: Ollama is not answering on {port}; writing every mac model from the catalog.')
         for m in load_modes('mac'):
             if have is None or m['ollama'] in have:
-                out.append((m['ollama'], m.get('name') or m['ollama'], int(m['ctx']), False))
+                # through llama-swap the readable id (a selector); straight at Ollama its own model name
+                mid = m['ollama'] if f':{port}/' in base_url else m['id']
+                out.append((mid, m.get('name') or m['id'], int(m['ctx']), False))
             else:
                 print(f"  - {m['ollama']}: skipped (not in Ollama; ollama pull {m.get('source', '')})")
     return out
@@ -180,7 +183,7 @@ def main():
     provider, base_url, dry = PROVIDER[machine], args.base_url, args.dry_run
     print(f'setup-agents: machine={machine} provider={provider} url={base_url} catalog={resolve_models_json()}')
 
-    models = models_for(machine)
+    models = models_for(machine, base_url)
     if not models:
         sys.exit(f'No model of machine "{machine}" is available here; nothing to configure '
                  '(see llm/README.md, first setup).')

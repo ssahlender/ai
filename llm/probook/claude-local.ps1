@@ -18,7 +18,7 @@
         { "env": { "CLAUDE_CODE_ATTRIBUTION_HEADER": "0" } }
 
 .PARAMETER Model
-    The llama-swap model id, i.e. the mode's short name in models.json (default qwen36_35b_ml).
+    The model id (llama-swap's and the agents'). Default: the first ProBook model in models.json.
 
 .PARAMETER NoStart
     Fail instead of starting the chain.
@@ -36,7 +36,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Model        = 'qwen36_35b_ml',
+    [string]$Model        = '',
     [int]$ProxyPort       = 9081,
     [switch]$NoStart,
     [switch]$FixSettings,
@@ -46,6 +46,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
 . (Join-Path $here 'lib\common.ps1')
+if (-not $Model) {
+    $Model = @(Get-ProbookModeTable -ModelsJson (Resolve-ModelsJsonPath -ScriptDir $here))[0].Id
+}
 
 Write-Host ("claude-local: model={0} agent port={1}" -f $Model, $ProxyPort)
 

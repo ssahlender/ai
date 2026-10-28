@@ -21,7 +21,7 @@ llama-server on 9080. Override the URL with `--base-url` (`-BaseUrl` on the ProB
 (`llm/llama-swap-setup.sh`, ProBook `llama-swap-setup.ps1`), or by hand:
 `LOCAL_PROXY_UPSTREAM=http://127.0.0.1:9082 LOCAL_PROXY_PORT=9081 python3 llm/shared/local-proxy.py &`.
 
-Model ids are the GGUF file names without `.gguf`, derived from `models.json` (the ProBook uses the short mode names of `llm/probook/start-llm.ps1`, e.g. `qwen36_35b_ml`). Run the agent setup to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
+Model ids are readable and show the quant: the GGUF file name without `.gguf` on the i9, the `id` field of `models.json` on the ProBook and the Mac (e.g. `Qwen3.6-35B-A3B-IQ4_NL`, `Qwen3.6-35B-A3B-UD-Q2_K_XL`). The ProBook's short mode name (`qwen36_35b_ml`) is only the argument to `start-llm.ps1`. Run the agent setup to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
 
 ## Pi
 

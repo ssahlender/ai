@@ -16,11 +16,11 @@ agent (OpenCode, Pi, Claude Code, Docker Agent)
 
 Agents are configured for **9081** on all three machines. Everything listens on 127.0.0.1 only.
 
-| machine | folder | engine | model (name in the llama-swap UI) | agent model id |
+| machine | folder | engine | model id (agents and llama-swap) | display name in the llama-swap UI |
 |---|---|---|---|---|
-| ProBook (Windows 11, 32 GB, CPU) | [`probook/`](probook/) | mainline llama.cpp | Qwen3.6-35B-A3B IQ4_NL (bartowski) - MTP - 32K | `qwen36_35b_ml` |
-| i9 (office, Debian 12, 64 GB, CPU) | [`i9/`](i9/) | ik_llama.cpp | Qwen3.6-35B-A3B MTP UD-Q6_K (unsloth) - suffix+MTP - 128K | `Qwen3.6-35B-A3B-MTP-UD-Q6_K` |
-| MacBook Air M4 (24 GB, Metal) | [`mac/`](mac/) | Ollama | Qwen3.6-35B-A3B UD-Q2_K_XL (unsloth) - 32K - Ollama | `qwen36-35b-a3b` |
+| ProBook (Windows 11, 32 GB, CPU) | [`probook/`](probook/) | mainline llama.cpp | `Qwen3.6-35B-A3B-IQ4_NL` | Qwen3.6-35B-A3B IQ4_NL (bartowski) - MTP - 32K |
+| i9 (office, Debian 12, 64 GB, CPU) | [`i9/`](i9/) | ik_llama.cpp | `Qwen3.6-35B-A3B-MTP-UD-Q6_K` | Qwen3.6-35B-A3B MTP UD-Q6_K (unsloth) - suffix+MTP - 128K |
+| MacBook Air M4 (24 GB, Metal) | [`mac/`](mac/) | Ollama | `Qwen3.6-35B-A3B-UD-Q2_K_XL` | Qwen3.6-35B-A3B UD-Q2_K_XL (unsloth) - 32K - Ollama |
 
 The ProBook runs PowerShell from `llm\probook`; the i9 and the Mac share the same commands in `llm/`
 (the machine is detected; `LLM_MACHINE=i9|mac` overrides it, an unknown machine is refused):
@@ -37,9 +37,11 @@ The ProBook runs PowerShell from `llm\probook`; the i9 and the Mac share the sam
 The first request after a start loads the model: about 1-1.5 min on the ProBook, seconds on the Mac.
 The llama-swap UI shows it loading.
 
-**Readable names** come from `name` in [`models.json`](models.json): llama-swap's UI and OpenCode show
-them; the agent model id stays short. On the Mac, llama-swap lists the readable entry and the raw
-`ollama/<name>`; both reach the same model.
+**Model ids are readable on every machine** and show the quant (table above): agents, llama-swap's lists
+and its stats all use them. The longer display `name` from [`models.json`](models.json) appears next to the
+id in llama-swap's UI and in OpenCode. On the Mac, llama-swap also lists the raw Ollama model
+(`ollama/qwen36-35b-a3b`); both reach the same model. Agent configs written before 2026-10-29 used short ids:
+re-run the agent setup once, it replaces them and removes the old references.
 
 **Agent setup is one codebase** for all three machines (`shared/setup_agents.py`): it detects the machine
 (`--machine` overrides; an unknown machine is refused), writes only models that are really available, and

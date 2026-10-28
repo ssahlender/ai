@@ -77,8 +77,8 @@ foreach ($mode in $modeTable) {
         Write-Host ("  - {0,-14} SKIPPED ({1})" -f $mode.Short, $_.Exception.Message)
         continue
     }
-    $entries += [pscustomobject]@{ Short = $mode.Short; Label = $mode.Label; Desc = $mode.Name; Server = $inv.Server; Args = $inv.Args }
-    Write-Host ("  + {0,-14} {1}" -f $mode.Short, $mode.Name)
+    $entries += [pscustomobject]@{ Short = $mode.Short; Id = $mode.Id; Label = $mode.Label; Desc = $mode.Name; Server = $inv.Server; Args = $inv.Args }
+    Write-Host ("  + {0,-14} {1}" -f $mode.Id, $mode.Label)
 }
 if ($entries.Count -eq 0) { throw "no usable probook modes (model + engine both present) found via $ModelsJson" }
 
@@ -114,7 +114,7 @@ foreach ($e in $entries) {
     $quotedServer = ConvertTo-WindowsArg $e.Server
     $quotedArgs   = $e.Args | ForEach-Object { ConvertTo-WindowsArg "$_" }
     $cmdLine = (@($quotedServer) + $quotedArgs) -join ' '
-    $lines += ("  {0}:" -f (ConvertTo-YamlSingleQuoted $e.Short))
+    $lines += ("  {0}:" -f (ConvertTo-YamlSingleQuoted $e.Id))
     # name/description: what the llama-swap web UI shows next to the id
     if ($e.Label) { $lines += ("    name: {0}" -f (ConvertTo-YamlSingleQuoted $e.Label)) }
     if ($e.Desc)  { $lines += ("    description: {0}" -f (ConvertTo-YamlSingleQuoted $e.Desc)) }

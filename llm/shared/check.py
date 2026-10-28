@@ -99,9 +99,9 @@ def check_syntax():
                                          + ('' if r.returncode == 0 else '\n' + (r.stdout + r.stderr).strip()[:1500]))
 
 
-REQUIRED = {'i9': ('name', 'file', 'ctx', 'download'), 'probook': ('name', 'short', 'file', 'ctx', 'engine'),
+REQUIRED = {'i9': ('name', 'file', 'ctx', 'download'), 'probook': ('name', 'id', 'short', 'file', 'ctx', 'engine'),
             'mac': ('name', 'id', 'ollama', 'ctx')}
-ID_KEY = {'i9': 'file', 'probook': 'short', 'mac': 'id'}
+ID_KEY = {'i9': 'file', 'probook': 'id', 'mac': 'id'}
 
 
 def check_catalog():
@@ -265,12 +265,13 @@ def check_agents(env, port):
         try:
             oc = json.loads((Path(env['XDG_CONFIG_HOME']) / 'opencode' / 'opencode.json').read_text())
             got = oc['provider'][provider]
+            want = {m.get('id') or m['file'][:-len('.gguf')] for m in models.load_modes(machine)}
             good = (dry.returncode == 0 and real.returncode == 0 and got['options']['baseURL'].endswith(':9081/v1')
-                    and got['models'] and all(v.get('name') for v in got['models'].values()))
+                    and set(got['models']) == want and all(v.get('name') for v in got['models'].values()))
         except (OSError, KeyError, ValueError) as ex:
             good, got = False, ex
         (ok if good else fail)(f'setup_agents {machine}: provider {provider} -> 9081, '
-                               f'{len(got["models"]) if good else 0} models'
+                               f'model ids {sorted(got["models"]) if good else "wrong"}'
                                + ('' if good else f' ({dry.stderr.strip()[:120]} {real.stderr.strip()[:120]} {got})'))
 
 

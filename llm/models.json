@@ -2,7 +2,8 @@
   "_comment": "Single source of truth for the model lineups: i9 (ik_llama, llm/i9/*.sh), ProBook (mainline llama.cpp, llm/probook/*.ps1) and Mac (Ollama models, llm/mac/*.sh). Each script reads this instead of keeping its own list. Edit this file to add/change a model; do not hardcode one in a script. Retired ProBook modes stay as a comment block in llm/probook/start-llm.ps1 (recipe to restore, not live data). A private lineup goes in llm/models.local.json (gitignored, see models.local.json.example).",
   "_fields": {
     "desc": "Human-readable label, shown in the interactive menu",
-    "name": "Readable name shown in llama-swap's web UI and in OpenCode: model, quant, publisher, speculation, context. Display only; the id stays file stem (i9), short (probook) or id (mac).",
+    "name": "Display name shown next to the id in llama-swap's web UI and in OpenCode: publisher, speculation, context",
+    "id": "The model id agents and llama-swap use (OpenCode/Pi/Claude Code model, llama-swap model): model, quant and variant, readable. i9: the GGUF stem (no id field needed); probook and mac: this field.",
     "file": "Local GGUF filename -- this is the model id used everywhere (OpenCode/Pi provider keys, llama-swap model names, etc.)",
     "ctx": "Context size passed to --ctx-size",
     "cram": "Prompt-cache RAM limit (MB) passed to -cram (ik_llama.cpp only; ignored by mainline llama.cpp)",
@@ -13,7 +14,7 @@
     "mmproj": "Vision projector: {file, repo, repo_file, bytes} or null. repo_file is the filename on HuggingFace when it differs from the local file name.",
     "download": "{repo, repo_file, bytes} for download-models.sh. bytes is null where the exact size hasn't been pinned (not verified on download).",
     "engine": "probook only: 'mainline' or 'ik_llama' -- start-llm.ps1 runs both engines on that machine and the mode table has to say which",
-    "short": "probook only: the short mode name (e.g. 'qwen36_35b_ml') used as the OpenCode/mode id there, distinct from the GGUF stem. The i9 uses the GGUF stem itself as the id.",
+    "short": "probook only: the mode name for start-llm.ps1 (e.g. 'qwen36_35b_ml'); not used by agents or llama-swap",
     "mac": "mac entries are Ollama models: id (what agents and llama-swap use), ollama (the Ollama model name), source (what `ollama pull` fetched), ctx"
   },
   "machines": {
@@ -56,6 +57,7 @@
     "probook": [
       {
         "name": "Qwen3.6-35B-A3B IQ4_NL (bartowski) - MTP - 32K",
+        "id": "Qwen3.6-35B-A3B-IQ4_NL",
         "short": "qwen36_35b_ml",
         "desc": "Qwen3.6 35B-A3B IQ4_NL (bartowski, vanilla) on mainline, draft-mtp from its embedded MTP layers",
         "file": "Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf",
