@@ -5,14 +5,6 @@ set -euo pipefail
 
 MACHINE="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODELS_JSON="${IK_LLAMA_MODELS_JSON:-}"
-if [ -z "$MODELS_JSON" ]; then
-  if [ -f "$SCRIPT_DIR/models.local.json" ]; then
-    MODELS_JSON="$SCRIPT_DIR/models.local.json"
-  else
-    MODELS_JSON="$SCRIPT_DIR/models.json"
-  fi
-fi
 
 usage() {
   echo "Usage: $0 [i9|macbook-air]" >&2
@@ -146,26 +138,9 @@ case "$MACHINE" in
 esac
 mkdir -p "$MODELS_DIR"
 
-# ── one row per downloadable file (model + its mmproj, if any) from models.json ──
-_py=$(mktemp)
-trap 'rm -f "$_py"' EXIT
-cat > "$_py" << 'PYEOF'
-import json, os
-
-with open(os.environ['MODELS_JSON']) as f:
-    data = json.load(f)
-
-for m in data.get('machines', {}).get(os.environ['MACHINE'], []):
-    rows = [(m['file'], m['download'])]
-    if m.get('mmproj'):
-        rows.append((m['mmproj']['file'], m['mmproj']))
-    for local_name, d in rows:
-        bytes_ = d.get('bytes')
-        print('\t'.join([local_name, d['repo'], d['repo_file'], '' if bytes_ is None else str(bytes_)]))
-PYEOF
-
-ENTRIES=$(MACHINE="$MACHINE" MODELS_JSON="$MODELS_JSON" python3 "$_py")
-[ -n "$ENTRIES" ] || { echo "No models for '$MACHINE' in $MODELS_JSON." >&2; exit 1; }
+# ── one row per downloadable file (model + its mmproj, if any), from models.json via models.py ──
+ENTRIES=$(python3 "$SCRIPT_DIR/models.py" downloads "$MACHINE")
+[ -n "$ENTRIES" ] || { echo "No models for '$MACHINE' in $(python3 "$SCRIPT_DIR/models.py" path)." >&2; exit 1; }
 
 PREFLIGHT_ARGS=()
 while IFS=$'\t' read -r local_name _repo _repo_file bytes; do

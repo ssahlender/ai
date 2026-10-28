@@ -17,14 +17,6 @@ case "$ARG" in
 esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-}"
-if [ -z "$MODELS_JSON_FILE" ]; then
-  if [ -f "$SCRIPT_DIR/models.local.json" ]; then
-    MODELS_JSON_FILE="$SCRIPT_DIR/models.local.json"
-  else
-    MODELS_JSON_FILE="$SCRIPT_DIR/models.json"
-  fi
-fi
 
 case "$MACHINE" in
   i9)          MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}" ;;
@@ -37,25 +29,10 @@ case "$MACHINE" in
 esac
 
 # Build whitelist from models.json (the one place model lists live) for this machine
-active_files=$(MACHINE="$MACHINE" MODELS_JSON_FILE="$MODELS_JSON_FILE" python3 - << 'PYEOF'
-import json, os
-
-with open(os.environ['MODELS_JSON_FILE']) as f:
-    data = json.load(f)
-
-files = set()
-for mode in data.get('machines', {}).get(os.environ['MACHINE'], []):
-    files.add(mode['file'])
-    if mode.get('mmproj'):
-        files.add(mode['mmproj']['file'])
-
-for f in sorted(files):
-    print(f)
-PYEOF
-)
+active_files=$(python3 "$SCRIPT_DIR/models.py" whitelist "$MACHINE")
 
 if [ -z "$active_files" ]; then
-  echo "Error: Whitelist is empty (failed to parse active models from $MODELS_JSON_FILE for $MACHINE). Refusing to proceed." >&2
+  echo "Error: Whitelist is empty (failed to parse active models from $(python3 "$SCRIPT_DIR/models.py" path) for $MACHINE). Refusing to proceed." >&2
   exit 1
 fi
 

@@ -6,19 +6,6 @@ set -euo pipefail
 MACHINE="${1:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-}"
-if [ -z "$MODELS_JSON_FILE" ]; then
-  if [ -f "$SCRIPT_DIR/models.local.json" ]; then
-    MODELS_JSON_FILE="$SCRIPT_DIR/models.local.json"
-  else
-    MODELS_JSON_FILE="$SCRIPT_DIR/models.json"
-  fi
-fi
-
-if [ ! -f "$MODELS_JSON_FILE" ]; then
-  echo "Missing $MODELS_JSON_FILE" >&2
-  exit 1
-fi
 
 # Default models dir based on machine arg, or try to auto-detect
 if [ -n "$MACHINE" ]; then
@@ -103,16 +90,8 @@ if [ -z "$MACHINE" ]; then
   exit 0
 fi
 
-# Extract entries from models.json (the one place model lists live)
-ENTRIES=$(MACHINE="$MACHINE" MODELS_JSON_FILE="$MODELS_JSON_FILE" python3 - << 'PYEOF'
-import json, os
-with open(os.environ['MODELS_JSON_FILE']) as f:
-    data = json.load(f)
-for mode in data.get('machines', {}).get(os.environ['MACHINE'], []):
-    mmproj = (mode.get('mmproj') or {}).get('file', '')
-    print('\t'.join([mode['desc'], mode['file'], str(mode['ctx']), str(mode['cram']), mmproj]))
-PYEOF
-)
+# Extract entries from models.json (the one place model lists live) via models.py
+ENTRIES=$(python3 "$SCRIPT_DIR/models.py" info "$MACHINE")
 
 if [ -z "$ENTRIES" ]; then
   echo "  No model entries found for machine '$MACHINE'"

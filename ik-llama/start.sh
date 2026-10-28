@@ -11,40 +11,14 @@ set -euo pipefail
 MACHINE="${1:-}"
 MODE="${2:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODELS_JSON="${IK_LLAMA_MODELS_JSON:-}"
-if [ -z "$MODELS_JSON" ]; then
-  # A colleague who clones this repo gets your committed lineup by default, but can keep
-  # their own without ever touching (or fighting git over) the committed file: drop a
-  # models.local.json next to it (gitignored) and every script here prefers it automatically.
-  if [ -f "$SCRIPT_DIR/models.local.json" ]; then
-    MODELS_JSON="$SCRIPT_DIR/models.local.json"
-  else
-    MODELS_JSON="$SCRIPT_DIR/models.json"
-  fi
-fi
 
-# ── load_modes: one source of truth (models.json) for every script ──
+# ── load_modes: one source of truth (models.json via models.py) for every script ──
 # Renders each machine's model list in the same pipe-delimited shape MODES always used
 # internally, so the resolve-mode loop below didn't need to change: only where the data
-# comes from did.
+# comes from did. models.py also owns the models.local.json/IK_LLAMA_MODELS_JSON
+# resolution, instead of every script re-deriving it.
 load_modes() {
-  python3 - "$1" "$MODELS_JSON" <<'PYEOF'
-import json, sys
-machine, path = sys.argv[1], sys.argv[2]
-with open(path) as f:
-    data = json.load(f)
-for m in data.get('machines', {}).get(machine, []):
-    mmproj = (m.get('mmproj') or {}).get('file') or ''
-    fields = [
-        m['desc'], m['file'], str(m['ctx']), str(m['cram']),
-        'YARN' if m.get('yarn') else '',
-        'SAMPLE' if m.get('sample') else '',
-        mmproj,
-        m.get('spec') or '',
-        'CT' if m.get('chat_template') else '',
-    ]
-    print('|'.join(fields))
-PYEOF
+  python3 "$SCRIPT_DIR/models.py" modes "$1"
 }
 
 # ── host reality (2026-09-27) ──────────────────────────────────────
@@ -115,7 +89,7 @@ esac
 
 mapfile -t MODES < <(load_modes "$MACHINE")
 if [ "${#MODES[@]}" -eq 0 ]; then
-  echo "No models for '$MACHINE' in $MODELS_JSON." >&2
+  echo "No models for '$MACHINE' in $(python3 "$SCRIPT_DIR/models.py" path)." >&2
   exit 1
 fi
 

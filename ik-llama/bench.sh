@@ -17,29 +17,14 @@ case "$MACHINE" in
     BENCH="$IK_LLAMA_DIR/build/bin/llama-bench"
     NGL=0
     THREADS_DEFAULT="${BENCH_THREADS:-6 8}"; THREADS_BATCH_DEFAULT="${BENCH_THREADS_BATCH:-24 32}"
-    # Modes are the GGUF stems listed in models.json (single source of truth).
+    # Modes are the GGUF stems listed in models.json (single source of truth), via models.py.
     _script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-}"
-    if [ -z "$MODELS_JSON_FILE" ]; then
-      if [ -f "$_script_dir/models.local.json" ]; then
-        MODELS_JSON_FILE="$_script_dir/models.local.json"
-      else
-        MODELS_JSON_FILE="$_script_dir/models.json"
-      fi
-    fi
-    unset _script_dir
     MODES=()
     while IFS= read -r gguf; do
       [ -n "$gguf" ] && MODES+=("${gguf%.gguf}")
-    done < <(MACHINE="$MACHINE" MODELS_JSON_FILE="$MODELS_JSON_FILE" python3 - << 'PYEOF'
-import json, os
-with open(os.environ['MODELS_JSON_FILE']) as f:
-    data = json.load(f)
-for mode in data.get('machines', {}).get(os.environ['MACHINE'], []):
-    print(mode['file'])
-PYEOF
-)
-    [ "${#MODES[@]}" -gt 0 ] || { echo "No modes parsed from $MODELS_JSON_FILE for $MACHINE" >&2; exit 1; }
+    done < <(python3 "$_script_dir/models.py" modes "$MACHINE" | cut -d'|' -f2)
+    [ "${#MODES[@]}" -gt 0 ] || { echo "No modes parsed from $(python3 "$_script_dir/models.py" path) for $MACHINE" >&2; exit 1; }
+    unset _script_dir
     normalize_mode() {
       local m
       for m in "${MODES[@]}"; do [ "$m" = "$1" ] && { echo "$m"; return 0; }; done

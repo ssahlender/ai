@@ -40,6 +40,7 @@ on ProBook). Override either root with `IK_LLAMA_DIR`/`MODELS_DIR`.
 | `cleanup-models.sh <machine>` | Remove GGUFs not in active lineup (models.json), whitelist-driven, dry-run by default |
 | `models.json` | Single source of truth for every machine's model lineup; see "Model names" below |
 | `models.local.json.example` | Template for a private, gitignored lineup (`models.local.json`) that overrides `models.json` without touching it |
+| `models.py` | Shared loader every script above calls instead of parsing `models.json` itself; also resolves `models.local.json`/`IK_LLAMA_MODELS_JSON` |
 
 `setup-agents.sh` writes the `ik-llama` provider for OpenCode, Pi, and Docker
 Agent (`docker-agent` / `cagent`). Per-model context values are read

@@ -19,14 +19,6 @@ esac
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
 START_SCRIPT="$SCRIPT_DIR/start.sh"
-MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-}"
-if [ -z "$MODELS_JSON_FILE" ]; then
-  if [ -f "$SCRIPT_DIR/models.local.json" ]; then
-    MODELS_JSON_FILE="$SCRIPT_DIR/models.local.json"
-  else
-    MODELS_JSON_FILE="$SCRIPT_DIR/models.json"
-  fi
-fi
 SWAP_LISTEN="${IK_LLAMA_SWAP_PORT:-9082}"
 AGENT_PORT="${IK_LLAMA_AGENT_PORT:-9081}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/llama-swap"
@@ -47,19 +39,17 @@ fi
 _py=$(mktemp)
 trap 'rm -f "$_py"' EXIT
 cat > "$_py" << 'PYEOF'
-import json, os, sys
+import os, sys
+sys.path.insert(0, os.environ['SCRIPT_DIR'])
+from models import load_modes
 
 models_dir = os.environ['MODELS_DIR']
-models_json = os.environ['MODELS_JSON_FILE']
 machine = os.environ['MACHINE']
 start_script_abs = os.path.abspath(os.environ['START_SCRIPT'])
 health_timeout = int(os.environ['HEALTH_TIMEOUT'])
 
-with open(models_json) as f:
-    data = json.load(f)
-
 entries = []
-for mode in data.get('machines', {}).get(machine, []):
+for mode in load_modes(machine):
     filename = mode['file']
     model_id = filename[:-len('.gguf')]
     if os.path.isfile(os.path.join(models_dir, filename)):
@@ -88,7 +78,7 @@ for model_id in entries:
 PYEOF
 
 mkdir -p "$CONFIG_DIR"
-MODELS_DIR="$MODELS_DIR" START_SCRIPT="$START_SCRIPT" MODELS_JSON_FILE="$MODELS_JSON_FILE" MACHINE="$MACHINE" HEALTH_TIMEOUT="$HEALTH_TIMEOUT" \
+SCRIPT_DIR="$SCRIPT_DIR" MODELS_DIR="$MODELS_DIR" START_SCRIPT="$START_SCRIPT" MACHINE="$MACHINE" HEALTH_TIMEOUT="$HEALTH_TIMEOUT" \
   python3 "$_py" > "$CONFIG_FILE.new"
 mv "$CONFIG_FILE.new" "$CONFIG_FILE"
 echo "Wrote $CONFIG_FILE:"

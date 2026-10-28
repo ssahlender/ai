@@ -24,14 +24,6 @@ CAGENT_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cagent"
 SECRETS_FILE="$HOME/.secrets"
 OPENCODE_OUTPUT_LIMIT="${OPENCODE_OUTPUT_LIMIT:-8192}"
 OPENCODE_COMPACTION_RESERVED="${OPENCODE_COMPACTION_RESERVED:-10000}"
-MODELS_JSON_FILE="${IK_LLAMA_MODELS_JSON:-}"
-if [ -z "$MODELS_JSON_FILE" ]; then
-  if [ -f "$SCRIPT_DIR/models.local.json" ]; then
-    MODELS_JSON_FILE="$SCRIPT_DIR/models.local.json"
-  else
-    MODELS_JSON_FILE="$SCRIPT_DIR/models.json"
-  fi
-fi
 
 # Agents point at local-proxy.py (started by start.sh alongside llama-server),
 # not llama-server's own port, so cold-prefill/queued-request gaps get SSE
@@ -62,22 +54,20 @@ cleanup() { rm -f "${_py:-}" "${_apply:-}"; }
 trap cleanup EXIT
 
 cat > "$_py" << 'PYEOF'
-import json, os
+import json, os, sys
+sys.path.insert(0, os.environ['SCRIPT_DIR'])
+from models import load_modes
 
 models_dir = os.environ['MODELS_DIR']
-models_json = os.environ['MODELS_JSON_FILE']
 machine = os.environ['MACHINE']
 output_limit = int(os.environ.get('OPENCODE_OUTPUT_LIMIT', '8192'))
 ctx_override = os.environ.get('IK_LLAMA_CTX_SIZE')
 compaction_reserved = int(os.environ.get('OPENCODE_COMPACTION_RESERVED', '10000'))
 
-with open(models_json) as f:
-    data = json.load(f)
-
 opencode_models = {}
 pi_models = []
 
-for mode in data.get('machines', {}).get(machine, []):
+for mode in load_modes(machine):
     filename = mode['file']
     model_id = filename[:-len('.gguf')]
     if not os.path.isfile(os.path.join(models_dir, filename)):
@@ -133,7 +123,7 @@ print(json.dumps(result, indent=2))
 PYEOF
 
 # ── execute the Python script ──────────────────────────────────────
-MODELS_JSON=$(MODELS_JSON_FILE="$MODELS_JSON_FILE" MODELS_DIR="$MODELS_DIR" MACHINE="$MACHINE" OPENCODE_OUTPUT_LIMIT="$OPENCODE_OUTPUT_LIMIT" OPENCODE_COMPACTION_RESERVED="$OPENCODE_COMPACTION_RESERVED" BASE_URL="$BASE_URL" python3 "$_py")
+MODELS_JSON=$(SCRIPT_DIR="$SCRIPT_DIR" MODELS_DIR="$MODELS_DIR" MACHINE="$MACHINE" OPENCODE_OUTPUT_LIMIT="$OPENCODE_OUTPUT_LIMIT" OPENCODE_COMPACTION_RESERVED="$OPENCODE_COMPACTION_RESERVED" BASE_URL="$BASE_URL" python3 "$_py")
 
 model_count=$(echo "$MODELS_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d.get("opencode_provider",{}).get("models",{})))')
 if [ "$model_count" -eq 0 ]; then
