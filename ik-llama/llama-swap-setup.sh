@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-# Generates a llama-swap config.yaml from start.sh's MODES and (re)starts llama-swap
+# Generates a llama-swap config.yaml from models.json and (re)starts llama-swap
 # plus local-proxy.py pointed at it, so agents can switch models by name instead of
-# you running start.sh by hand. Usage: ./llama-swap-setup.sh <i9>
+# you running start.sh by hand. Usage: ./llama-swap-setup.sh <i9|macbook-air>
 #
 # Stack: harness -> local-proxy.py (9081, keep-alive) -> llama-swap (9082, model
 # routing/lifecycle) -> llama-server (one at a time, port picked by llama-swap).
 #
-# This coexists with plain `start.sh i9 <mode>` (port 9080, manual, no swapping) --
-# just don't run both against the same GGUF file's mlock'd RAM at once on a 62 GiB box.
+# This coexists with plain `start.sh <machine> <mode>` (port 9080, manual, no swapping) --
+# just don't run both against the same GGUF file's mlock'd RAM at once (double-loads it).
 set -euo pipefail
 
 MACHINE="${1:-}"
-[ "$MACHINE" = i9 ] || { echo "Usage: $0 i9  (llama-swap config is only generated for i9 so far)" >&2; exit 1; }
+case "$MACHINE" in
+  i9|macbook-air) ;;
+  *) echo "Usage: $0 <i9|macbook-air>" >&2; exit 1 ;;
+esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELS_DIR="${MODELS_DIR:-$HOME/.local/share/llama.cpp/models}"
@@ -23,8 +26,15 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/llama-swap"
 CONFIG_FILE="$CONFIG_DIR/config.yaml"
 HEALTH_TIMEOUT="${IK_LLAMA_SWAP_HEALTH_TIMEOUT:-600}"
 
-LLAMA_SWAP_BIN="${LLAMA_SWAP_BIN:-$(command -v llama-swap || echo /home/linuxbrew/.linuxbrew/bin/llama-swap)}"
-[ -x "$LLAMA_SWAP_BIN" ] || { echo "llama-swap not found. Install: brew tap mostlygeek/llama-swap && brew install mostlygeek/llama-swap/llama-swap" >&2; exit 1; }
+LLAMA_SWAP_BIN="${LLAMA_SWAP_BIN:-$(command -v llama-swap || echo '')}"
+if [ -z "$LLAMA_SWAP_BIN" ]; then
+  # Non-interactive shells don't always inherit Homebrew's PATH (same issue start.sh's
+  # macbook-air SERVER lookup works around) -- probe the standard prefixes before giving up.
+  for c in /home/linuxbrew/.linuxbrew/bin/llama-swap /opt/homebrew/bin/llama-swap /usr/local/bin/llama-swap; do
+    [ -x "$c" ] && { LLAMA_SWAP_BIN="$c"; break; }
+  done
+fi
+[ -n "$LLAMA_SWAP_BIN" ] && [ -x "$LLAMA_SWAP_BIN" ] || { echo "llama-swap not found. Install: brew tap mostlygeek/llama-swap && brew install mostlygeek/llama-swap/llama-swap" >&2; exit 1; }
 
 # ── build config.yaml from models.json (the one place model lists live) ──
 _py=$(mktemp)
