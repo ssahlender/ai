@@ -112,9 +112,9 @@ On Windows, ProBook runs natively via the scripts in `llm/` (see `llm/README.md`
 
 ```powershell
 pwsh llm\update-llm.ps1
-pwsh llm\fetch-model.ps1 qwen36u35b_ml
+pwsh llm\fetch-model.ps1 qwen36_35b_ml
 pwsh llm\setup-agent-providers.ps1
-pwsh llm\start-llm.ps1 qwen36u35b_ml
+pwsh llm\start-llm.ps1 qwen36_35b_ml
 ```
 
 Benchmark thread settings:

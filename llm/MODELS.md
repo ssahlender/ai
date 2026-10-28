@@ -19,30 +19,42 @@ Download a file (resumable, verified): `llm/fetch-model.ps1`
 (`llm/tests/download-model.ps1` is a thin wrapper over it, kept because other paths referred to it.)
 Base URL pattern: `https://huggingface.co/<repo>/resolve/main/<file>`
 
-## Installed right now (2026-09-27)
+## Installed right now (2026-10-28)
 
 | host | runtime | model | size |
 |---|---|---|---|
-| ProBook (Windows) | mainline llama.cpp CPU, `$env:USERPROFILE\.local\share\llama.cpp\llama.cpp-cpu` | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf` | 18.42 GiB |
+| ProBook (Windows) | mainline llama.cpp CPU, `$env:USERPROFILE\.local\share\llama.cpp\llama.cpp-cpu` | `Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf` (bartowski) | 19.33 GiB |
 | MacBook Air M4 (macOS) | Ollama (`ollama serve`) | `qwen36-35b-a3b` = `hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` (13 GB) | 11.45 GiB |
 
 The recorded inventory lists only these models. Ollama manages the Mac's
-GGUF-derived model through its own model store. The ProBook's ik_llama
-engine directory was removed the same day, leaving mainline llama.cpp
-(mode `qwen36u35b_ml`) as the active runtime.
+GGUF-derived model through its own model store. The ProBook runs mainline
+llama.cpp (mode `qwen36_35b_ml`, `draft-mtp`); its previous model, the HauhauCS
+IQ4_NL below, was deleted on 2026-10-28 and can be re-fetched from this table.
 
 ---
 
 ## In use: the reference model
 
-### `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf`
+### `Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf` (ProBook, since 2026-10-28)
+| | |
+|---|---|
+| repo | `bartowski/Qwen_Qwen3.6-35B-A3B-GGUF` |
+| URL | https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf |
+| bytes | `20754978432` (19.33 GiB) |
+| sha256 | `41e9f836690bde9619928538cb4dd170472d2e851243637f7092937a151297ad` |
+| status | **KEEP**; the standing reference on this box, served with `--spec-type draft-mtp` (MTP layers embedded) |
+
+Vanilla Qwen3.6-35B-A3B, the same family the other machines run, in a standard (non-dynamic) imatrix
+quant. Chosen in a 2026-10-28 A/B against the HauhauCS fine-tune and unsloth's UD quants (`README.md`).
+
+### Retired 2026-10-28: `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf`
 | | |
 |---|---|
 | repo | `HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive` |
 | URL | https://huggingface.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive/resolve/main/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf |
 | bytes | `19779278976` (18.42 GiB) |
 | sha256 | `b228c988c624dffe0b57235a395fa79562d4362fed545820f9b7d78908f337e6` |
-| status | **KEEP**; the standing reference on this box |
+| status | **DELETED 2026-10-28** (replaced by the vanilla family model above); re-fetch with this hash if needed |
 
 35B-A3B MoE (≈3B active per token), so decode speed follows the 3B while memory follows the 35B.
 Chosen because the box is memory-bandwidth-bound: a dense model of similar quality would move
@@ -79,6 +91,8 @@ apart are not comparable on this hardware.
 
 | model | repo | file | bytes | sha256 |
 |---|---|---|---|---|
+| Qwen3.6-35B-A3B UD-IQ4_NL (unsloth, 2026-10-28: ~30 % slower on this CPU) | `unsloth/Qwen3.6-35B-A3B-GGUF` | `Qwen3.6-35B-A3B-UD-IQ4_NL.gguf` | `18040888288` | `0d17e255dc257a11f398ed4bc8d62412d8ce9ca24b3fce2947d962e4bfed5758` |
+| Qwen3.6-35B-A3B MTP UD-IQ4_NL (unsloth, 2026-10-28: same) | `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` | `Qwen3.6-35B-A3B-UD-IQ4_NL.gguf` | `18536192288` | `d0ad78047bd0a583bfcb484e9defc63112c5f1f856e310dcf88dc48f2ebeae5b` |
 | Ornith 1.5 35B-A3B | `ornith-ai/Ornith-1.5-35B-A3B-GGUF` | `Ornith-1.5-35B-Q4_K_M.gguf` | `21713463040` | `42739874cc2ccfdb8523b23fbe52e29b2a7555c8176737ca9ca0b5d59859d41f` |
 | Qwen3.8 distill 35B-A3B | `empero-ai/Qwen3.8-35B-A3B-Distill-GGUF` | `Qwen3.8-35B-A3B-IQ4_XS.gguf` | `19627788160` | `b645af45431ef9b41f43cae51c9323b2d0ca84f23031d483d2105c643ae58d65` |
 | Qwen-AgentWorld 35B-A3B | `unsloth/Qwen-AgentWorld-35B-A3B-GGUF` | `Qwen-AgentWorld-35B-A3B-UD-IQ4_XS.gguf` | `17785036032` | `ff4201b0c163950dc96aeaca033398543a1d62513ddc1c4030f9b94823764e06` |

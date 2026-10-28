@@ -9,43 +9,52 @@ live under `$env:USERPROFILE\.local\share\llama.cpp` (matching the Linux/Mac con
 via `lib\common.ps1`'s `Get-LlmRoot -Override`) and are described in `MODELS.md`. Migrating from
 the old `C:\data\llm` layout: `.\move-to-home.ps1` (`-WhatIf` first).
 
-## What is installed right now (verified 2026-09-27)
+## What is installed right now (verified 2026-10-28)
 
 | | |
 |---|---|
 | engine | mainline llama.cpp CPU build b11588 (updated 2026-10-13), `$env:USERPROFILE\.local\share\llama.cpp\llama.cpp-cpu` |
-| model | `Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf` (18.42 GiB) |
-| mode | `qwen36u35b_ml`, **the only live mode**; `-ListOnly` shows it `[OK]` |
+| model | `Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf` (bartowski, vanilla Qwen3.6, 19.33 GiB, MTP layers embedded) |
+| mode | `qwen36_35b_ml`, **the only live mode**, runs `--spec-type draft-mtp`; `-ListOnly` shows it `[OK]` |
 
 The i-quant engine (`ik_llama`) was removed on 2026-09-27 and the other seven modes were retired
-with it. `start-llm.ps1` lists them as a restorable comment block: fetch the file (`MODELS.md` has
+with it. The HauhauCS Uncensored IQ4_NL that served until 2026-10-28 was replaced by the vanilla
+family model above (same family as the other machines) and deleted; `MODELS.md` keeps its hash. `start-llm.ps1` lists them as a restorable comment block: fetch the file (`MODELS.md` has
 repo + SHA-256) and paste the block back.
 
-## Speculative decoding (re-measured 2026-10-13, mainline b11588)
+## Model and speculative decoding (A/B, 2026-10-28, mainline b11588)
 
-Mainline now lists `--spec-type draft-mtp`, so the older "speculation is dead here" note (b11201 era) no
-longer holds as a statement about the engine. It still holds as advice: **do not add `--spec-*` flags to
-this box.** Same engine, one model at a time, greedy, 256 tokens, 8 threads, q8_0 KV, reasoning off,
-2 measured runs per cell after a warm-up (decode tok/s; the laptop was in use, so treat gaps under
-~15 % as noise):
+Same engine and flags for every row (8/8 threads, q8_0 KV, ctx 8192, `--reasoning off`, greedy, 256
+tokens, prompt cache off), decode tok/s, mean of 2 measured runs after a warm-up, run as an unattended
+scheduled task. The HauhauCS control was run four times across the session and moved by up to ~25 % on
+its own (edit 14-20 tok/s), so treat gaps under ~20 % as noise.
 
-| setup | edit | prose | new code | prompt |
+| model (all Qwen3.6-35B-A3B, IQ4_NL-class) | edit | prose | new code | prompt |
 |---|---|---|---|---|
-| incumbent IQ4_NL, plain | 12.8 | 12.9 | 11.6 | ~24 |
-| unsloth MTP build IQ4_NL, plain | 8.7 | 8.8 | 8.8 | ~19 |
-| unsloth MTP build IQ4_NL + `draft-mtp` | 12.9 | 8.2 | 10.1 | ~16 |
+| HauhauCS Uncensored IQ4_NL, plain (previous live model, 4 runs) | 17.6 | 15.2 | 13.0 | ~60 |
+| unsloth UD-IQ4_NL, plain | 9.3 | 9.3 | 9.4 | ~38 |
+| unsloth MTP UD-IQ4_NL, plain | 9.4 | 9.2 | 9.2 | ~38 |
+| unsloth MTP UD-IQ4_NL + `draft-mtp` n_max 1 / 3 | 12.1 / 14.4 | 11.7 / 10.1 | 12.1 / 12.7 | ~38 |
+| **bartowski IQ4_NL, plain** | 12.4 | 14.1 | 14.1 | ~53 |
+| **bartowski IQ4_NL + `draft-mtp` n_max 1** | 15.9 | 14.5 | 15.8 | ~49 |
+| **bartowski IQ4_NL + `draft-mtp` n_max 3 (default; live)** | **19.0** | 12.8 | **17.3** | ~51 |
 
-`draft-mtp` helps its own file (+48 % on an edit prompt at 99 % draft acceptance, +15 % on new code,
-nothing on prose), but that file decodes about a third slower than the incumbent when plain, at both
-IQ4_NL and IQ4_XS, so the speculated result only ties the incumbent on edits and loses elsewhere. Prompt
-processing is also slower. Cause of the slow plain decode not established. Both MTP files were deleted
-after the test (sizes and SHA-256 are in the unsloth MTP repo listing if the test is repeated).
+- **MTP layers cost nothing when unused**: the unsloth file with and without them decodes the same. The
+  2026-10-13 "the MTP file is a third slower" finding was the unsloth *UD* quant, not MTP.
+- **unsloth's UD quants are slow on this CPU** (~30 % decode, ~35 % prompt behind HauhauCS) although the
+  file is smaller. Cause not established.
+- **bartowski's standard IQ4_NL with `draft-mtp` matches the HauhauCS model on decode** (ahead on new code,
+  level on edits, slightly behind on prose); prompt processing is ~15 % slower. Its GGUF embeds the MTP
+  layers: the separate `mtp-...Q4_0.gguf` via `-md` measured identically, so it is not needed.
+- Draft acceptance: 91/91 (n_max 1) and 135/138 (n_max 3) on the edit prompt.
+- Quality, 6 scripted tasks x 3 samples at temperature 0.7 (graded by running the code): HauhauCS 15/18,
+  bartowski 14/18, unsloth 14/18, unsloth MTP 12/18 -- no difference this sample size can call.
 
 ## Start, check, stop
 
 ```powershell
 .\start-llm.ps1 -ListOnly                      # every mode + resolved paths + OK/MISSING
-.\start-llm.ps1 qwen36u35b_ml -Background      # detached; survives the calling session
+.\start-llm.ps1 qwen36_35b_ml -Background      # detached; survives the calling session
 (Invoke-RestMethod http://127.0.0.1:9080/health).status     # 'ok' once loaded, 503 while loading
 Stop-Process -Name llama-server -Force         # there is no stop script
 ```
@@ -85,7 +94,7 @@ Invoke-RestMethod http://127.0.0.1:9080/v1/chat/completions -Method Post -Body $
 when **both its GGUF and its engine's `llama-server.exe` exist**, so it cannot advertise something
 that would fail at launch. It merges into the global OpenCode config (existing keys preserved),
 names the provider for the engine that serves (`llamacpp`), and backs the old file up as
-`opencode.json.bak`. `claude-local.ps1` defaults to `qwen36u35b_ml`; Claude Code needs
+`opencode.json.bak`. `claude-local.ps1` defaults to `qwen36_35b_ml`; Claude Code needs
 `CLAUDE_CODE_ATTRIBUTION_HEADER=0` in `~/.claude/settings.json` or local calls run ~90% slower
 (`-FixSettings` writes it).
 
@@ -96,7 +105,7 @@ names the provider for the engine that serves (`llamacpp`), and backs the old fi
 | `bench\bench-matrix.ps1` | measures **every `.gguf` found in the models dir**, discovered at run time, so it cannot outlive its models |
 | `bench\bench-ab.ps1`, `bench\bench-mtp.ps1` | **obsolete** (they required gemma-4-26B and the ik_llama engine). Kept as the method's record; they refuse and point at `bench-matrix.ps1` |
 | `update-llm.ps1` | updates engines; default is `mainline` only. `-Engine ik_llama`/`llama-swap`/`all` bring the others in deliberately |
-| `llama-swap-setup.ps1` | optional model routing/lifecycle via llama-swap, same stack as `ik-llama/llama-swap-setup.sh`; install the binary first with `update-llm.ps1 -Engine llama-swap`. **Not verified on a real Windows runtime** -- written from a Linux box with no `pwsh`; run `-WhatIf` first |
+| `llama-swap-setup.ps1` | optional model routing/lifecycle via llama-swap, same stack as `ik-llama/llama-swap-setup.sh`; install the binary first with `update-llm.ps1 -Engine llama-swap`. verified end to end on the ProBook 2026-10-28 (llama-swap v268); run `-WhatIf` first |
 | `fetch-model.ps1` | resumable, size-verified GGUF download. `tests\download-model.ps1` is a thin wrapper over it |
 | `MODELS.md` | provenance: repo, exact bytes, SHA-256, and what is installed on which host |
 

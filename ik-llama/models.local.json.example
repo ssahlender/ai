@@ -111,16 +111,21 @@
     ],
     "probook": [
       {
-        "short": "qwen36u35b_ml",
-        "desc": "Qwen3.6 35B-A3B Uncensored IQ4_NL on mainline (the only model on this box)",
-        "file": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf",
+        "short": "qwen36_35b_ml",
+        "desc": "Qwen3.6 35B-A3B IQ4_NL (bartowski, vanilla) on mainline, draft-mtp from its embedded MTP layers",
+        "file": "Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf",
         "ctx": 32768,
         "cram": 0,
         "yarn": false,
         "sample": false,
-        "spec": null,
+        "spec": "--spec-type draft-mtp",
         "chat_template": false,
         "mmproj": null,
+        "download": {
+          "repo": "bartowski/Qwen_Qwen3.6-35B-A3B-GGUF",
+          "repo_file": "Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf",
+          "bytes": 20754978432
+        },
         "engine": "mainline"
       }
     ]

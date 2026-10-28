@@ -11,7 +11,8 @@
     ship their own llama.dll / ggml.dll — mixing them in one folder loads the wrong
     kernels. Models are shared.
 
-    One model is installed here: the incumbent IQ4_NL, served by mainline (mode qwen36u35b_ml).
+    One model is installed here: bartowski's vanilla Qwen3.6-35B-A3B IQ4_NL with draft-mtp, served by
+    mainline (mode qwen36_35b_ml; chosen 2026-10-28, see llm/README.md).
     Measured on this machine (2026-09-26) and kept as history - both entries below are RETIRED
     as of 2026-09-27 (the gemma file was deleted, the ik_llama engine directory removed):
       mainline b11201 CPU + gemma4qat   -> pp8 48.1 / pp128 72.7 / tg 17.8-19.4   <- BEST
@@ -87,6 +88,7 @@ $ModeTable = Get-ProbookModeTable -ModelsJson $ModelsJson -ChatTemplate $ChatTem
 # fetch the file first (llm/MODELS.md records repo, file and SHA-256), then restore the block.
 #   gemma4qat      mainline  gemma-4-26B_q4_0-it.gguf                                    (deleted: provenance unverified)
 #   qwen36u35b     ik_llama  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf  (same file, retired engine)
+#   qwen36u35b_ml  mainline  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf  (deleted 2026-10-28: replaced by the vanilla family model)
 #   qwen3coder30b  mainline  Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf                    (never downloaded)
 #   qwen38distill  mainline  Qwen3.8-35B-A3B-Distill-IQ4_XS.gguf                         (deleted)
 #   qwen36u35b_xs  mainline  Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_XS.gguf  (deleted)

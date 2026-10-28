@@ -7,7 +7,7 @@
     "cram": "Prompt-cache RAM limit (MB) passed to -cram (ik_llama.cpp only; ignored by mainline llama.cpp)",
     "yarn": "Apply the machine's YARN rope-scaling flags",
     "sample": "Apply the machine's SAMPLE_BASE sampling flags (--temp/--top-p/--top-k)",
-    "spec": "Raw --spec-type speculative-decoding flags, or null",
+    "spec": "Raw --spec-type speculative-decoding flags, or null (honoured on every machine, ProBook included)",
     "chat_template": "Needs qwen3-template.j2 (models whose built-in template doesn't handle tool calling well)",
     "mmproj": "Vision projector: {file, repo, repo_file, bytes} or null. repo_file is the filename on HuggingFace when it differs from the local file name.",
     "download": "{repo, repo_file, bytes} for download-models.sh. bytes is null where the exact size hasn't been pinned (not verified on download).",
@@ -111,16 +111,21 @@
     ],
     "probook": [
       {
-        "short": "qwen36u35b_ml",
-        "desc": "Qwen3.6 35B-A3B Uncensored IQ4_NL on mainline (the only model on this box)",
-        "file": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL.gguf",
+        "short": "qwen36_35b_ml",
+        "desc": "Qwen3.6 35B-A3B IQ4_NL (bartowski, vanilla) on mainline, draft-mtp from its embedded MTP layers",
+        "file": "Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf",
         "ctx": 32768,
         "cram": 0,
         "yarn": false,
         "sample": false,
-        "spec": null,
+        "spec": "--spec-type draft-mtp",
         "chat_template": false,
         "mmproj": null,
+        "download": {
+          "repo": "bartowski/Qwen_Qwen3.6-35B-A3B-GGUF",
+          "repo_file": "Qwen_Qwen3.6-35B-A3B-IQ4_NL.gguf",
+          "bytes": 20754978432
+        },
         "engine": "mainline"
       }
     ]

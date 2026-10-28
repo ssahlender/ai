@@ -235,7 +235,7 @@ function Invoke-NativeToFile {
 
 function Get-ProbookModeTable {
     # Reads models.json's probook entries into the shape start-llm.ps1 and
-    # llama-swap-setup.ps1 both need (Short/Name/Engine/File/Ctx/Cram/Template/Mmproj).
+    # llama-swap-setup.ps1 both need (Short/Name/Engine/File/Ctx/Cram/Template/Mmproj/Spec).
     # Shared so the two scripts can't drift on how a models.json field maps to this shape.
     param(
         [Parameter(Mandatory = $true)][string]$ModelsJson,
@@ -256,6 +256,7 @@ function Get-ProbookModeTable {
             # (ik_llama always tries the global -ChatTemplate param unconditionally).
             Template = $(if ($_.chat_template) { $ChatTemplate } else { $null })
             Mmproj = $(if ($_.mmproj) { $_.mmproj.file } else { $null })
+            Spec   = $_.spec
         }
     })
 }
@@ -342,6 +343,8 @@ function Get-ServerInvocation {
         }
     }
     if ($Mode.Mmproj) { $serverArgs += @('--mmproj', (Join-Path $ModelDir $Mode.Mmproj)) }
+    # models.json 'spec': raw speculative-decoding flags, split on whitespace (e.g. '--spec-type draft-mtp').
+    if ($Mode.Spec) { $serverArgs += @($Mode.Spec -split '\s+' | Where-Object { $_ }) }
     if ($ApiKey) { $serverArgs += @('--api-key', $ApiKey) }
     if ($ExtraArgs) { $serverArgs += $ExtraArgs }
     if ($NoThinking) { $serverArgs += @('--reasoning', 'off') }

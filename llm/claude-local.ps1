@@ -19,10 +19,10 @@
         { "env": { "CLAUDE_CODE_ATTRIBUTION_HEADER": "0" } }
 
     Model naming: Claude Code must be given the GGUF filename stem, e.g.
-    Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL. -ModelStem overrides it.
+    Qwen_Qwen3.6-35B-A3B-IQ4_NL. -ModelStem overrides it.
 
 .PARAMETER Mode
-    Mode for start-llm.ps1 (default qwen36u35b_ml) — used when the server is not up yet.
+    Mode for start-llm.ps1 (default qwen36_35b_ml) — used when the server is not up yet.
 
 .PARAMETER NoStart
     Fail instead of starting llama-server / the proxy.
@@ -40,8 +40,8 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Mode         = 'qwen36u35b_ml',
-    [string]$ModelStem    = 'Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-IQ4_NL',
+    [string]$Mode         = 'qwen36_35b_ml',
+    [string]$ModelStem    = 'Qwen_Qwen3.6-35B-A3B-IQ4_NL',
     [int]$ServerPort      = 9080,
     [int]$ProxyPort       = 9081,
     [string]$ProxyScript  = '',
