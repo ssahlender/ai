@@ -264,6 +264,11 @@ def check_mac(env, port):
     if r.returncode != 0:
         fail(f'llama_swap_config.py mac: {r.stderr.strip()[:200]}')
         return
+    rk = run([sys.executable, str(SHARED / 'llama_swap_config.py'), '--machine', 'mac', '--require-key'],
+             env={**env, 'OLLAMA_HOST_PORT': str(port)})
+    keyline = '"${env.LLAMA_SWAP_API_KEY}"'
+    (ok if keyline in rk.stdout and keyline not in r.stdout else fail)(
+        'LAN mode: --require-key adds the key reference (and only then); the key itself is never in the file')
     if 'reasoning_effort: none' in r.stdout and 'type: disabled' in r.stdout:
         ok('mac config turns thinking off for both API formats')
     else:

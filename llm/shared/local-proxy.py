@@ -8,6 +8,9 @@ Env vars:
   LOCAL_PROXY_PORT        Proxy listen port          (default: 9081)
   LOCAL_PROXY_UPSTREAM    Upstream llama-server URL  (default: http://127.0.0.1:9080)
   LOCAL_PROXY_MAX_TOKENS  max_tokens cap             (default: 16384)
+  LOCAL_PROXY_API_KEY     key the upstream requires   (default: none). When set, it replaces whatever
+                          key the client sent (agents are configured with 'dummy'), so only this
+                          process needs to know it: the LAN mode of llama-swap-setup.
 """
 import http.client
 import http.server
@@ -21,6 +24,7 @@ from urllib.parse import urlparse
 PROXY_PORT = int(os.environ.get("LOCAL_PROXY_PORT", "9081"))
 UPSTREAM = os.environ.get("LOCAL_PROXY_UPSTREAM", "http://127.0.0.1:9080")
 MAX_TOKENS_CAP = int(os.environ.get("LOCAL_PROXY_MAX_TOKENS", "16384"))
+API_KEY = os.environ.get("LOCAL_PROXY_API_KEY", "")
 # Cold prefill on CPU can run minutes with zero bytes from upstream. Without a
 # keep-alive, Claude Code's idle-read timeout fires intermittently ("API
 # timeout") well before our own 3600s socket timeout. SSE comment lines
@@ -33,6 +37,17 @@ UPSTREAM_HOST = _up.hostname or "127.0.0.1"
 UPSTREAM_PORT = _up.port or 9080
 
 _SKIP_REQ_HEADERS = {"host", "content-length", "transfer-encoding"}
+
+
+def upstream_headers(incoming, body):
+    """The client's headers for the upstream request; the real key replaces the client's when set."""
+    skip = _SKIP_REQ_HEADERS | ({"authorization", "x-api-key"} if API_KEY else set())
+    headers = {k: v for k, v in incoming.items() if k.lower() not in skip}
+    if API_KEY:
+        headers["Authorization"] = f"Bearer {API_KEY}"
+    if body:
+        headers["Content-Length"] = str(len(body))
+    return headers
 _SKIP_RESP_HEADERS = {"transfer-encoding", "connection"}
 
 
@@ -62,10 +77,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         def _connect_and_read():
             conn = http.client.HTTPConnection(UPSTREAM_HOST, UPSTREAM_PORT, timeout=3600)
-            headers = {k: v for k, v in self.headers.items()
-                       if k.lower() not in _SKIP_REQ_HEADERS}
-            if body:
-                headers["Content-Length"] = str(len(body))
+            headers = upstream_headers(self.headers, body)
             try:
                 conn.request(self.command, self.path, body=body or None, headers=headers)
                 resp = conn.getresponse()
@@ -103,10 +115,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _forward(self, body: bytes):
         conn = http.client.HTTPConnection(UPSTREAM_HOST, UPSTREAM_PORT, timeout=3600)
-        headers = {k: v for k, v in self.headers.items()
-                   if k.lower() not in _SKIP_REQ_HEADERS}
-        if body:
-            headers["Content-Length"] = str(len(body))
+        headers = upstream_headers(self.headers, body)
         headers_sent = False
         try:
             conn.request(self.command, self.path, body=body or None, headers=headers)

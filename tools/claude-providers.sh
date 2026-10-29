@@ -138,6 +138,7 @@ start_local_proxy() {
   LOCAL_PROXY_UPSTREAM="http://${upstream_host}:${port}" \
   LOCAL_PROXY_PORT=9081 \
   LOCAL_PROXY_MAX_TOKENS="$cap" \
+  LOCAL_PROXY_API_KEY="$(llm_key)" \
     python3 "$script_dir/../llm/shared/local-proxy.py" >"/tmp/local-proxy.log" 2>&1 &
   local i
   for i in {1..10}; do

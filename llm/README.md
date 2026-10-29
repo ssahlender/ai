@@ -61,13 +61,52 @@ the foreground). Point agents there with `setup-agents.ps1 -BaseUrl http://127.0
 (ProBook) or `./setup-agents.sh --base-url http://127.0.0.1:11434/v1` (Mac). Never run a bare server and llama-swap on
 the same machine at once: the model would be loaded twice.
 
+## LAN mode (for the fleet gateway)
+
+By default everything listens on 127.0.0.1. For a gateway on the home network (one endpoint and one UI for
+all machines, operator decision 2026-10-29: LAN + key) a laptop's llama-swap must be reachable from it:
+
+```bash
+llm/llama-swap-setup.sh --lan                                     # i9 / Mac
+```
+```powershell
+.\llama-swap-setup.ps1 -Lan -AllowFrom <gateway-ip>                # ProBook, elevated
+```
+
+- `--lan` / `-Lan` creates a random key once, in `~/.config/llm/llama-swap.key` (Windows:
+  `%USERPROFILE%\.config\llm\llama-swap.key`), outside the repo. While that file exists, llama-swap listens on
+  all interfaces and **every** route needs the key (API, UI, logs; in the browser: any user name, the key as
+  password). Its config only references `${env.LLAMA_SWAP_API_KEY}`; the key itself is never written into it.
+- Local agents keep working unchanged: `local-proxy.py` replaces their `dummy` key with the real one, and the
+  pickers in `tools/` send it too.
+- ProBook: `-AllowFrom` adds a firewall rule for 9082 from that address only, Private profile only, so the
+  port stays closed on other networks. The Mac's firewall is off by default: there the port is reachable
+  wherever the Mac is, protected only by the key (random, 43 characters, and only ever sent from the home
+  gateway, so it does not travel over other networks).
+- Back to local-only: delete the key file and run `llama-swap-setup` again (on the ProBook that also removes
+  the firewall rule).
+- Plain HTTP on the home LAN; llama-swap could serve TLS itself (`-tls-cert-file`), not set up.
+
+## Open WebUI
+
+A chat UI with logins, users and history. It sits beside the agents' chain, not in it: agents keep
+talking to `local-proxy`, because Open WebUI is not a transparent proxy (it rewrites requests and has no
+Anthropic format).
+
+- **One machine** (office, a colleague's clone): `docker compose --profile webui up -d open-webui` in
+  `llm/shared/`, then http://127.0.0.1:3080 (the first account becomes admin). It uses this machine's chain.
+  Host networking, because the chain listens on 127.0.0.1: works on Linux; on Docker Desktop enable host
+  networking first.
+- **At home, all machines:** a separate, private deployment (Arcane) of a peers-only llama-swap gateway plus
+  Open WebUI behind NPMplus, using LAN mode on the laptops. Not part of this public repository.
+
 ## Layout
 
 | path | what |
 |---|---|
 | `models.json` | the model catalog for all three machines (one file, read by every script); a private lineup goes in `models.local.json` (gitignored, see `models.local.json.example`) |
 | `MODELS.md` | provenance: repo, exact bytes, SHA-256, what is installed where, retired models |
-| `shared/` | used by more than one machine: `models.py` (catalog loader, machine detection), `setup_agents.py`, `llama_swap_config.py`, `check.py`, `common.sh` (bash helpers), `local-proxy.py`, `ocg-proxy.py` (cloud proxy), `qwen3-template.j2`, `docker-compose.yml` (proxies only) |
+| `shared/` | used by more than one machine: `models.py` (catalog loader, machine detection), `setup_agents.py`, `llama_swap_config.py`, `check.py`, `common.sh` (bash helpers), `local-proxy.py`, `ocg-proxy.py` (cloud proxy), `qwen3-template.j2`, `docker-compose.yml` (proxies; Open WebUI as profile `webui`) |
 | `probook/` | PowerShell: chain start/stop, bare launcher, updater, agent wiring, `claude-local.ps1`, `lib/common.ps1`, `bench/`, `tests/` (quality harness) |
 | `llama-swap-setup.sh`, `stop.sh`, `setup-agents.sh`, `check.sh` | the shared commands for the i9 and the Mac (logic in `shared/`) |
 | `i9/` | bash, i9 only: `start.sh` (a bare server; llama-swap runs it per model), updater, downloads, model cleanup and info, benchmarks, `move-to-home.sh` |
@@ -137,6 +176,7 @@ Why Q2 and not a 4-bit quant (24 GB do not fit it), and the separate graphify in
 | `ik-llama/README.md`, `AGENTS.md`, `ollama/README.md`, `mlx/README.md` | `llm/docs/` |
 | `ik-llama/start.ps1`, `update.ps1`, `mlx/*.sh`, `llm/bench/bench-ab.ps1`, `bench-mtp.ps1` | removed (superseded; in git history) |
 | the Mac's llama.cpp lineup in `models.json` (HauhauCS 27B/35B, Qwen3-Coder) | removed: the Mac runs Ollama only |
+| `docker/openwebui/` (2026-10-29) | profile `webui` in `llm/shared/docker-compose.yml`, in front of the chain instead of Ollama directly |
 
 Provider ids (`ik-llama`, `ollama`, `llamacpp`) did not change. Since the same day the llama-swap chain is the
 default, and since 2026-10-29 every model has one readable name (table above) instead of the short ids

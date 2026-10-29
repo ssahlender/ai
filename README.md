@@ -6,7 +6,6 @@ Scripts for running AI coding tools and local models across a few machines. This
 |---|---|
 | [`llm/`](llm/README.md) | **Local models**: one model catalog (`models.json`), shared commands for the i9 and the Mac, PowerShell for the ProBook (`probook/`), machine-only scripts in `i9/` and `mac/`, measurements in `llm/docs/` |
 | [`tools/`](tools/README.md) | Install/update scripts for the AI CLIs (Claude Code, OpenCode, Codex, Docker Agent, Antigravity, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage, Obsidian, Ollama, llama-swap), `update-all.sh`, and the cloud-provider pickers |
-| `docker/openwebui/` | Open WebUI docker-compose for Ollama (below) |
 | [`AGENTS.md`](AGENTS.md) | Rules for AI agents working in this repo |
 
 ## Local models: which machine runs what
@@ -23,19 +22,6 @@ by default everywhere. Details, first setup and the bare-server path: [`llm/READ
 The folders `ik-llama/`, `ollama/` and `mlx/` were merged into `llm/` on 2026-10-28, and the model names
 changed on 2026-10-29: [`llm/README.md`](llm/README.md#moved-here-on-2026-10-28) maps old to new.
 
+Open WebUI (a chat UI with logins) runs as an optional container next to the chain: `llm/README.md`, "Open WebUI".
+
 Generated benchmark output (`bench-results/`) and Python caches are ignored by git.
-
-## docker/openwebui
-
-Open WebUI connected to a local Ollama instance.
-
-```bash
-cd docker/openwebui
-docker compose up -d
-```
-
-- Listens on port **3000**
-- Connects to Ollama at `host.docker.internal:11434`
-- `OFFLINE_MODE=True`: no external calls
-- Proxy env vars explicitly cleared so container bypasses any system proxy
-- Data volume: `~/docker/openwebui/data`
