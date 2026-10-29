@@ -146,6 +146,11 @@ i9 (`llm/i9`):
 All i9 modes default to 8 threads and 24 batch threads (`IK_LLAMA_THREADS`, `IK_LLAMA_THREADS_BATCH`);
 change them only for benchmarks.
 
+**The first OpenCode turn is slow.** A cold first turn took 141 s (2026-10-29: model load plus processing
+OpenCode's ~50k-character system prompt); after that the prompt cache makes turns take seconds. Let it
+finish: there is one slot (`--parallel 1`), and a request whose client gave up keeps running server-side
+and blocks every other request until it ends.
+
 Mac (`llm/mac`):
 
 ```bash
