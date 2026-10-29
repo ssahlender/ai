@@ -2,7 +2,7 @@
 # One-time move of i9's local-LLM engine/models from /data/llm to the home layout the
 # scripts now default to (~/.local/share/llama.cpp). Mirrors llm/move-to-home.ps1 for
 # ProBook. Safe to re-run: skips anything already moved or not present at the source, and
-# refuses if llama-server is running (moving its model/binary out from under it fails
+# refuses (a dry run only warns) if llama-server is running (moving its model/binary out from under it fails
 # confusingly instead of cleanly).
 #
 # Usage: ./move-to-home.sh [--dry-run] [--from DIR] [--to DIR]
@@ -21,14 +21,17 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-if pgrep -x llama-server >/dev/null 2>&1; then
-  echo "llama-server is running. Stop it first (it may be serving a live agent session) -- moving its model/binary out from under it fails confusingly instead of cleanly." >&2
-  exit 1
-fi
-
 if [ ! -d "$FROM" ]; then
   echo "Nothing to move: $FROM does not exist. Already migrated, or never used the old layout."
   exit 0
+fi
+
+if pgrep -x llama-server >/dev/null 2>&1; then
+  if [ "$DRY_RUN" -eq 0 ]; then
+    echo "llama-server is running. Stop it first (it may be serving a live agent session) -- moving its model/binary out from under it fails confusingly instead of cleanly." >&2
+    exit 1
+  fi
+  echo "note: llama-server is running; the real move will refuse until it is stopped (llm/stop.sh)."
 fi
 
 if [ "$DRY_RUN" -eq 0 ]; then
