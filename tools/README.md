@@ -181,9 +181,8 @@ rtk hooks, Pi packages, graphify's skills, and the wrapper files written to `~/.
 | `goose-update.sh` | `$BREW upgrade block-goose-cli` (skips if not installed) |
 
 Local models: `../llm/setup-agents.sh` writes the provider `custom_<provider>` (e.g. `custom_ik-llama`) to
-`~/.config/goose/custom_providers/` and makes it goose's default when no provider is set yet. As of
-1.57.0 brew has a prebuilt bottle only for Linux x86_64; on a Mac (and Linux ARM) brew builds goose from
-source (Rust, takes a while).
+`~/.config/goose/custom_providers/` and makes it goose's default when no provider is set yet. brew
+installs a prebuilt bottle on Linux x86_64 and Apple Silicon (checked 2026-10-29 with 1.57.0).
 
 ---
 
