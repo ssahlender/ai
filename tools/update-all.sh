@@ -15,6 +15,7 @@ UPDATE_TOOLS=(
   nvm
   claude
   opencode
+  goose
   codex
   docker-agent
   antigravity

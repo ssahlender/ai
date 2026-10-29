@@ -121,7 +121,7 @@ The corporate proxy CVE filter blocks `pypdf` (all versions). Graphify's `pdf` e
 ```
 
 Order is defined by the `UPDATE_TOOLS` array in `update-all.sh`:
-`nvm` → `claude` → `opencode` → `codex` → `docker-agent` → `antigravity` → `llama-swap` → `hf` → `hermes` → `rtk` →
+`nvm` → `claude` → `opencode` → `goose` → `codex` → `docker-agent` → `antigravity` → `llama-swap` → `hf` → `hermes` → `rtk` →
 `context-mode` → `claude-mem` → `graphify` → `pi` → `repomix` → `ccusage` →
 `mattpocock-skills` → `obsidian`. Ollama is updated
 afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
@@ -145,7 +145,7 @@ rtk hooks, Pi packages, graphify's skills, and the wrapper files written to `~/.
 - It removes only what this repo installed. A `~/.local/bin` wrapper is deleted only if it holds this
   repo's marker; a missing tool, key or file is reported and skipped.
 - It never touches the agents' own settings and sessions (`~/.claude`, `~/.codex`, `~/.config/opencode`,
-  `~/.hermes`, `~/.gemini`, `~/.pi`), apart from the keys above, or the remote-control policy
+  `~/.config/goose`, `~/.hermes`, `~/.gemini`, `~/.pi`), apart from the keys above, or the remote-control policy
   under `/etc` (see "Remote control policy").
 - Editing `~/.hermes/config.yaml` needs pyyaml. Without it the step is skipped with a message.
   Rewriting the YAML drops its comments, like `repomix-init.sh` does.
@@ -170,6 +170,20 @@ rtk hooks, Pi packages, graphify's skills, and the wrapper files written to `~/.
 |---|---|
 | `opencode-install.sh` | `$BREW install opencode` |
 | `opencode-update.sh` | `$BREW upgrade opencode` (skips if not installed) |
+
+---
+
+### goose (aaif-goose)
+
+| Script | What it does |
+|---|---|
+| `goose-install.sh` | `$BREW install block-goose-cli` (the formula named `goose` is an unrelated migration tool with the same binary name) |
+| `goose-update.sh` | `$BREW upgrade block-goose-cli` (skips if not installed) |
+
+Local models: `../llm/setup-agents.sh` writes the provider `custom_<provider>` (e.g. `custom_ik-llama`) to
+`~/.config/goose/custom_providers/` and makes it goose's default when no provider is set yet. As of
+1.57.0 brew has a prebuilt bottle only for Linux x86_64; on a Mac (and Linux ARM) brew builds goose from
+source (Rust, takes a while).
 
 ---
 

@@ -9,7 +9,7 @@
 #   --all      every tool (--list), integrations first, agents next, nvm last
 #
 # Never touched: the agents' own settings and sessions (~/.claude, ~/.codex, ~/.config/opencode,
-# ~/.hermes, ~/.gemini, ~/.pi), the remote-control policy written by disable-remote-control.sh, and
+# ~/.config/goose, ~/.hermes, ~/.gemini, ~/.pi), the remote-control policy written by disable-remote-control.sh, and
 # the local LLM chain in ../llm (stop it first with ../llm/stop.sh).
 set -euo pipefail
 
@@ -26,7 +26,7 @@ export PATH="$HOME/.local/bin:$PATH"
 TOOLS=(
   mattpocock-skills claude-mem context-mode graphify repomix rtk ccusage
   obsidian hf llama-swap ollama docker-agent
-  pi opencode hermes antigravity codex claude
+  pi opencode goose hermes antigravity codex claude
   nvm
 )
 
@@ -250,6 +250,8 @@ un_pi() {
 }
 
 un_opencode() { brew_rm opencode; }
+
+un_goose() { brew_rm block-goose-cli; }
 
 un_hermes() { brew_rm hermes-agent; }
 

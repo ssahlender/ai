@@ -5,7 +5,7 @@ Scripts for running AI coding tools and local models across a few machines. This
 | Path | Contents |
 |---|---|
 | [`llm/`](llm/README.md) | **Local models**: one model catalog (`models.json`), shared commands for the i9 and the Mac, PowerShell for the ProBook (`probook/`), machine-only scripts in `i9/` and `mac/`, measurements in `llm/docs/` |
-| [`tools/`](tools/README.md) | Install/update scripts for the AI CLIs (Claude Code, OpenCode, Codex, Docker Agent, Antigravity, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage, Obsidian, Ollama, llama-swap), `update-all.sh`, and the cloud-provider pickers |
+| [`tools/`](tools/README.md) | Install/update scripts for the AI CLIs (Claude Code, OpenCode, goose, Codex, Docker Agent, Antigravity, Pi, nvm, hf, RTK, context-mode, claude-mem, Graphify, Repomix, ccusage, Obsidian, Ollama, llama-swap), `update-all.sh`, and the cloud-provider pickers |
 | [`AGENTS.md`](AGENTS.md) | Rules for AI agents working in this repo |
 
 ## Local models: which machine runs what

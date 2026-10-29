@@ -1,6 +1,6 @@
 # Agents, proxies, llama-swap, docker-compose
 
-How OpenCode, Pi, Docker Agent and Claude Code talk to the local servers, the two proxies in `../shared/`, and the optional llama-swap and docker-compose layers. The short version per machine is in [`../README.md`](../README.md).
+How OpenCode, Pi, Docker Agent, goose and Claude Code talk to the local servers, the two proxies in `../shared/`, and the optional llama-swap and docker-compose layers. The short version per machine is in [`../README.md`](../README.md).
 
 ## OpenCode
 
@@ -21,7 +21,7 @@ llama-server on 9080. Override the URL with `--base-url` (`-BaseUrl` on the ProB
 (`llm/llama-swap-setup.sh`, ProBook `llama-swap-setup.ps1`), or by hand:
 `LOCAL_PROXY_UPSTREAM=http://127.0.0.1:9082 LOCAL_PROXY_PORT=9081 python3 llm/shared/local-proxy.py &`.
 
-Model ids are the one readable name per model, the `id` field of `models.json` (scheme `<model>-<quant>-<publisher>[-MTP]-<context>K`, e.g. `Qwen3.6-35B-A3B-UD-Q6_K-unsloth-MTP-128K`). The i9's `start.sh` modes are the GGUF file names and the ProBook's `start-llm.ps1` mode is `qwen36_35b_ml`; agents never see either. Run the agent setup to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`); use `--dry-run` to preview. No static config file to maintain.
+Model ids are the one readable name per model, the `id` field of `models.json` (scheme `<model>-<quant>-<publisher>[-MTP]-<context>K`, e.g. `Qwen3.6-35B-A3B-UD-Q6_K-unsloth-MTP-128K`). The i9's `start.sh` modes are the GGUF file names and the ProBook's `start-llm.ps1` mode is `qwen36_35b_ml`; agents never see either. Run the agent setup to see them; they're printed after install. Each run also removes stale `ik-llama/<id>` references (OpenCode `model`/`small_model`/agent models, Pi `defaultModel`, Docker Agent `default_model`, goose `GOOSE_MODEL`); use `--dry-run` to preview. No static config file to maintain.
 
 ## Pi
 
@@ -74,6 +74,23 @@ with any existing options).
   ```bash
   docker-agent doctor
   ```
+
+## goose (aaif-goose)
+
+Install with `../../tools/goose-install.sh` (brew formula `block-goose-cli`). The setup script writes the provider
+`custom_<provider>` (`custom_ik-llama`, `custom_ollama`) to `~/.config/goose/custom_providers/custom_<provider>.json`:
+OpenAI engine, `http://127.0.0.1:9081/v1/chat/completions`, and every served model with its context size
+(goose's built-in `llama_swap` provider lists models dynamically and so doesn't know their context). The
+`custom_` prefix keeps it apart from goose's built-in `ollama` provider.
+
+`~/.config/goose/config.yaml` is changed only in two cases. If no `GOOSE_PROVIDER` is set, the local
+provider and the first served model become the default. If ours is set but its `GOOSE_MODEL` is no longer
+served, the model is replaced. Only those two lines are edited; extensions and comments stay. A cloud
+provider chosen with `goose configure` is left alone; to use the local one for a single run:
+`GOOSE_PROVIDER=custom_ik-llama GOOSE_MODEL=<id> goose run -t "prompt"`.
+
+goose sends no API key; in LAN mode `local-proxy.py` adds the llama-swap key, as for the other agents.
+Not on the ProBook: the `tools/` installers are bash, and the agent setup skips goose on Windows.
 
 ## Claude Code
 

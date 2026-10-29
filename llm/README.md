@@ -6,7 +6,7 @@ the same commands on each. The engines differ because the machines do.
 ## The chain (default on every machine)
 
 ```
-agent (OpenCode, Pi, Claude Code, Docker Agent)
+agent (OpenCode, Pi, Claude Code, Docker Agent, goose)
   -> local-proxy.py   :9081   keep-alives during long prefills, caps Claude Code's max_tokens
   -> llama-swap       :9082   web UI with stats, logs and a chat playground: http://127.0.0.1:9082/ui
   -> engine                   ProBook: mainline llama.cpp's llama-server, i9: ik_llama.cpp's llama-server,
@@ -47,7 +47,7 @@ the same model, agents use the readable one.
 
 **Agent setup is one codebase** for all three machines (`shared/setup_agents.py`): it detects the machine
 (`--machine` overrides; an unknown machine is refused), writes only models that are really available, and
-configures every installed agent (OpenCode, Pi, Docker Agent), removing references to models that are gone.
+configures every installed agent (OpenCode, Pi, Docker Agent, goose), removing references to models that are gone.
 
 **Thinking is off by default** everywhere: `--reasoning off` (ProBook), `-rea off` (i9), and on the Mac
 llama-swap adds `reasoning_effort: none` and `thinking: {type: disabled}` to every request. Measured much
@@ -111,7 +111,7 @@ Anthropic format).
 | `llama-swap-setup.sh`, `stop.sh`, `setup-agents.sh`, `check.sh` | the shared commands for the i9 and the Mac (logic in `shared/`) |
 | `i9/` | bash, i9 only: `start.sh` (a bare server; llama-swap runs it per model), updater, downloads, model cleanup and info, benchmarks, `move-to-home.sh` |
 | `mac/` | bash, Mac only: `start.sh` (Ollama; `llama-swap-setup.sh` starts it when needed), the separate graphify instance (`start-graphify.sh`, `stop-graphify.sh`) |
-| `docs/` | measurements and lessons: [`probook.md`](docs/probook.md), [`i9.md`](docs/i9.md), [`mac.md`](docs/mac.md), [`agents.md`](docs/agents.md) (proxies, Claude Code, Pi, Docker Agent, llama-swap), [`mlx-comparison.md`](docs/mlx-comparison.md) (retired), [`receipt-extraction-guide.md`](docs/receipt-extraction-guide.md) |
+| `docs/` | measurements and lessons: [`probook.md`](docs/probook.md), [`i9.md`](docs/i9.md), [`mac.md`](docs/mac.md), [`agents.md`](docs/agents.md) (proxies, Claude Code, Pi, Docker Agent, goose, llama-swap), [`mlx-comparison.md`](docs/mlx-comparison.md) (retired), [`receipt-extraction-guide.md`](docs/receipt-extraction-guide.md) |
 
 Engines and GGUFs live outside the repo, under `~/.local/share/llama.cpp/` (Windows:
 `$env:USERPROFILE\.local\share\llama.cpp\`). Cloud-provider launchers (`claude-providers.sh`,
@@ -139,7 +139,7 @@ i9 (`llm/i9`):
 ```bash
 ./update.sh                                    # ik_llama.cpp (Thireus prebuilt, AVX2)
 ./download-models.sh                           # the GGUFs listed in ../models.json
-../setup-agents.sh                             # OpenCode, Pi, Docker Agent -> 9081 (--dry-run first)
+../setup-agents.sh                             # OpenCode, Pi, Docker Agent, goose -> 9081 (--dry-run first)
 ./cleanup-models.sh                            # dry run: GGUFs not in the catalog
 ```
 
@@ -157,7 +157,7 @@ Mac (`llm/mac`):
 ../../tools/ollama-install.sh && ../../tools/llama-swap-install.sh     # brew; updates: tools/update-all.sh
 ollama pull hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL               # 13 GB; then the 32K alias:
 printf 'FROM hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL\nPARAMETER num_ctx 32768\nPARAMETER temperature 0.7\n' | ollama create qwen36-35b-a3b -f -
-../setup-agents.sh                             # OpenCode, Pi, Docker Agent -> 9081
+../setup-agents.sh                             # OpenCode, Pi, Docker Agent, goose -> 9081
 ```
 
 Why Q2 and not a 4-bit quant (24 GB do not fit it), and the separate graphify instance

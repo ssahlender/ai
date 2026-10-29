@@ -16,8 +16,10 @@ Ollama. Agents default to the llama-swap chain, http://127.0.0.1:9081/v1 (local-
 
 Agents configured, each only when installed (binary on PATH or its config directory exists):
 OpenCode (provider + compaction, auth entry), Pi (provider), Docker Agent (provider base_url, plus API
-keys synced from ~/.secrets). References to models that are no longer served (OpenCode model,
-small_model and per-agent models, Pi defaultModel, Docker Agent default_model) are removed. Every file
+keys synced from ~/.secrets), goose (custom provider `custom_<provider>`, and GOOSE_PROVIDER/GOOSE_MODEL
+in its config.yaml when no provider is chosen yet; not on Windows). References to models that are no longer
+served (OpenCode model, small_model and per-agent models, Pi defaultModel, Docker Agent default_model,
+goose GOOSE_MODEL) are removed, or for goose replaced by the first served model. Every file
 is validated before anything is written, and an existing file is backed up as <file>.bak first.
 """
 import argparse
@@ -194,11 +196,13 @@ def main():
     opencode_auth = Path(os.environ.get('XDG_DATA_HOME') or HOME / '.local' / 'share') / 'opencode' / 'auth.json'
     pi_dir = HOME / '.pi' / 'agent'
     cagent_dir = Path(os.environ.get('XDG_CONFIG_HOME') or HOME / '.config') / 'cagent'
+    goose_dir = Path(os.environ.get('XDG_CONFIG_HOME') or HOME / '.config') / 'goose'
     secrets_file = HOME / '.secrets'
 
     has_opencode = installed('opencode', opencode_dir)
     has_pi = installed('pi', pi_dir)
     has_cagent = bool(shutil.which('docker-agent') or shutil.which('cagent') or cagent_dir.exists())
+    has_goose = os.name != 'nt' and installed('goose', goose_dir)
 
     opencode_models, pi_models = {}, []
     for mid, name, ctx, vision in models:
@@ -273,6 +277,9 @@ def main():
             cagent_on = configure_cagent(cagent_dir, provider, base_url, stale_ref, removed, writes)
             if secrets_file.exists():
                 sync_cagent_env(cagent_dir / '.env', read_secrets(secrets_file), writes, dry)
+
+        if has_goose:
+            configure_goose(goose_dir, provider, base_url, models, valid, removed, writes)
     except ConfigError as e:
         sys.exit(f'Refusing to change anything: {e}')
 
@@ -287,7 +294,8 @@ def main():
             print(f'  - {r}')
     else:
         print('No stale settings found.')
-    configured = [n for n, on in (('OpenCode', has_opencode), ('Pi', has_pi), ('Docker Agent', cagent_on)) if on]
+    configured = [n for n, on in (('OpenCode', has_opencode), ('Pi', has_pi), ('Docker Agent', cagent_on),
+                                  ('goose', has_goose)) if on]
     print(f'Configured: {", ".join(configured) or "no agent installed"}')
     print(f'Models (use as {provider}/<id>):')
     for mid, _, _, _ in models:
@@ -331,6 +339,48 @@ def configure_cagent(cagent_dir, provider, base_url, stale_ref, removed, writes)
     if changed:
         writes.append((path, yaml.dump(data, sort_keys=False), None))
     return True
+
+
+def configure_goose(goose_dir, provider, base_url, models, valid, removed, writes):
+    """goose: custom_providers/custom_<provider>.json (owned by this script, rewritten each run), plus the default
+    provider/model in config.yaml. Those two top-level keys are edited line by line, so the rest of the
+    file (extensions, comments) stays as it is and no YAML library is needed.
+    The custom_ prefix (goose's own for user-added providers) keeps it apart from goose's built-in
+    `ollama` provider, which has the same name as the Mac's provider id."""
+    name = f'custom_{provider}'
+    prov_path = goose_dir / 'custom_providers' / f'{name}.json'
+    prov = {'name': name, 'engine': 'openai', 'display_name': f'{provider} (local)',
+            'description': 'Local models through local-proxy and llama-swap (ai-tools llm/)',
+            'api_key_env': '', 'base_url': base_url.rstrip('/') + '/chat/completions',
+            # local-proxy adds the llama-swap key in LAN mode; goose itself sends none
+            'requires_auth': False, 'supports_streaming': True,
+            'models': [{'name': mid, 'context_limit': ctx} for mid, _, ctx, _ in models]}
+    writes.append((prov_path, json.dumps(prov, indent=2) + '\n', None))
+
+    cfg_path = goose_dir / 'config.yaml'
+    lines = cfg_path.read_text(encoding='utf-8-sig').splitlines() if cfg_path.exists() else []
+    def get(key):
+        for line in lines:
+            m = re.match(rf'^{key}:\s*(.*?)\s*$', line)
+            if m:
+                return m.group(1).strip('\'"')
+        return None
+    def put(key, val):
+        for i, line in enumerate(lines):
+            if re.match(rf'^{key}:', line):
+                lines[i] = f'{key}: {val}'
+                return
+        lines.append(f'{key}: {val}')
+    cur_provider, cur_model, first = get('GOOSE_PROVIDER'), get('GOOSE_MODEL'), models[0][0]
+    if cur_provider is None:
+        put('GOOSE_PROVIDER', name)
+        put('GOOSE_MODEL', first)
+    elif cur_provider == name and cur_model not in valid:
+        removed.append(f'goose GOOSE_MODEL: {cur_model} (now {first})')
+        put('GOOSE_MODEL', first)
+    else:
+        return   # another provider is chosen, or ours with a served model: leave config.yaml alone
+    writes.append((cfg_path, '\n'.join(lines) + '\n', None))
 
 
 def sync_cagent_env(env_path, secrets, writes, dry):
