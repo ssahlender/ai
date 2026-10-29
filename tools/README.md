@@ -128,6 +128,31 @@ afterwards only if installed, then `brew upgrade` and `brew cleanup --prune=all`
 run last. Each `*-update.sh` upgrades only if already installed and skips
 otherwise; run `*-install.sh` for new tools.
 
+### uninstall.sh
+
+One uninstaller for every `*-install.sh` here. It also undoes what the `*-init.sh` scripts registered
+with the agents: Claude Code and Codex plugins and MCP servers, the OpenCode and Hermes config keys,
+rtk hooks, Pi packages, graphify's skills, and the wrapper files written to `~/.local/bin`.
+
+```bash
+./uninstall.sh --list                      # tool names (same as the *-install.sh names)
+./uninstall.sh --dry-run repomix rtk       # show what would be removed; changes nothing
+./uninstall.sh repomix rtk
+./uninstall.sh --dry-run --all             # everything: integrations first, the agents next, nvm last
+./uninstall.sh --purge ollama              # also delete the tool's data (~/.ollama, ~/.nvm, ~/.claude-mem)
+```
+
+- It removes only what this repo installed. A `~/.local/bin` wrapper is deleted only if it holds this
+  repo's marker; a missing tool, key or file is reported and skipped.
+- It never touches the agents' own settings and sessions (`~/.claude`, `~/.codex`, `~/.config/opencode`,
+  `~/.hermes`, `~/.gemini`, `~/.pi`), apart from the keys above, or the remote-control policy
+  under `/etc` (see "Remote control policy").
+- Editing `~/.hermes/config.yaml` needs pyyaml. Without it the step is skipped with a message.
+  Rewriting the YAML drops its comments, like `repomix-init.sh` does.
+- Stop the local LLM chain first (`../llm/stop.sh`) before you remove `llama-swap` or `ollama`.
+- `uninstall-legacy.sh` is different: it removes non-brew copies of claude, opencode, codex and ollama
+  so that brew can install them again.
+
 ---
 
 ### Claude Code
