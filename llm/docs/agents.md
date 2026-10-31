@@ -89,7 +89,7 @@ served, the model is replaced. Only those two lines are edited; extensions and c
 provider chosen with `goose configure` is left alone; to use the local one for a single run:
 `GOOSE_PROVIDER=custom_ik-llama GOOSE_MODEL=<id> goose run -t "prompt"`.
 
-goose sends no API key; in LAN mode `local-proxy.py` adds the llama-swap key, as for the other agents.
+goose sends no API key, like the other agents' `dummy` key: the local chain needs none.
 Not on the ProBook: the `tools/` installers are bash, and the agent setup skips goose on Windows.
 
 ## Claude Code

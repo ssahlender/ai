@@ -42,12 +42,3 @@ wait_http() {
   done
   return 1
 }
-
-# LAN mode: llama-swap reachable from the home network, protected by this key (outside the repo).
-LLM_KEY_FILE="${LLM_KEY_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/llm/llama-swap.key}"
-
-# llm_key: the key when LAN mode is on, else nothing.
-llm_key() {
-  [ -s "$LLM_KEY_FILE" ] && tr -d '\n' < "$LLM_KEY_FILE"
-  return 0
-}

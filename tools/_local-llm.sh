@@ -1,14 +1,6 @@
 # _local-llm.sh — sourced by claude-providers.sh and docker-agent-providers.sh: find the local model.
 # The default chain is local-proxy (9081) -> llama-swap (9082) -> server; a bare llama-server is 9080.
 
-# LAN mode puts a key in front of llama-swap (llm/llama-swap-setup.sh --lan); send it when present.
-_llm_key_file="${LLM_KEY_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/llm/llama-swap.key}"
-llm_key() { [ -s "$_llm_key_file" ] && tr -d '\n' < "$_llm_key_file"; return 0; }
-llm_curl() {
-  local k; k=$(llm_key)
-  if [ -n "$k" ]; then curl -H "Authorization: Bearer $k" "$@"; else curl "$@"; fi
-}
-
 llama_host() {
   echo "${IK_LLAMA_HOST:-127.0.0.1}"
 }
@@ -16,7 +8,7 @@ llama_host() {
 # llama-swap's port when it answers, else the bare llama-server's.
 local_upstream_port() {
   local swap="${IK_LLAMA_SWAP_PORT:-9082}"
-  if llm_curl -sf --max-time 2 --connect-timeout 1 "http://$(llama_host):${swap}/v1/models" >/dev/null 2>&1; then
+  if curl -sf --max-time 2 --connect-timeout 1 "http://$(llama_host):${swap}/v1/models" >/dev/null 2>&1; then
     echo "$swap"
   else
     echo "${IK_LLAMA_PORT:-9080}"
@@ -27,7 +19,7 @@ detect_local() {
   local model host port
   port=$(local_upstream_port)
   host=$(llama_host)
-  model=$(llm_curl -sf --max-time 3 --connect-timeout 2 "http://${host}:${port}/v1/models" 2>/dev/null | \
+  model=$(curl -sf --max-time 3 --connect-timeout 2 "http://${host}:${port}/v1/models" 2>/dev/null | \
           python3 -c "
 import sys, json, os
 d = json.load(sys.stdin)
@@ -49,7 +41,7 @@ detect_local_ctx() {
   local host port
   port=$(local_upstream_port)
   host=$(llama_host)
-  llm_curl -sf --max-time 3 --connect-timeout 2 "http://${host}:${port}/props" 2>/dev/null | \
+  curl -sf --max-time 3 --connect-timeout 2 "http://${host}:${port}/props" 2>/dev/null | \
     python3 -c "
 import sys, json
 d = json.load(sys.stdin)

@@ -352,7 +352,7 @@ def configure_goose(goose_dir, provider, base_url, models, valid, removed, write
     prov = {'name': name, 'engine': 'openai', 'display_name': f'{provider} (local)',
             'description': 'Local models through local-proxy and llama-swap (ai-tools llm/)',
             'api_key_env': '', 'base_url': base_url.rstrip('/') + '/chat/completions',
-            # local-proxy adds the llama-swap key in LAN mode; goose itself sends none
+            # the local chain needs no key
             'requires_auth': False, 'supports_streaming': True,
             'models': [{'name': mid, 'context_limit': ctx} for mid, _, ctx, _ in models]}
     writes.append((prov_path, json.dumps(prov, indent=2) + '\n', None))

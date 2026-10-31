@@ -61,31 +61,39 @@ the foreground). Point agents there with `setup-agents.ps1 -BaseUrl http://127.0
 (ProBook) or `./setup-agents.sh --base-url http://127.0.0.1:11434/v1` (Mac). Never run a bare server and llama-swap on
 the same machine at once: the model would be loaded twice.
 
-## LAN mode (for the fleet gateway)
+## Local only, and sharing with the home gateway
 
-By default everything listens on 127.0.0.1. For a gateway on the home network (one endpoint and one UI for
-all machines, operator decision 2026-10-29: LAN + key) a laptop's llama-swap must be reachable from it:
+Everything listens on 127.0.0.1, at home and away; no port is ever open on the network. Away from home
+that is the whole story: agents use 9081, and llama-swap's web UI (http://127.0.0.1:9082/ui) has a
+**Playground** page for chatting with the models.
+
+At home a laptop can lend its models to the home gateway (one model list and Open WebUI for all machines)
+through an **outgoing SSH tunnel** that you start when you want it (operator decision 2026-10-31, replacing
+the 2026-10-29 LAN mode with a key):
 
 ```bash
-llm/llama-swap-setup.sh --lan                                     # i9 / Mac
+llm/share.sh --init      # once: a key used only for this, ~/.config/llm/share_ed25519, plus share.env
+llm/share.sh             # foreground; Ctrl-C stops sharing
 ```
 ```powershell
-.\llama-swap-setup.ps1 -Lan -AllowFrom <gateway-ip>                # ProBook, elevated
+.\share.ps1 -Init        # ProBook (Windows' own OpenSSH client), %USERPROFILE%\.config\llm\
+.\share.ps1
 ```
 
-- `--lan` / `-Lan` creates a random key once, in `~/.config/llm/llama-swap.key` (Windows:
-  `%USERPROFILE%\.config\llm\llama-swap.key`), outside the repo. While that file exists, llama-swap listens on
-  all interfaces and **every** route needs the key (API, UI, logs; in the browser: any user name, the key as
-  password). Its config only references `${env.LLAMA_SWAP_API_KEY}`; the key itself is never written into it.
-- Local agents keep working unchanged: `local-proxy.py` replaces their `dummy` key with the real one, and the
-  pickers in `tools/` send it too.
-- ProBook: `-AllowFrom` adds a firewall rule for 9082 from that address only, Private profile only, so the
-  port stays closed on other networks. The Mac's firewall is off by default: there the port is reachable
-  wherever the Mac is, protected only by the key (random, 43 characters, and only ever sent from the home
-  gateway, so it does not travel over other networks).
-- Back to local-only: delete the key file and run `llama-swap-setup` again (on the ProBook that also removes
-  the firewall rule).
-- Plain HTTP on the home LAN; llama-swap could serve TLS itself (`-tls-cert-file`), not set up.
+- `share` runs `ssh -N -R 0.0.0.0:<port>:127.0.0.1:9082` to the gateway's SSH endpoint: the gateway gets a
+  port (Mac 19082, ProBook 19083) that leads to this machine's llama-swap. Nothing listens here.
+- `--init` prints the line for the gateway's key file, e.g.
+  `restrict,port-forwarding,permitlisten="0.0.0.0:19082" ssh-ed25519 AAAA… llm-share <host>`: that key can
+  open its one port on the gateway and nothing else (no shell, no other port, no forward the other way).
+  Revoke it by deleting the line there, or the key file here.
+- `share.env` (outside the repo) names the gateway: `LLM_SHARE_HOST`, `LLM_SHARE_PORT` (default 2222),
+  `LLM_SHARE_USER` (`llmtunnel`), `LLM_SHARE_REMOTE_PORT`, `LLM_SHARE_BIND`.
+- A dead link (sleep, Wi-Fi change) ends the tunnel within ~30 s on both sides; run `share` again. Away from
+  home the gateway does not answer and `share` gives up after ~10 s. Tested 2026-10-31 from the Mac against a
+  test sshd with the gateway's config: models and a chat through the tunnel, all five forbidden uses refused,
+  port freed 33 s after the link died.
+- The gateway itself (tunnel sshd, peers-only llama-swap, Open WebUI) is a private deployment, not part
+  of this public repository.
 
 ## Open WebUI
 
@@ -97,8 +105,8 @@ Anthropic format).
   `llm/shared/`, then http://127.0.0.1:3080 (the first account becomes admin). It uses this machine's chain.
   Host networking, because the chain listens on 127.0.0.1: works on Linux; on Docker Desktop enable host
   networking first.
-- **At home, all machines:** a separate, private deployment (Arcane) of a peers-only llama-swap gateway plus
-  Open WebUI behind NPMplus, using LAN mode on the laptops. Not part of this public repository.
+- **At home, all machines:** the private gateway deployment (above); the laptops lend their models with
+  `share`.
 
 ## Layout
 
@@ -106,9 +114,9 @@ Anthropic format).
 |---|---|
 | `models.json` | the model catalog for all three machines (one file, read by every script); a private lineup goes in `models.local.json` (gitignored, see `models.local.json.example`) |
 | `MODELS.md` | provenance: repo, exact bytes, SHA-256, what is installed where, retired models |
-| `shared/` | used by more than one machine: `models.py` (catalog loader, machine detection), `setup_agents.py`, `llama_swap_config.py`, `check.py`, `common.sh` (bash helpers), `local-proxy.py`, `ocg-proxy.py` (cloud proxy), `qwen3-template.j2`, `docker-compose.yml` (proxies; Open WebUI as profile `webui`) |
-| `probook/` | PowerShell: chain start/stop, bare launcher, updater, agent wiring, `claude-local.ps1`, `lib/common.ps1`, `bench/`, `tests/` (quality harness) |
-| `llama-swap-setup.sh`, `stop.sh`, `setup-agents.sh`, `check.sh` | the shared commands for the i9 and the Mac (logic in `shared/`) |
+| `shared/` | used by more than one machine: `models.py` (catalog loader, machine detection), `setup_agents.py`, `share.py`, `llama_swap_config.py`, `check.py`, `common.sh` (bash helpers), `local-proxy.py`, `ocg-proxy.py` (cloud proxy), `qwen3-template.j2`, `docker-compose.yml` (proxies; Open WebUI as profile `webui`) |
+| `probook/` | PowerShell: chain start/stop, bare launcher, updater, agent wiring, `share.ps1`, `claude-local.ps1`, `lib/common.ps1`, `bench/`, `tests/` (quality harness) |
+| `llama-swap-setup.sh`, `stop.sh`, `setup-agents.sh`, `share.sh`, `check.sh` | the shared commands for the i9 and the Mac (logic in `shared/`) |
 | `i9/` | bash, i9 only: `start.sh` (a bare server; llama-swap runs it per model), updater, downloads, model cleanup and info, benchmarks, `move-to-home.sh` |
 | `mac/` | bash, Mac only: `start.sh` (Ollama; `llama-swap-setup.sh` starts it when needed), the separate graphify instance (`start-graphify.sh`, `stop-graphify.sh`) |
 | `docs/` | measurements and lessons: [`probook.md`](docs/probook.md), [`i9.md`](docs/i9.md), [`mac.md`](docs/mac.md), [`agents.md`](docs/agents.md) (proxies, Claude Code, Pi, Docker Agent, goose, llama-swap), [`mlx-comparison.md`](docs/mlx-comparison.md) (retired), [`receipt-extraction-guide.md`](docs/receipt-extraction-guide.md) |

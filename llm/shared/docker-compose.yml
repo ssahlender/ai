@@ -82,7 +82,7 @@ services:
       HOST: "127.0.0.1"
       PORT: "${OPEN_WEBUI_PORT:-3080}"
       OPENAI_API_BASE_URL: "http://127.0.0.1:${LOCAL_PROXY_PORT:-9081}/v1"
-      OPENAI_API_KEY: "dummy"            # local-proxy replaces it with the real key in LAN mode
+      OPENAI_API_KEY: "dummy"            # the local chain needs no key
       ENABLE_OLLAMA_API: "false"
       WEBUI_AUTH: "true"
       DEFAULT_USER_ROLE: "pending"

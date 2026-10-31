@@ -264,11 +264,6 @@ def check_mac(env, port):
     if r.returncode != 0:
         fail(f'llama_swap_config.py mac: {r.stderr.strip()[:200]}')
         return
-    rk = run([sys.executable, str(SHARED / 'llama_swap_config.py'), '--machine', 'mac', '--require-key'],
-             env={**env, 'OLLAMA_HOST_PORT': str(port)})
-    keyline = '"${env.LLAMA_SWAP_API_KEY}"'
-    (ok if keyline in rk.stdout and keyline not in r.stdout else fail)(
-        'LAN mode: --require-key adds the key reference (and only then); the key itself is never in the file')
     if 'reasoning_effort: none' in r.stdout and 'type: disabled' in r.stdout:
         ok('mac config turns thinking off for both API formats')
     else:
@@ -299,6 +294,23 @@ def check_agents(env, port):
         (ok if good else fail)(f'setup_agents {machine}: provider {provider} -> 9081, '
                                f'model ids {sorted(got["models"]) if good else "wrong"}'
                                + ('' if good else f' ({dry.stderr.strip()[:120]} {real.stderr.strip()[:120]} {got})'))
+
+
+def check_share(env):
+    print('share dry run')
+    e = {**env, 'LLM_MACHINE': 'mac'}
+    init = run([sys.executable, str(SHARED / 'share.py'), '--init'], env=e)
+    cfg = Path(env['XDG_CONFIG_HOME']) / 'llm' / 'share.env'
+    line = init.stdout.strip().splitlines()[-1] if init.stdout.strip() else ''
+    (ok if init.returncode == 0 and line.startswith('restrict,port-forwarding,permitlisten="0.0.0.0:19082" ssh-ed25519 ')
+     else fail)('share --init: key line limited to its own port (restrict, permitlisten)')
+    if cfg.exists():
+        cfg.write_text(cfg.read_text().replace('LLM_SHARE_HOST=\n', 'LLM_SHARE_HOST=gateway.example\n'))
+    dry = run([sys.executable, str(SHARED / 'share.py'), '--dry-run'], env=e)
+    want = ('-R 0.0.0.0:19082:127.0.0.1:9082', 'ExitOnForwardFailure=yes', 'ConnectTimeout=10', '-N ')
+    (ok if dry.returncode == 0 and all(w in dry.stdout for w in want) else fail)(
+        'share --dry-run: ssh -R to the gateway, only 127.0.0.1:9082 leaves this machine'
+        + ('' if dry.returncode == 0 else f' ({init.stderr.strip()[:120]} {dry.stderr.strip()[:120]})'))
 
 
 # ── this machine (read-only) ────────────────────────────────────────────────
@@ -353,6 +365,7 @@ def main():
         check_i9(env)
         check_mac(env, srv.server_port)
         check_agents(env, srv.server_port)
+        check_share(env)
     finally:
         srv.shutdown()
         shutil.rmtree(sb, ignore_errors=True)
