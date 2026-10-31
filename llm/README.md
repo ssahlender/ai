@@ -88,8 +88,9 @@ llm/share.sh             # foreground; Ctrl-C stops sharing
   Revoke it by deleting the line there, or the key file here.
 - `share.env` (outside the repo) names the gateway: `LLM_SHARE_HOST`, `LLM_SHARE_PORT` (default 2222),
   `LLM_SHARE_USER` (`llmtunnel`), `LLM_SHARE_REMOTE_PORT`, `LLM_SHARE_BIND`.
-- A dead link (sleep, Wi-Fi change) ends the tunnel within ~30 s on both sides; run `share` again. Away from
-  home the gateway does not answer and `share` gives up after ~10 s. Tested 2026-10-31 from the Mac against a
+- A dead link (sleep, Wi-Fi change) or a gateway restart ends the tunnel within ~30 s on both sides; `share`
+  reconnects by itself (after 5 s, backing off to once a minute) until Ctrl-C; `--once` / `-Once` makes a
+  single attempt. Away from home the gateway does not answer (each try gives up after ~10 s): stop `share`. Tested 2026-10-31 from the Mac against a
   test sshd with the gateway's config: models and a chat through the tunnel, all five forbidden uses refused,
   port freed 33 s after the link died.
 - The gateway itself (tunnel sshd, peers-only llama-swap, Open WebUI) is a private deployment, not part

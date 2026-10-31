@@ -2,12 +2,17 @@
 """Share this machine's local models with the home gateway through an outgoing SSH tunnel.
 
     share.py --init        create the tunnel key and the config file, print the gateway's key line
-    share.py               open the tunnel (runs in the foreground; Ctrl-C stops sharing)
+    share.py               open the tunnel and keep it open (foreground; reconnects; Ctrl-C stops sharing)
+    share.py --once        one attempt only: exit when the tunnel ends
     share.py --dry-run     print the ssh command instead of running it
 
 llama-swap keeps listening on 127.0.0.1 only. The tunnel is `ssh -R`: the gateway side gets a port that
 leads to this machine's 127.0.0.1:9082, and nothing listens here on the network. Away from home the
 gateway is unreachable, ssh fails, and nothing is shared.
+
+When the tunnel ends (gateway restarted or updated, laptop asleep, Wi-Fi change) share reconnects after 5 s,
+backing off to one try a minute while it keeps failing, until Ctrl-C. Away from home that means one quiet
+attempt a minute: stop it there.
 
 Config: ~/.config/llm/share.env (outside the repo; KEY=value lines):
     LLM_SHARE_HOST         the gateway's SSH host (required)
@@ -24,6 +29,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
@@ -95,6 +101,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--init', action='store_true')
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--once', action='store_true', help='do not reconnect when the tunnel ends')
     args = ap.parse_args()
     cfg = read_config()
     if args.init:
@@ -114,8 +121,18 @@ def main():
         sys.exit(f'llama-swap is not answering on 127.0.0.1:{LOCAL_PORT} ({e}); start the chain first.')
     print(f'Sharing 127.0.0.1:{LOCAL_PORT} as {cfg["LLM_SHARE_HOST"]}:{cfg["LLM_SHARE_REMOTE_PORT"]} '
           '(gateway side only). Ctrl-C stops.', flush=True)
+    wait = 5
     try:
-        rc = subprocess.call(cmd)
+        while True:
+            started = time.monotonic()
+            rc = subprocess.call(cmd)
+            if args.once:
+                break
+            # a tunnel that held for a while was a good one: start the back-off from the bottom again
+            wait = 5 if time.monotonic() - started > 60 else min(wait * 2, 60)
+            print(f'{time.strftime("%H:%M:%S")} tunnel ended (ssh exit {rc}): gateway unreachable or link lost; '
+                  f'reconnecting in {wait} s (Ctrl-C stops)', flush=True)
+            time.sleep(wait)
     except KeyboardInterrupt:
         rc = 0
     print('Tunnel closed.' if rc == 0 else f'Tunnel ended (ssh exit {rc}): gateway unreachable or link lost.')
