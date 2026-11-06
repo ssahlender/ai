@@ -38,7 +38,9 @@ from models import LLAMA_ROOT, MACHINES, detect_machine, load_modes, resolve_mod
 
 HOME = Path.home()
 DEFAULT_BASE_URL = 'http://127.0.0.1:9081/v1'
-OUTPUT_LIMIT = int(os.environ.get('OPENCODE_OUTPUT_LIMIT', '8192'))
+# 8192 truncated Flint's answers after two continuations: its reasoning channel can run long
+# before it emits anything. 32768 is a ceiling, not a forced length, so it costs other models nothing.
+OUTPUT_LIMIT = int(os.environ.get('OPENCODE_OUTPUT_LIMIT', '32768'))
 COMPACTION_RESERVED = int(os.environ.get('OPENCODE_COMPACTION_RESERVED', '10000'))
 
 # Provider ids are part of every agent config already written: never rename them here.
