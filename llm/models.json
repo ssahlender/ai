@@ -36,6 +36,23 @@
         }
       },
       {
+        "id": "Flint-39.8B-A2.5B-UD-Q6_K-unsloth-256K",
+        "desc": "Flint 39.8B-A2.5B (Recursive, coding-focused MoE) UD-Q6_K, 256K ctx; no MTP draft model exists yet, self-reported benchmarks only",
+        "file": "flint-UD-Q6_K_XL.gguf",
+        "ctx": 262144,
+        "cram": 24576,
+        "yarn": false,
+        "sample": true,
+        "spec": null,
+        "chat_template": false,
+        "mmproj": null,
+        "download": {
+          "repo": "unsloth/flint-GGUF",
+          "repo_file": "flint-UD-Q6_K_XL.gguf",
+          "bytes": 36319999424
+        }
+      },
+      {
         "id": "Qwen3.6-35B-A3B-UD-Q5_K_XL-unsloth-MTP-256K",
         "desc": "Qwen3.6 35B-A3B MTP UD-Q5_K_XL, 256K ctx (dynamic quant, matches a colleague's setup; unverified quality vs Q6_K)",
         "file": "Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf",
